@@ -53,8 +53,7 @@ class JsonNumberTest {
         assertThat(JsonNumber.of(1.0)).isEqualTo(JsonNumber.of(new BigDecimal("1.00")));
         assertThat(JsonNumber.of(1)).isNotEqualTo(JsonNumber.of(2));
         assertThat(JsonNumber.of(1)).isNotEqualTo("1");
-        assertThat(JsonNumber.of(1).hashCode())
-                .isEqualTo(JsonNumber.of(new BigDecimal("1.0")).hashCode());
+        assertThat(JsonNumber.of(1)).hasSameHashCodeAs(JsonNumber.of(new BigDecimal("1.0")));
         assertThat(JsonNumber.of(1.5)).hasToString("JsonNumber[1.5]");
     }
 

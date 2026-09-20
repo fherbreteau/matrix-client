@@ -47,6 +47,7 @@ public final class JsonNumber implements JsonValue {
     /**
      * Returns this number as a {@link BigDecimal} preserving full precision.
      */
+    @Override
     public BigDecimal asBigDecimal() {
         return value;
     }

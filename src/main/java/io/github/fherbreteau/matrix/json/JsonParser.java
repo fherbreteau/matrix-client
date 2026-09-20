@@ -182,7 +182,7 @@ public final class JsonParser {
             pos++;
         }
         parseIntegerPart();
-        boolean fractional = parseFractionPart();
+        parseFractionPart();
         parseExponentPart();
         try {
             return JsonNumber.of(new BigDecimal(input.substring(start, pos)));

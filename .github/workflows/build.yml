@@ -10,9 +10,6 @@ env:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        java: ['25']
     runs-on: ubuntu-latest
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

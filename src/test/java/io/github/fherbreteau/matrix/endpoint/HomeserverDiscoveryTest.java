@@ -1,6 +1,10 @@
 package io.github.fherbreteau.matrix.endpoint;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -51,71 +55,26 @@ class HomeserverDiscoveryTest {
         assertThat(discovered.wellKnown()).isNull();
     }
 
-    @Test
-    void fallsBackOnNon2xxResponse() {
-        var transport = HttpTransportStub.responding(404, "{\"errcode\":\"M_NOT_FOUND\"}");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
+    static List<HttpTransportStub> invalidWellKnownResponses() {
+        return List.of(
+                HttpTransportStub.responding(404, "{\"errcode\":\"M_NOT_FOUND\"}"),
+                HttpTransportStub.responding(200, "not json"),
+                HttpTransportStub.responding(200, "[1,2,3]"),
+                HttpTransportStub.responding(200, "{\"m.identity_server\":{\"base_url\":\"https://id\"}}"),
+                HttpTransportStub.responding(200, "{\"m.homeserver\":{}}"),
+                HttpTransportStub.responding(200, "{\"m.homeserver\":{\"base_url\":42}}"),
+                HttpTransportStub.responding(200, "{\"m.homeserver\":{\"base_url\":\"  \"}}"),
+                HttpTransportStub.responding(200, "{\"m.homeserver\":{\"base_url\":\"ftp://bad\"}}"),
+                HttpTransportStub.responding(200, ""));
     }
 
-    @Test
-    void fallsBackOnMalformedBody() {
-        var transport = HttpTransportStub.responding(200, "not json");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
-        assertThat(discovered.wellKnown()).isNull();
-    }
-
-    @Test
-    void fallsBackOnNonObjectBody() {
-        var transport = HttpTransportStub.responding(200, "[1,2,3]");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
-    }
-
-    @Test
-    void fallsBackOnMissingHomeserverSection() {
-        var transport = HttpTransportStub.responding(200, "{\"m.identity_server\":{\"base_url\":\"https://id\"}}");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.homeserverUrl()).isEqualTo("https://matrix.example.org");
-        assertThat(discovered.identityServerUrl()).isNull();
-        assertThat(discovered.usedFallback()).isTrue();
-    }
-
-    @Test
-    void fallsBackOnMissingBaseUrl() {
-        var transport = HttpTransportStub.responding(200, "{\"m.homeserver\":{}}");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
-    }
-
-    @Test
-    void fallsBackOnNonStringBaseUrl() {
-        var transport = HttpTransportStub.responding(200, "{\"m.homeserver\":{\"base_url\":42}}");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
-    }
-
-    @Test
-    void fallsBackOnBlankBaseUrl() {
-        var transport = HttpTransportStub.responding(200, "{\"m.homeserver\":{\"base_url\":\"  \"}}");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
-    }
-
-    @Test
-    void fallsBackOnInvalidSchemeBaseUrl() {
-        var transport = HttpTransportStub.responding(200, "{\"m.homeserver\":{\"base_url\":\"ftp://bad\"}}");
+    @ParameterizedTest
+    @MethodSource("invalidWellKnownResponses")
+    void fallsBackOnInvalidWellKnownResponse(HttpTransportStub transport) {
         var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
         assertThat(discovered.usedFallback()).isTrue();
         assertThat(discovered.homeserverUrl()).isEqualTo("https://matrix.example.org");
-    }
-
-    @Test
-    void fallsBackOnEmptyBody() {
-        var transport = HttpTransportStub.responding(200, "");
-        var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-        assertThat(discovered.usedFallback()).isTrue();
+        assertThat(discovered.identityServerUrl()).isNull();
     }
 
     @Test

@@ -2,6 +2,7 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,38 +32,23 @@ class MatrixVersionsTest {
     }
 
     @Test
-    void rejectsNonObjectBody() {
-        assertThatThrownBy(() -> MatrixVersions.from(JsonParser.parse("[]")))
-                .isInstanceOf(DiscoveryException.class)
-                .hasMessageContaining("JSON object");
-    }
-
-    @Test
-    void rejectsMissingVersions() {
-        assertThatThrownBy(() -> MatrixVersions.from(JsonParser.parse("{}")))
-                .isInstanceOf(DiscoveryException.class)
-                .hasMessageContaining("versions array");
-    }
-
-    @Test
-    void rejectsNonArrayVersions() {
-        assertThatThrownBy(() -> MatrixVersions.from(JsonParser.parse("{\"versions\":\"v1.11\"}")))
-                .isInstanceOf(DiscoveryException.class)
-                .hasMessageContaining("versions array");
-    }
-
-    @Test
-    void rejectsNonStringVersionEntries() {
-        assertThatThrownBy(() -> MatrixVersions.from(JsonParser.parse("{\"versions\":[\"v1.11\",42]}")))
-                .isInstanceOf(DiscoveryException.class)
-                .hasMessageContaining("only strings");
-    }
-
-    @Test
-    void rejectsNullVersionEntries() {
-        assertThatThrownBy(() -> MatrixVersions.from(JsonParser.parse("{\"versions\":[null]}")))
-                .isInstanceOf(DiscoveryException.class)
-                .hasMessageContaining("only strings");
+    void rejectsInvalidBodies() {
+        record Case(String body, String message) {
+        }
+        var cases = new Case[] {
+                new Case("[]", "JSON object"),
+                new Case("{}", "versions array"),
+                new Case("{\"versions\":\"v1.11\"}", "versions array"),
+                new Case("{\"versions\":[\"v1.11\",42]}", "only strings"),
+                new Case("{\"versions\":[null]}", "only strings")
+        };
+        for (Case c : cases) {
+            JsonValue body = JsonParser.parse(c.body());
+            assertThatThrownBy(() -> MatrixVersions.from(body))
+                    .as("body: %s", c.body())
+                    .isInstanceOf(DiscoveryException.class)
+                    .hasMessageContaining(c.message());
+        }
     }
 
     @Test

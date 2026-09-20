@@ -4,8 +4,6 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 import io.github.fherbreteau.matrix.transport.HttpTransport;
-import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
-import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import io.github.fherbreteau.matrix.transport.TransportException;
 
 final class HttpTransportStub implements HttpTransport {

@@ -18,6 +18,7 @@ import io.github.fherbreteau.matrix.transport.TransportException;
  * non-2xx response, malformed body, missing or invalid {@code base_url})
  * falls back to the explicitly provided base URL.
  */
+@SuppressWarnings("java:S1075")
 public final class HomeserverDiscovery {
 
     private static final String WELL_KNOWN_PATH = "/.well-known/matrix/client";

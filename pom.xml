@@ -35,6 +35,8 @@
         <jar-plugin.version>3.5.1</jar-plugin.version>
         <source-plugin.version>3.4.0</source-plugin.version>
         <javadoc-plugin.version>3.12.0</javadoc-plugin.version>
+        <spotless-plugin.version>3.1.0</spotless-plugin.version>
+        <google-java-format.version>1.31.0</google-java-format.version>
         <gpg-plugin.version>3.2.8</gpg-plugin.version>
         <central-plugin.version>0.11.0</central-plugin.version>
 
@@ -219,7 +221,25 @@
                     </dependencies>
                     <configuration>
                         <configLocation>checkstyle.xml</configLocation>
-                        <suppressionsLocation>checkstyle.suppression.xml</suppressionsLocation>
+                        <propertyExpansion>
+                            org.checkstyle.google.suppressionfilter.config=checkstyle.suppression.xml
+                            org.checkstyle.google.suppressionxpathfilter.config=checkstyle.suppression.xml
+                        </propertyExpansion>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>${spotless-plugin.version}</version>
+                    <configuration>
+                        <java>
+                            <googleJavaFormat>
+                                <version>${google-java-format.version}</version>
+                                <style>GOOGLE</style>
+                            </googleJavaFormat>
+                            <removeUnusedImports/>
+                            <importOrder/>
+                        </java>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -336,6 +356,19 @@
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

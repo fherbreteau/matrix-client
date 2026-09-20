@@ -7,22 +7,22 @@ import org.junit.jupiter.api.Test;
 
 class JsonArrayTest {
 
-    @Test
-    void addGetAndSize() {
-        var arr = new JsonArray();
-        arr.add(JsonString.of("a"));
-        arr.add(JsonNumber.of(1));
-        assertThat(arr).extracting(JsonArray::size).isEqualTo(2);
-        assertThat(arr).extracting(x -> x.get(0)).extracting(JsonValue::asString).isEqualTo("a");
-        assertThat(arr).extracting(x -> x.get(1)).extracting(JsonValue::asDouble).isEqualTo(1.0);
-        assertThat(arr).extracting(JsonValue::toJson).isEqualTo("[\"a\",1]");
-    }
+  @Test
+  void addGetAndSize() {
+    var arr = new JsonArray();
+    arr.add(JsonString.of("a"));
+    arr.add(JsonNumber.of(1));
+    assertThat(arr).extracting(JsonArray::size).isEqualTo(2);
+    assertThat(arr).extracting(x -> x.get(0)).extracting(JsonValue::asString).isEqualTo("a");
+    assertThat(arr).extracting(x -> x.get(1)).extracting(JsonValue::asDouble).isEqualTo(1.0);
+    assertThat(arr).extracting(JsonValue::toJson).isEqualTo("[\"a\",1]");
+  }
 
-    @Test
-    void arrayPredicates() {
-        JsonValue arr = new JsonArray();
-        assertThat(arr).extracting(JsonValue::isArray, BOOLEAN).isTrue();
-        assertThat(arr).extracting(JsonValue::isObject, BOOLEAN).isFalse();
-        assertThat(arr).extracting(JsonValue::asArray).isSameAs(arr);
-    }
+  @Test
+  void arrayPredicates() {
+    JsonValue arr = new JsonArray();
+    assertThat(arr).extracting(JsonValue::isArray, BOOLEAN).isTrue();
+    assertThat(arr).extracting(JsonValue::isObject, BOOLEAN).isFalse();
+    assertThat(arr).extracting(JsonValue::asArray).isSameAs(arr);
+  }
 }

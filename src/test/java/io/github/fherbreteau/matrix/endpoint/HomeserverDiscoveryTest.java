@@ -45,9 +45,12 @@ class HomeserverDiscoveryTest {
              "org.example.unknown":{"x":1}}
             """);
     var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-    assertThat(discovered.homeserverUrl()).isEqualTo("https://matrix.example.org:8448");
-    assertThat(discovered.identityServerUrl()).isEqualTo("https://id.example.org");
-    assertThat(discovered.usedFallback()).isFalse();
+    assertThat(discovered)
+        .extracting(
+            DiscoveredHomeserver::homeserverUrl,
+            DiscoveredHomeserver::identityServerUrl,
+            DiscoveredHomeserver::usedFallback)
+        .containsExactly("https://matrix.example.org:8448", "https://id.example.org", false);
     assertThat(discovered.wellKnown().asObject().get("org.example.unknown")).isNotNull();
   }
 
@@ -55,10 +58,13 @@ class HomeserverDiscoveryTest {
   void fallsBackWhenWellKnownFails() {
     var transport = HttpTransportStub.failing();
     var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-    assertThat(discovered.homeserverUrl()).isEqualTo("https://matrix.example.org");
-    assertThat(discovered.identityServerUrl()).isNull();
-    assertThat(discovered.usedFallback()).isTrue();
-    assertThat(discovered.wellKnown()).isNull();
+    assertThat(discovered)
+        .extracting(
+            DiscoveredHomeserver::homeserverUrl,
+            DiscoveredHomeserver::identityServerUrl,
+            DiscoveredHomeserver::usedFallback,
+            DiscoveredHomeserver::wellKnown)
+        .containsExactly("https://matrix.example.org", null, true, null);
   }
 
   static List<HttpTransportStub> invalidWellKnownResponses() {
@@ -78,9 +84,12 @@ class HomeserverDiscoveryTest {
   @MethodSource("invalidWellKnownResponses")
   void fallsBackOnInvalidWellKnownResponse(HttpTransportStub transport) {
     var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
-    assertThat(discovered.usedFallback()).isTrue();
-    assertThat(discovered.homeserverUrl()).isEqualTo("https://matrix.example.org");
-    assertThat(discovered.identityServerUrl()).isNull();
+    assertThat(discovered)
+        .extracting(
+            DiscoveredHomeserver::usedFallback,
+            DiscoveredHomeserver::homeserverUrl,
+            DiscoveredHomeserver::identityServerUrl)
+        .containsExactly(true, "https://matrix.example.org", null);
   }
 
   @Test

@@ -28,6 +28,10 @@ public final class HomeserverDiscovery {
    * homeserver URL, an optional identity server URL and the raw well-known payload; {@link
    * DiscoveredHomeserver#usedFallback()} tells whether the explicit URL was used instead of the
    * discovery result.
+   *
+   * @param transport the transport used to reach the homeserver
+   * @param baseUrl the explicitly provided homeserver URL
+   * @return the discovered homeserver, or the fallback result on failure
    */
   public static DiscoveredHomeserver discover(HttpTransport transport, String baseUrl) {
     String normalizedBase = normalize(baseUrl);
@@ -46,6 +50,9 @@ public final class HomeserverDiscovery {
   /**
    * Normalizes a homeserver base URL: removes trailing slashes and validates the scheme (http or
    * https).
+   *
+   * @param baseUrl the URL to normalize
+   * @return the normalized URL without trailing slashes
    */
   public static String normalize(String baseUrl) {
     if (baseUrl == null || baseUrl.isBlank()) {

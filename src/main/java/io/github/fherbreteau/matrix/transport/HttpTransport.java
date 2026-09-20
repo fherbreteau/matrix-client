@@ -12,6 +12,9 @@ public interface HttpTransport {
   /**
    * Sends the request and returns the response. Implementations must never log or expose secrets
    * (access tokens, credentials).
+   *
+   * @param request the request to send
+   * @return the response returned by the remote server
    */
   Response send(Request request);
 
@@ -87,7 +90,11 @@ public interface HttpTransport {
     }
   }
 
-  /** Returns the default transport backed by {@code java.net.http.HttpClient}. */
+  /**
+   * Returns the default transport backed by {@code java.net.http.HttpClient}.
+   *
+   * @return the default transport backed by {@code java.net.http.HttpClient}
+   */
   static HttpTransport create() {
     return new JdkHttpTransport();
   }

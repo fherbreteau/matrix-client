@@ -109,11 +109,14 @@ class MatrixExceptionTest {
             429,
             JsonParser.parse("{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}"),
             Map.of("retry-after", "12"));
-    assertThat(exception).isInstanceOf(RateLimitedException.class);
-    var rateLimited = (RateLimitedException) exception;
-    assertThat(rateLimited).extracting(RateLimitedException::getRetryAfterMs).isEqualTo(12000L);
-    assertThat(rateLimited).extracting(RateLimitedException::isRetryable, BOOLEAN).isTrue();
-    assertThat(rateLimited).extracting(RateLimitedException::getStatusCode).isEqualTo(429);
+    assertThat(exception)
+        .isInstanceOf(RateLimitedException.class)
+        .asInstanceOf(type(RateLimitedException.class))
+        .extracting(
+            RateLimitedException::getRetryAfterMs,
+            RateLimitedException::isRetryable,
+            RateLimitedException::getStatusCode)
+        .containsExactly(12000L, true, 429);
   }
 
   @Test

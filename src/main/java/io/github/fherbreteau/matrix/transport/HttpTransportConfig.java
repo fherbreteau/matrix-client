@@ -24,32 +24,56 @@ public final class HttpTransportConfig {
     this.accessToken = builder.accessToken;
   }
 
-  /** Returns a new {@link Builder}. */
+  /**
+   * Returns a new {@link Builder}.
+   *
+   * @return a new builder
+   */
   public static Builder builder() {
     return new Builder();
   }
 
-  /** Returns the configured connect timeout, or {@code null} when unset. */
+  /**
+   * Returns the configured connect timeout, or {@code null} when unset.
+   *
+   * @return the configured connect timeout, or {@code null} when unset
+   */
   public Duration connectTimeout() {
     return connectTimeout;
   }
 
-  /** Returns the configured request timeout, or {@code null} when unset. */
+  /**
+   * Returns the configured request timeout, or {@code null} when unset.
+   *
+   * @return the configured request timeout, or {@code null} when unset
+   */
   public Duration requestTimeout() {
     return requestTimeout;
   }
 
-  /** Returns whether HTTP redirects are followed automatically. */
+  /**
+   * Returns whether HTTP redirects are followed automatically.
+   *
+   * @return whether HTTP redirects are followed automatically
+   */
   public boolean followRedirects() {
     return followRedirects;
   }
 
-  /** Returns the configured proxy selector, or {@code null} when unset. */
+  /**
+   * Returns the configured proxy selector, or {@code null} when unset.
+   *
+   * @return the configured proxy selector, or {@code null} when unset
+   */
   public ProxySelector proxy() {
     return proxy;
   }
 
-  /** Returns the configured access token, or {@code null} when unset. */
+  /**
+   * Returns the configured access token, or {@code null} when unset.
+   *
+   * @return the configured access token, or {@code null} when unset
+   */
   public String accessToken() {
     return accessToken;
   }
@@ -65,25 +89,45 @@ public final class HttpTransportConfig {
 
     private Builder() {}
 
-    /** Maximum time to establish the TCP connection. */
+    /**
+     * Maximum time to establish the TCP connection.
+     *
+     * @param connectTimeout maximum time to establish the TCP connection
+     * @return this builder for chaining
+     */
     public Builder connectTimeout(Duration connectTimeout) {
       this.connectTimeout = connectTimeout;
       return this;
     }
 
-    /** Maximum time for a whole request/response exchange. */
+    /**
+     * Maximum time for a whole request/response exchange.
+     *
+     * @param requestTimeout maximum time for a whole request/response exchange
+     * @return this builder for chaining
+     */
     public Builder requestTimeout(Duration requestTimeout) {
       this.requestTimeout = requestTimeout;
       return this;
     }
 
-    /** Whether HTTP redirects are followed automatically (default: true). */
+    /**
+     * Whether HTTP redirects are followed automatically (default: true).
+     *
+     * @param followRedirects whether redirects are followed automatically
+     * @return this builder for chaining
+     */
     public Builder followRedirects(boolean followRedirects) {
       this.followRedirects = followRedirects;
       return this;
     }
 
-    /** Proxy selector used to reach the homeserver. */
+    /**
+     * Proxy selector used to reach the homeserver.
+     *
+     * @param proxy the proxy selector used to reach the homeserver
+     * @return this builder for chaining
+     */
     public Builder proxy(ProxySelector proxy) {
       this.proxy = proxy;
       return this;
@@ -92,13 +136,20 @@ public final class HttpTransportConfig {
     /**
      * Access token sent as a {@code Bearer} {@code Authorization} header on authenticated requests.
      * The token is never logged.
+     *
+     * @param accessToken the access token sent as a Bearer authorization header
+     * @return this builder for chaining
      */
     public Builder accessToken(String accessToken) {
       this.accessToken = accessToken;
       return this;
     }
 
-    /** Builds the configuration. */
+    /**
+     * Builds the configuration.
+     *
+     * @return the built configuration
+     */
     public HttpTransportConfig build() {
       return new HttpTransportConfig(this);
     }

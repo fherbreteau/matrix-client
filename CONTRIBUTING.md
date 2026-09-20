@@ -116,7 +116,7 @@ git push origin feature/your-feature
   `google-java-format` (Spotify `fmt-maven-plugin`): run `mvn fmt:format` before committing;
   `mvn verify` fails on unformatted code (2-space indent, 4-space continuation
   indent, 100-column limit) and on Checkstyle `google_checks.xml` violations
-  (import order, whitespace, naming, Javadoc on public members)
+  (import order, whitespace, naming, Javadoc on public members with mandatory `@param`/`@return`/`@throws` tags in order)
 - **Use meaningful names**: `homeserverUrl` not `url2`, `matrixClient` not `mc`
 - **Keep methods small**: Single responsibility principle
 - **Add Javadoc**: For public classes and methods (doclint runs in CI)

@@ -12,6 +12,7 @@ public final class JsonNull implements JsonValue {
     return true;
   }
 
+  /** {@inheritDoc} */
   @Override
   public String toJson() {
     return "null";

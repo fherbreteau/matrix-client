@@ -100,7 +100,7 @@ gate; add tests in the same change instead. SonarCloud analyzes the project
 
 - **Google Java Style** (https://google.github.io/styleguide/javaguide.html) is the enforced style.
 - Formatting is enforced by `google-java-format` through the Spotify `fmt-maven-plugin` — run `mvn fmt:format` after editing, `mvn verify` fails on unformatted code (2-space indentation, 4-space continuation indent, 100-column limit, unused-import removal, import sorting).
-- Checkstyle runs the official `google_checks.xml` ruleset (severity error): no trailing whitespace, LF at EOF, no tabs, line length 100, Google import order (static imports first, then third-party, alphabetized in a single group, blank line separated), `EmptyLineSeparator`, `UnusedImports`, `WhitespaceAround`, naming rules, and Javadoc requirements (public classes and members documented, valid `@param`/`@return`/`@throws` order).
+- Checkstyle runs the official `google_checks.xml` ruleset (severity error): no trailing whitespace, LF at EOF, no tabs, line length 100, Google import order (static imports first, then third-party, alphabetized in a single group, blank line separated), `EmptyLineSeparator`, `UnusedImports`, `WhitespaceAround`, naming rules, and Javadoc requirements: public classes and members documented **including `@param` for every parameter, `@return` for every non-void method, valid `@param`/`@return`/`@throws` order, and a description on every tag** — `mvn verify` fails on missing or misordered tags.
 - **Import preference**: when using a class for the first time, import it instead of
   using its fully qualified name inline — unless the simple name conflicts with
   another class of the same name already imported from a different package.

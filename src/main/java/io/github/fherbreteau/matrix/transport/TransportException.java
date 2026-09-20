@@ -7,12 +7,21 @@ package io.github.fherbreteau.matrix.transport;
  */
 public class TransportException extends RuntimeException {
 
-  /** Creates a transport exception with the given message. */
+  /**
+   * Creates a transport exception with the given message.
+   *
+   * @param message the error message
+   */
   public TransportException(String message) {
     super(message);
   }
 
-  /** Creates a transport exception with the given message and cause. */
+  /**
+   * Creates a transport exception with the given message and cause.
+   *
+   * @param message the error message
+   * @param cause the underlying cause
+   */
   public TransportException(String message, Throwable cause) {
     super(message, cause);
   }

@@ -22,6 +22,8 @@ public final class RateLimitedException extends MatrixServerException {
   /**
    * Returns the parsed {@code Retry-After} delay in milliseconds, or {@code null} when the server
    * did not provide one.
+   *
+   * @return the parsed Retry-After delay in milliseconds, or {@code null}
    */
   public Long getRetryAfterMs() {
     return retryAfterMs;

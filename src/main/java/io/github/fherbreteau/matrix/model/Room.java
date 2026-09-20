@@ -9,12 +9,21 @@ public final class Room {
   private final String roomId;
   private final List<RoomEvent> events;
 
-  /** Creates a room with the given identifier and no events. */
+  /**
+   * Creates a room with the given identifier and no events.
+   *
+   * @param roomId the room identifier
+   */
   public Room(String roomId) {
     this(roomId, new ArrayList<>());
   }
 
-  /** Creates a room with the given identifier and events. */
+  /**
+   * Creates a room with the given identifier and events.
+   *
+   * @param roomId the room identifier
+   * @param events the initial events of the room
+   */
   public Room(String roomId, List<RoomEvent> events) {
     this.roomId = roomId;
     this.events = events;

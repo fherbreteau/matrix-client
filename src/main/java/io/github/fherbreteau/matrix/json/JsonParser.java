@@ -19,7 +19,12 @@ public final class JsonParser {
     this.input = input;
   }
 
-  /** Parses a complete JSON document (a single JSON value, optionally surrounded by whitespace). */
+  /**
+   * Parses a complete JSON document (a single JSON value, optionally surrounded by whitespace).
+   *
+   * @param input the JSON document to parse
+   * @return the parsed {@link JsonValue} tree
+   */
   public static JsonValue parse(String input) {
     var parser = new JsonParser(input);
     parser.skipWhitespace();

@@ -1,13 +1,19 @@
 package io.github.fherbreteau.matrix.endpoint;
 
+import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
+import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import io.github.fherbreteau.matrix.model.Credentials;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
+import io.github.fherbreteau.matrix.model.Session;
+import io.github.fherbreteau.matrix.model.SessionStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Entry point for talking to a Matrix homeserver.
@@ -30,13 +36,17 @@ import java.util.Map;
  */
 public final class MatrixClient {
 
+  private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
+
   private final HttpTransport transport;
   private final String homeserverUrl;
   private final MatrixVersions versions;
   private final DiscoveredHomeserver discovery;
+  private final SessionStore sessionStore;
 
   private MatrixClient(Builder builder) {
     this.transport = builder.transport;
+    this.sessionStore = builder.sessionStore;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
       this.homeserverUrl = discovery.homeserverUrl();
@@ -51,12 +61,21 @@ public final class MatrixClient {
             : null;
   }
 
-  /** Returns a builder for a client pointing at the given homeserver URL. */
+  /**
+   * Returns a builder for a client pointing at the given homeserver URL.
+   *
+   * @param homeserverUrl the base URL of the homeserver
+   * @return a builder for a client pointing at the homeserver
+   */
   public static Builder builder(String homeserverUrl) {
     return new Builder(homeserverUrl);
   }
 
-  /** Returns the transport used to reach the homeserver. */
+  /**
+   * Returns the transport used to reach the homeserver.
+   *
+   * @return the transport used to reach the homeserver
+   */
   public HttpTransport getTransport() {
     return transport;
   }
@@ -68,6 +87,8 @@ public final class MatrixClient {
   /**
    * Returns the result of the discovery performed at build time, or {@code null} when discovery was
    * not requested.
+   *
+   * @return the discovery result, or {@code null} when discovery was not requested
    */
   public DiscoveredHomeserver getDiscovery() {
     return discovery;
@@ -76,12 +97,18 @@ public final class MatrixClient {
   /**
    * Returns the validated capabilities of the homeserver when version validation was requested at
    * build time, or {@code null} otherwise.
+   *
+   * @return the validated capabilities, or {@code null} when not validated
    */
   public MatrixVersions getCapabilities() {
     return versions;
   }
 
-  /** Retrieves the homeserver's supported Matrix spec versions. */
+  /**
+   * Retrieves the homeserver's supported Matrix spec versions.
+   *
+   * @return the parsed {@code /versions} response
+   */
   public JsonValue getVersions() {
     return get("_matrix/client/versions");
   }
@@ -90,25 +117,182 @@ public final class MatrixClient {
    * Retrieves and validates the homeserver's supported Matrix spec versions. Unknown fields (such
    * as {@code unstable_features}) are preserved on the returned {@link MatrixVersions}.
    *
+   * @return the validated spec versions and features of the homeserver
    * @throws io.github.fherbreteau.matrix.error.DiscoveryException if the response is malformed
    */
   public MatrixVersions getSupportedVersions() {
     return MatrixVersions.from(getVersions());
   }
 
-  /** Performs a GET request against the homeserver and returns the parsed JSON body. */
+  /**
+   * Logs in with the given credentials, stores the resulting session in the session store and
+   * returns it.
+   *
+   * @param credentials the login credentials
+   * @return the authenticated session
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
+   *     invalid or the account cannot log in
+   */
+  public Session login(Credentials credentials) {
+    return login(credentials, null);
+  }
+
+  /**
+   * Logs in with the given credentials, stores the resulting session in the session store and
+   * returns it.
+   *
+   * @param credentials the login credentials
+   * @param requestRefreshToken whether to request a refreshable token
+   * @return the authenticated session
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
+   *     invalid or the account cannot log in
+   */
+  public Session login(Credentials credentials, boolean requestRefreshToken) {
+    return login(credentials, null, requestRefreshToken);
+  }
+
+  /**
+   * Logs in with the given credentials and an optional device display name, stores the resulting
+   * session in the session store and returns it.
+   *
+   * @param credentials the login credentials
+   * @param deviceDisplayName the optional device display name
+   * @return the authenticated session
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
+   *     invalid or the account cannot log in
+   */
+  public Session login(Credentials credentials, String deviceDisplayName) {
+    return login(credentials, deviceDisplayName, false);
+  }
+
+  /**
+   * Logs in with the given credentials, an optional device display name and an optional request for
+   * a refreshable token; stores the resulting session in the session store and returns it.
+   *
+   * @param credentials the login credentials
+   * @param deviceDisplayName the optional device display name
+   * @param requestRefreshToken whether to request a refreshable token
+   * @return the authenticated session
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
+   *     invalid or the account cannot log in
+   */
+  public Session login(
+      Credentials credentials, String deviceDisplayName, boolean requestRefreshToken) {
+    var body = (JsonObject) credentials.toJson();
+    if (deviceDisplayName != null) {
+      body.put("initial_device_display_name", deviceDisplayName);
+    }
+    if (requestRefreshToken) {
+      body.put("refresh_token", true);
+    }
+    try {
+      Session session = Session.from(post("_matrix/client/v3/login", body));
+      sessionStore.save(session);
+      return session;
+    } catch (RateLimitedException e) {
+      throw e;
+    } catch (MatrixServerException e) {
+      throw new AuthenticationException(e.getErrcode(), e.getMessage());
+    }
+  }
+
+  /**
+   * Returns the current authenticated session, if any.
+   *
+   * @return the current authenticated session, if any
+   */
+  public Optional<Session> getSession() {
+    return sessionStore.current();
+  }
+
+  /**
+   * Renews the current session with its refresh token, replacing the stored session.
+   *
+   * @return the refreshed session
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session, the
+   *     session is not refreshable, or the refresh token is no longer valid
+   */
+  public Session refresh() {
+    Session session =
+        sessionStore
+            .current()
+            .orElseThrow(
+                () -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"));
+    if (!session.isRefreshable()) {
+      throw new AuthenticationException(M_MISSING_TOKEN, "Session is not refreshable");
+    }
+    try {
+      Session refreshed =
+          Session.from(
+              post(
+                  "_matrix/client/v3/refresh",
+                  new JsonObject().put("refresh_token", session.refreshToken())));
+      sessionStore.save(refreshed);
+      return refreshed;
+    } catch (RateLimitedException e) {
+      throw e;
+    } catch (MatrixServerException e) {
+      throw new AuthenticationException(e.getErrcode(), e.getMessage());
+    }
+  }
+
+  /**
+   * Invalidates the current access token server-side and clears the stored session.
+   *
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void logout() {
+    authenticated("POST", "_matrix/client/v3/logout", null);
+    sessionStore.clear();
+  }
+
+  /**
+   * Invalidates every access token issued for this user and clears the stored session.
+   *
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void logoutAll() {
+    authenticated("POST", "_matrix/client/v3/logout/all", null);
+    sessionStore.clear();
+  }
+
+  /**
+   * Performs a GET request against the homeserver and returns the parsed JSON body.
+   *
+   * @param path the endpoint path relative to the homeserver URL
+   * @return the parsed JSON response
+   */
   public JsonValue get(String path) {
     return request("GET", path, null);
   }
 
-  /** Performs a POST request with a JSON body and returns the parsed JSON response. */
+  /**
+   * Performs a POST request with a JSON body and returns the parsed JSON response.
+   *
+   * @param path the endpoint path relative to the homeserver URL
+   * @param body the JSON request body, or {@code null} for none
+   * @return the parsed JSON response
+   */
   public JsonValue post(String path, JsonValue body) {
     return request("POST", path, body == null ? null : body.toJson());
   }
 
-  /** Performs an HTTP request against the homeserver and returns the parsed JSON response. */
+  /**
+   * Performs an HTTP request against the homeserver and returns the parsed JSON response.
+   *
+   * @param method the HTTP method
+   * @param path the endpoint path relative to the homeserver URL
+   * @param body the JSON request body, or {@code null} for none
+   * @return the parsed JSON response
+   */
   public JsonValue request(String method, String path, String body) {
-    Request request = new Request(method, homeserverUrl + "/" + path, Map.of(), body);
+    return request(method, path, body, Map.of());
+  }
+
+  private JsonValue request(String method, String path, String body, Map<String, String> headers) {
+    Request request = new Request(method, homeserverUrl + "/" + path, headers, body);
     HttpTransport.Response response = transport.send(request);
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw MatrixServerException.fromResponse(
@@ -118,6 +302,34 @@ public final class MatrixClient {
       return new JsonObject();
     }
     return JsonParser.parse(response.body());
+  }
+
+  private JsonValue authenticated(String method, String path, String body) {
+    Session session =
+        sessionStore
+            .current()
+            .orElseThrow(
+                () -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"));
+    try {
+      return request(
+          method,
+          path,
+          body,
+          Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken()));
+    } catch (MatrixServerException e) {
+      if (isTokenError(e)) {
+        throw new AuthenticationException(e.getErrcode(), e.getMessage());
+      }
+      throw e;
+    }
+  }
+
+  private static boolean isTokenError(MatrixServerException e) {
+    String errcode = e.getErrcode();
+    return e.getStatusCode() == 401
+        || "M_UNKNOWN_TOKEN".equals(errcode)
+        || M_MISSING_TOKEN.equals(errcode)
+        || "M_INVALID_TOKEN".equals(errcode);
   }
 
   private static JsonValue fetch(HttpTransport transport, String base, String path) {
@@ -149,6 +361,7 @@ public final class MatrixClient {
 
     private final String homeserverUrl;
     private HttpTransport transport = HttpTransport.create();
+    private SessionStore sessionStore = SessionStore.create();
     private boolean discover;
     private boolean validateVersions;
 
@@ -163,8 +376,22 @@ public final class MatrixClient {
     }
 
     /**
+     * Overrides the session store used to persist the authenticated session; defaults to an
+     * in-memory store.
+     *
+     * @param sessionStore the store persisting the authenticated session
+     * @return this builder for chaining
+     */
+    public Builder sessionStore(SessionStore sessionStore) {
+      this.sessionStore = sessionStore;
+      return this;
+    }
+
+    /**
      * Resolves the homeserver URL through {@code /.well-known/matrix/client} at build time; on any
      * discovery failure the explicit base URL is used as fallback.
+     *
+     * @return this builder for chaining
      */
     public Builder discover() {
       this.discover = true;
@@ -174,19 +401,30 @@ public final class MatrixClient {
     /**
      * Fetches and validates {@code /_matrix/client/versions} at build time so malformed capability
      * responses fail fast.
+     *
+     * @return this builder for chaining
      */
     public Builder validateVersions() {
       this.validateVersions = true;
       return this;
     }
 
-    /** Overrides the transport used to reach the homeserver. */
+    /**
+     * Overrides the transport used to reach the homeserver.
+     *
+     * @param transport the transport used to reach the homeserver
+     * @return this builder for chaining
+     */
     public Builder transport(HttpTransport transport) {
       this.transport = transport;
       return this;
     }
 
-    /** Builds the client, applying discovery and capability validation if requested. */
+    /**
+     * Builds the client, applying discovery and capability validation if requested.
+     *
+     * @return the configured client
+     */
     public MatrixClient build() {
       return new MatrixClient(this);
     }

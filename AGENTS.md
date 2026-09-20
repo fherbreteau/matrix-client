@@ -65,6 +65,14 @@ gate; add tests in the same change instead. SonarCloud analyzes the project
   dependencies** (see the dependency policy in `README.md`).
 - Test code runs on the classpath (not modularized) and may use JUnit 5.
 - Test assertions use the AssertJ fluent style — never `org.junit.jupiter.api.Assertions`.
+- **AssertJ conventions**: prefer idiomatic AssertJ over chained getter
+  assertions — `assertThat(x).extracting(X::getter)` instead of
+  `assertThat(x.getter())`, `asInstanceOf(type(...))` (or
+  `InstanceOfAssertFactories`) instead of manual casts, `hasMessage` /
+  `hasCause` on exceptions instead of `getMessage()`/`getCause()`, and
+  typed factories (`BOOLEAN`, `STRING`, `list`, `map`, `optional`,
+  `collection`) when extracting. Use `singleElement()` on collections,
+  `hasValue()` on `AtomicReference`s, and never JUnit assertions.
 
 ## Architecture
 

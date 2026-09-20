@@ -2,24 +2,23 @@ package io.github.fherbreteau.matrix.json;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 class JsonParserTest {
 
     @Test
     void parsesObject() {
         JsonValue value = JsonParser.parse("{\"a\":1,\"b\":[true,null,\"x\"]}");
-        assertTrue(value.isObject());
-        assertEquals(1.0, value.asObject().get("a").asDouble());
-        assertEquals("x", value.asObject().get("b").asArray().get(2).asString());
+        assertThat(value.isObject()).isTrue();
+        assertThat(value.asObject().get("a").asDouble()).isEqualTo(1.0);
+        assertThat(value.asObject().get("b").asArray().get(2).asString()).isEqualTo("x");
     }
 
     @Test
     void parsesEscapes() {
         JsonValue value = JsonParser.parse("\"line\\n\\u00e9\\\"q\\\"\"");
-        assertEquals("line\né\"q\"", value.asString());
+        assertThat(value.asString()).isEqualTo("line\né\"q\"");
     }
 
     @Test
@@ -29,16 +28,37 @@ class JsonParserTest {
                 .put("count", JsonNumber.of(3))
                 .put("nested", new JsonObject().put("ok", JsonBoolean.of(true)));
         JsonValue reparsed = JsonParser.parse(obj.toJson());
-        assertEquals("alice", reparsed.asObject().get("name").asString());
-        assertTrue(reparsed.asObject().get("nested").asObject().get("ok").asBoolean());
-        assertEquals("{\"name\":\"alice\",\"count\":3,\"nested\":{\"ok\":true}}", obj.toJson());
+        assertThat(reparsed.asObject().get("name").asString()).isEqualTo("alice");
+        assertThat(reparsed.asObject().get("nested").asObject().get("ok").asBoolean()).isTrue();
+        assertThat(obj.toJson()).isEqualTo("{\"name\":\"alice\",\"count\":3,\"nested\":{\"ok\":true}}");
     }
 
     @Test
     void rejectsMalformedInput() {
-        assertThrows(IllegalArgumentException.class, () -> JsonParser.parse("{"));
-        assertThrows(IllegalArgumentException.class, () -> JsonParser.parse("{\"a\":}"));
-        assertThrows(IllegalArgumentException.class, () -> JsonParser.parse("{} trailing"));
-        assertThrows(IllegalArgumentException.class, () -> JsonParser.parse("nul"));
+        String[] inputs = {
+                "{",
+                "{\"a\":}",
+                "{} trailing",
+                "nul",
+                "",
+                "[",
+                "[1,]",
+                "{\"a\"}",
+                "{\"a\":1",
+                "[1",
+                "\"unterminated",
+                "\"bad\\x\"",
+                "\"bad\\",
+                "\"bad\\uZZZZ\"",
+                "\"bad\\u0",
+                "tru",
+                "-",
+                "01x",
+                "{\"a\":1,",
+                "{\"a\" 1}"
+        };
+        for (String input : inputs) {
+            assertThatIllegalArgumentException().as("input: %s", input).isThrownBy(() -> JsonParser.parse(input));
+        }
     }
 }

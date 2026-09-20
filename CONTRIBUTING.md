@@ -173,7 +173,7 @@ mvn test -Dtest=JsonParserTest
 
 ### Writing Tests
 
-- **Use JUnit 5** (the only test dependency)
+- **Use JUnit 5** with **AssertJ** for fluent assertions
 - **Never hit the network**: inject a stub `HttpTransport` via
   `MatrixClient.builder(...).transport(...)` instead
 - **Test edge cases**: malformed JSON, HTTP errors, empty responses

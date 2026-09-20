@@ -64,6 +64,7 @@ gate; add tests in the same change instead. SonarCloud analyzes the project
 - The module must only `requires` JDK modules; **never add third-party runtime
   dependencies** (see the dependency policy in `README.md`).
 - Test code runs on the classpath (not modularized) and may use JUnit 5.
+- Test assertions use the AssertJ fluent style — never `org.junit.jupiter.api.Assertions`.
 
 ## Architecture
 
@@ -97,7 +98,7 @@ gate; add tests in the same change instead. SonarCloud analyzes the project
 ## Dependencies
 
 - **Java 25 (latest LTS)**, **Maven 3.8+**
-- **JUnit Jupiter 5.10.2** (test scope only)
+- **JUnit Jupiter 5.10.2**, **AssertJ 3.27.7** (test scope only)
 
 Keep this section in sync with `pom.xml` when dependencies are bumped.
 

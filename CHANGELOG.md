@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
+- **AssertJ Migration**: All test assertions migrated from JUnit 5 assertions to the AssertJ fluent style (`assertThat`/`assertThatExceptionOfType`), with AssertJ 3.27.7 added as a test-scoped dependency
+
 - **Test Coverage**: Extended the test suite to reach full class/method coverage — JSON value types, parser error branches, `Room`, `MatrixException`/`MatrixServerException` fallbacks, and `JdkHttpTransport` with stubbed `HttpClient` implementations
 
 ## 🤝 Contributing to Changelog

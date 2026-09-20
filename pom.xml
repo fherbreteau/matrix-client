@@ -24,6 +24,8 @@
         <!-- Tools dependencies versions -->
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
         <surefire-plugin.version>3.2.5</surefire-plugin.version>
+        <checkstyle-maven.version>3.6.0</checkstyle-maven.version>
+        <checkstyle.version>14.1.0</checkstyle.version>
         <jacoco.version>0.8.15</jacoco.version>
         <sonar.version>5.1.0.4751</sonar.version>
         <enforcer-plugin.version>3.5.0</enforcer-plugin.version>
@@ -119,6 +121,22 @@
                     <version>${surefire-plugin.version}</version>
                 </plugin>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>${checkstyle-maven.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.puppycrawl.tools</groupId>
+                            <artifactId>checkstyle</artifactId>
+                            <version>${checkstyle.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <configLocation>checkstyle.xml</configLocation>
+                        <suppressionsLocation>checkstyle.suppression.xml</suppressionsLocation>
+                    </configuration>
+                </plugin>
+                <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
@@ -183,6 +201,18 @@
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

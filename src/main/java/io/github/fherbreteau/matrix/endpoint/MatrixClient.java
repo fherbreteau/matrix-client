@@ -47,6 +47,8 @@ import java.util.Optional;
 public final class MatrixClient {
 
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
+  private static final String ROOM_ID_FIELD = "room_id";
+  private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
 
   private final HttpTransport transport;
   private final String homeserverUrl;
@@ -279,7 +281,7 @@ public final class MatrixClient {
     return RoomId.of(
         authenticated("POST", "_matrix/client/v3/createRoom", "{}")
             .asObject()
-            .get("room_id")
+            .get(ROOM_ID_FIELD)
             .asString());
   }
 
@@ -295,7 +297,7 @@ public final class MatrixClient {
     return RoomId.of(
         authenticated("POST", "_matrix/client/v3/join/" + encode(roomId.value()), "{}")
             .asObject()
-            .get("room_id")
+            .get(ROOM_ID_FIELD)
             .asString());
   }
 
@@ -311,7 +313,7 @@ public final class MatrixClient {
     return RoomId.of(
         authenticated("POST", "_matrix/client/v3/join/" + encode(roomAlias.value()), "{}")
             .asObject()
-            .get("room_id")
+            .get(ROOM_ID_FIELD)
             .asString());
   }
 
@@ -323,7 +325,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public void leaveRoom(RoomId roomId) {
-    authenticated("POST", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/leave", "{}");
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/leave", "{}");
   }
 
   /**
@@ -337,7 +339,7 @@ public final class MatrixClient {
   public void invite(RoomId roomId, UserId userId) {
     authenticated(
         "POST",
-        "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/invite",
+        ROOMS_PATH + encode(roomId.value()) + "/invite",
         new JsonObject().put("user_id", userId.value()).toJson());
   }
 
@@ -350,8 +352,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public List<RoomEvent> getRoomState(RoomId roomId) {
-    JsonValue response =
-        authenticated("GET", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/state", null);
+    JsonValue response = authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/state", null);
     var events = new ArrayList<RoomEvent>();
     if (response.isArray()) {
       for (int i = 0; i < response.asArray().size(); i++) {
@@ -371,8 +372,7 @@ public final class MatrixClient {
    */
   public JoinedMembers getJoinedMembers(RoomId roomId) {
     return JoinedMembers.from(
-        authenticated(
-            "GET", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/joined_members", null));
+        authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/joined_members", null));
   }
 
   /**

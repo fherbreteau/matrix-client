@@ -121,7 +121,8 @@ class RoomOperationsTest {
                         """)))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    List<RoomEvent> state = client.getRoomState(RoomId.of("!a:b"));
+    var roomId = RoomId.of("!a:b");
+    List<RoomEvent> state = client.getRoomState(roomId);
     assertThat(state).hasSize(2);
     assertThat(state.getFirst().type()).isEqualTo("m.room.name");
     assertThat(state.getLast().type()).isEqualTo("org.example.custom");
@@ -228,18 +229,10 @@ class RoomOperationsTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{}"))
             .build();
-    assertThatThrownBy(() -> client.createRoom()).isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.joinRoom(RoomId.of("!a:b")))
-        .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.leaveRoom(RoomId.of("!a:b")))
-        .isInstanceOf(AuthenticationException.class);
-  }
-
-  private static HttpTransportStub recording(Response response, List<Request> requests) {
-    var stub = new HttpTransportStub();
-    stub.enqueue(response);
-    stub.recordInto(requests);
-    return stub;
+    assertThatThrownBy(client::createRoom).isInstanceOf(AuthenticationException.class);
+    var roomId = RoomId.of("!a:b");
+    assertThatThrownBy(() -> client.joinRoom(roomId)).isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.leaveRoom(roomId)).isInstanceOf(AuthenticationException.class);
   }
 
   private static HttpTransportStub recording(

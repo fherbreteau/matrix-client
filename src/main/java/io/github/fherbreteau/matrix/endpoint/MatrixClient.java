@@ -118,6 +118,17 @@ public final class MatrixClient {
   }
 
   /**
+   * Logs in with the given credentials, stores the resulting session in the session store and
+   * returns it.
+   *
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
+   *     invalid or the account cannot log in
+   */
+  public Session login(Credentials credentials, boolean requestRefreshToken) {
+    return login(credentials, null, requestRefreshToken);
+  }
+
+  /**
    * Logs in with the given credentials and an optional device display name, stores the resulting
    * session in the session store and returns it.
    *

@@ -241,6 +241,19 @@ class AuthenticationTest {
   }
 
   @Test
+  void refreshableLoginWithoutDeviceName() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new Response(200, LOGIN_REFRESHABLE), requests))
+            .build();
+    Session session = client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), true);
+    assertThat(session.isRefreshable()).isTrue();
+    assertThat(requests.getFirst().body()).contains("\"refresh_token\":true");
+    assertThat(requests.getFirst().body()).doesNotContain("initial_device_display_name");
+  }
+
+  @Test
   void nonRefreshableLoginDoesNotRequestRefreshToken() {
     var requests = new ArrayList<Request>();
     MatrixClient client =

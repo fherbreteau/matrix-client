@@ -4,8 +4,8 @@ A lightweight Matrix client library for the JVM with **no runtime third-party de
 
 ## Requirements
 
-- Java 17 or newer (the only required runtime is the JDK itself).
-- Maven 3.8+ to build.
+- **Java 25 (latest LTS; the only required runtime is the JDK itself)**
+- Maven 3.8+ to build (or use the standard Maven wrapper once installed).
 
 ## Dependency policy
 
@@ -31,7 +31,7 @@ module `io.github.fherbreteau.matrix`) and exports the following packages:
 ## Building
 
 ```sh
-# Clean build with tests
+# Format-independent clean build with tests
 mvn clean verify
 
 # Compile only
@@ -55,6 +55,4 @@ JsonValue versions = client.getVersions();
 System.out.println(versions.toJson());
 ```
 
-## CI
-
-GitHub Actions compiles the project and runs the test suite on Java 17 and 21.
+## Minimal example

@@ -60,7 +60,7 @@ The following is a set of guidelines for contributing to matrix-client. These ar
 
 ### Prerequisites
 
-- **Java 17+**
+- **Java 25 (latest LTS)**
 - **Maven 3.8+**
 - **Git**
 

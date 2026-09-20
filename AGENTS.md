@@ -6,7 +6,7 @@
 protocol with **no runtime third-party dependencies**. All production code relies
 exclusively on the JDK (including `java.net.http.HttpClient` for HTTP).
 
-- **Java**: 17 or newer (`maven.compiler.release=17`)
+- **Java**: 25 (latest LTS; `maven.compiler.release=25`)
 - **Module system**: Java Platform Module System — module `io.github.fherbreteau.matrix`
   is declared in `src/main/java/module-info.java` and exports exactly the public packages.
 - **Build**: Maven (see `pom.xml`).
@@ -43,11 +43,11 @@ mvn javadoc:javadoc
 
 All of the following must pass before committing:
 
-1. **Java**: `mvn clean verify` — compiles with `--release 17`, runs the unit tests,
+1. **Java**: `mvn clean verify` — compiles with `--release 25`, runs the unit tests,
    and builds the modular jar.
 2. **Javadoc**: `mvn javadoc:javadoc` — must complete without errors (doclint is
    configured as `all,-missing`).
-3. **CI**: GitHub Actions (`.github/workflows/ci.yml`) builds on Java 17 and 21.
+3. **CI**: GitHub Actions (`.github/workflows/ci.yml`) builds on Java 25.
 
 ## Module System Rules
 

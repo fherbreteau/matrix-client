@@ -3,6 +3,8 @@ package io.github.fherbreteau.matrix.endpoint;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.DiscoveryException;
@@ -16,6 +18,7 @@ import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -36,9 +39,9 @@ class AuthenticationTest {
             .transport(recording(new Response(200, LOGIN_OK), requests))
             .build();
     Session session = client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    assertThat(session.userId()).isEqualTo("@alice:matrix.org");
-    assertThat(session.accessToken()).isEqualTo("secret-token");
-    assertThat(session.deviceId()).isEqualTo("DEV");
+    assertThat(session)
+        .extracting(Session::userId, Session::accessToken, Session::deviceId)
+        .containsExactly("@alice:matrix.org", "secret-token", "DEV");
     assertThat(requests.getFirst().url())
         .isEqualTo("https://matrix.example.org/_matrix/client/v3/login");
     var body = requests.getFirst().body();
@@ -71,12 +74,9 @@ class AuthenticationTest {
     var credentials = new PasswordCredentials("@alice:matrix.org", "wrong");
     assertThatThrownBy(() -> client.login(credentials))
         .isInstanceOf(AuthenticationException.class)
-        .satisfies(
-            e -> {
-              AuthenticationException auth = (AuthenticationException) e;
-              assertThat(auth.getErrcode()).isEqualTo("M_FORBIDDEN");
-              assertThat(auth.getMessage()).isEqualTo("Invalid password");
-            });
+        .asInstanceOf(type(AuthenticationException.class))
+        .extracting(AuthenticationException::getErrcode, AuthenticationException::getMessage)
+        .containsExactly("M_FORBIDDEN", "Invalid password");
   }
 
   @Test
@@ -105,7 +105,7 @@ class AuthenticationTest {
                 stub ->
                     new Response(
                         429,
-                        java.util.Map.of("retry-after", "10"),
+                        Map.of("retry-after", "10"),
                         "{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}",
                         10000L))
             .build();
@@ -234,9 +234,9 @@ class AuthenticationTest {
             .build();
     Session session =
         client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
-    assertThat(session.isRefreshable()).isTrue();
-    assertThat(session.refreshToken()).isEqualTo("refresh-it");
-    assertThat(session.expiresInMs()).isEqualTo(3600000L);
+    assertThat(session)
+        .extracting(Session::isRefreshable, Session::refreshToken, Session::expiresInMs)
+        .containsExactly(true, "refresh-it", 3600000L);
     assertThat(requests.getFirst().body()).contains("\"refresh_token\":true");
   }
 
@@ -248,7 +248,7 @@ class AuthenticationTest {
             .transport(recording(new Response(200, LOGIN_REFRESHABLE), requests))
             .build();
     Session session = client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), true);
-    assertThat(session.isRefreshable()).isTrue();
+    assertThat(session).extracting(Session::isRefreshable, BOOLEAN).isTrue();
     assertThat(requests.getFirst().body()).contains("\"refresh_token\":true");
     assertThat(requests.getFirst().body()).doesNotContain("initial_device_display_name");
   }
@@ -261,7 +261,7 @@ class AuthenticationTest {
             .transport(recording(new Response(200, LOGIN_OK), requests))
             .build();
     Session session = client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    assertThat(session.isRefreshable()).isFalse();
+    assertThat(session).extracting(Session::isRefreshable, BOOLEAN).isFalse();
     assertThat(requests.getFirst().body()).doesNotContain("refresh_token");
   }
 
@@ -281,9 +281,9 @@ class AuthenticationTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
     Session refreshed = client.refresh();
-    assertThat(refreshed.accessToken()).isEqualTo("new-token");
-    assertThat(refreshed.refreshToken()).isEqualTo("new-refresh");
-    assertThat(refreshed.expiresInMs()).isEqualTo(7200000L);
+    assertThat(refreshed)
+        .extracting(Session::accessToken, Session::refreshToken, Session::expiresInMs)
+        .containsExactly("new-token", "new-refresh", 7200000L);
     Request refreshRequest = requests.getLast();
     assertThat(refreshRequest.url()).endsWith("/_matrix/client/v3/refresh");
     assertThat(refreshRequest.headers()).isEmpty();

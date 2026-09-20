@@ -120,8 +120,10 @@ class MatrixClientTest {
         assertThatExceptionOfType(MatrixServerException.class)
             .isThrownBy(client::getVersions)
             .actual();
-    assertThat(exception.getErrcode()).isEqualTo("M_UNRECOGNIZED");
-    assertThat(exception.getMessage()).isEqualTo("HTTP 500");
+    assertThat(exception)
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getErrcode, MatrixServerException::getMessage)
+        .containsExactly("M_UNRECOGNIZED", "HTTP 500");
   }
 
   @Test
@@ -139,10 +141,12 @@ class MatrixClientTest {
             .validateVersions()
             .build();
     assertThat(client.getHomeserverUrl()).isEqualTo("https://real.example.org:8448");
-    assertThat(client.getDiscovery().homeserverUrl()).isEqualTo("https://real.example.org:8448");
-    assertThat(client.getDiscovery().usedFallback()).isFalse();
-    assertThat(client.getCapabilities().supports("v1.11")).isTrue();
-    assertThat(client.getCapabilities().getFields()).containsKey("unstable_features");
+    assertThat(client.getDiscovery())
+        .extracting(DiscoveredHomeserver::homeserverUrl, DiscoveredHomeserver::usedFallback)
+        .containsExactly("https://real.example.org:8448", false);
+    assertThat(client.getCapabilities())
+        .extracting(c -> c.supports("v1.11"), c -> c.getFields().containsKey("unstable_features"))
+        .containsExactly(true, true);
   }
 
   @Test
@@ -151,7 +155,9 @@ class MatrixClientTest {
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org").transport(stub).discover().build();
     assertThat(client.getHomeserverUrl()).isEqualTo("https://matrix.example.org");
-    assertThat(client.getDiscovery().usedFallback()).isTrue();
+    assertThat(client.getDiscovery())
+        .extracting(DiscoveredHomeserver::usedFallback)
+        .isEqualTo(true);
     assertThat(client.getCapabilities()).isNull();
   }
 
@@ -183,8 +189,9 @@ class MatrixClientTest {
                         200, "{\"versions\":[\"v1.11\"],\"unstable_features\":{\"f\":true}}"))
             .build();
     var versions = client.getSupportedVersions();
-    assertThat(versions.supports("v1.11")).isTrue();
-    assertThat(versions.getFields()).containsKey("unstable_features");
+    assertThat(versions)
+        .extracting(v -> v.supports("v1.11"), v -> v.getFields().containsKey("unstable_features"))
+        .containsExactly(true, true);
   }
 
   @Test

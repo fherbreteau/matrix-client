@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 
 import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.json.JsonParser;
@@ -20,13 +21,17 @@ class SessionTest {
   @Test
   void parsesLoginResponseAndKeepsUnknownFields() {
     Session session = Session.from(JsonParser.parse(LOGIN_BODY));
-    assertThat(session.userId()).isEqualTo("@alice:matrix.org");
-    assertThat(session.accessToken()).isEqualTo("secret-token");
-    assertThat(session.refreshToken()).isEqualTo("refresh-it");
-    assertThat(session.expiresInMs()).isEqualTo(3600000L);
-    assertThat(session.isRefreshable()).isTrue();
-    assertThat(session.deviceId()).isEqualTo("DEV123");
-    assertThat(session.homeserver()).isEqualTo("matrix.org");
+    assertThat(session)
+        .extracting(
+            Session::userId,
+            Session::accessToken,
+            Session::refreshToken,
+            Session::expiresInMs,
+            Session::deviceId,
+            Session::homeserver)
+        .containsExactly(
+            "@alice:matrix.org", "secret-token", "refresh-it", 3600000L, "DEV123", "matrix.org");
+    assertThat(session).extracting(Session::isRefreshable, BOOLEAN).isTrue();
     assertThat(session.raw().asObject().get("expires_in_ms").asLong()).isEqualTo(3600000L);
   }
 
@@ -34,10 +39,9 @@ class SessionTest {
   void parsesMinimalLoginResponse() {
     Session session =
         Session.from(JsonParser.parse("{\"user_id\":\"@bob:x\",\"access_token\":\"t\"}"));
-    assertThat(session.userId()).isEqualTo("@bob:x");
-    assertThat(session.accessToken()).isEqualTo("t");
-    assertThat(session.deviceId()).isNull();
-    assertThat(session.homeserver()).isNull();
+    assertThat(session)
+        .extracting(Session::userId, Session::accessToken, Session::deviceId, Session::homeserver)
+        .containsExactly("@bob:x", "t", null, null);
   }
 
   @Test

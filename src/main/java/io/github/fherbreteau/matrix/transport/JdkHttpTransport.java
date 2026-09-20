@@ -12,7 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Default {@link HttpTransport} built on the JDK's {@code java.net.http.HttpClient}.
+ * Default {@link HttpTransport} built on the JDK's
+ * {@code java.net.http.HttpClient}.
  * Supports GET, POST, PUT, DELETE and authenticated requests, configurable
  * timeouts, redirects and proxy behavior, and never logs access tokens.
  */
@@ -73,7 +74,7 @@ public final class JdkHttpTransport implements HttpTransport {
         if (request.body() != null) {
             builder.header("Content-Type", "application/json");
             builder.method(request.method(),
-                    HttpRequest.BodyPublishers.ofString(request.body(), StandardCharsets.UTF_8));
+                HttpRequest.BodyPublishers.ofString(request.body(), StandardCharsets.UTF_8));
         } else {
             builder.method(request.method(), HttpRequest.BodyPublishers.noBody());
         }
@@ -81,8 +82,8 @@ public final class JdkHttpTransport implements HttpTransport {
             builder.header(header.getKey(), header.getValue());
         }
         try {
-            HttpResponse<String> response =
-                    client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> response = client.send(builder.build(),
+                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             return new Response(response.statusCode(),
                     lowerCaseHeaders(response),
                     response.body(),

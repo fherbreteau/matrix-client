@@ -1,13 +1,13 @@
 package io.github.fherbreteau.matrix.transport;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 
 import java.net.ProxySelector;
 import java.time.Duration;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import org.junit.jupiter.api.Test;
 
 class TransportConfigTest {
 
@@ -15,12 +15,12 @@ class TransportConfigTest {
     void builderCarriesAllSettings() {
         var proxy = ProxySelector.getDefault();
         var config = HttpTransportConfig.builder()
-                .connectTimeout(Duration.ofSeconds(3))
-                .requestTimeout(Duration.ofSeconds(10))
-                .followRedirects(false)
-                .proxy(proxy)
-                .accessToken("token")
-                .build();
+            .connectTimeout(Duration.ofSeconds(3))
+            .requestTimeout(Duration.ofSeconds(10))
+            .followRedirects(false)
+            .proxy(proxy)
+            .accessToken("token")
+            .build();
         assertThat(config).extracting(HttpTransportConfig::connectTimeout).isEqualTo(Duration.ofSeconds(3));
         assertThat(config).extracting(HttpTransportConfig::requestTimeout).isEqualTo(Duration.ofSeconds(10));
         assertThat(config).extracting(HttpTransportConfig::followRedirects, BOOLEAN).isFalse();
@@ -41,9 +41,9 @@ class TransportConfigTest {
     @Test
     void buildsTransportFromConfig() {
         var transport = new JdkHttpTransport(HttpTransportConfig.builder()
-                .connectTimeout(Duration.ofSeconds(2))
-                .proxy(ProxySelector.getDefault())
-                .build());
+            .connectTimeout(Duration.ofSeconds(2))
+            .proxy(ProxySelector.getDefault())
+            .build());
         assertThat(transport).isNotNull();
     }
 

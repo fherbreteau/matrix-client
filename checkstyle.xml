@@ -41,7 +41,9 @@
         <module name="FinalClass"/>
         <module name="HideUtilityClassConstructor"/>
         <module name="IllegalImport"/>
-        <module name="Indentation"/>
+        <module name="Indentation">
+            <property name="forceStrictCondition" value="true"/>
+        </module>
         <module name="ImportOrder">
             <property name="groups" value="java"/>
             <property name="option" value="top"/>

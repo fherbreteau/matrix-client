@@ -32,9 +32,9 @@ public interface HttpTransport {
         @Override
         public String toString() {
             var sb = new StringBuilder(method)
-                    .append(' ')
-                    .append(url)
-                    .append(" headers=");
+                .append(' ')
+                .append(url)
+                .append(" headers=");
             if (headers.isEmpty()) {
                 sb.append("{}");
             } else {
@@ -67,9 +67,9 @@ public interface HttpTransport {
      * header (in milliseconds) when present, for rate-limit handling.
      */
     record Response(int statusCode,
-                    Map<String, String> headers,
-                    String body,
-                    Long retryAfterMs) {
+        Map<String, String> headers,
+        String body,
+        Long retryAfterMs) {
 
         public Response(int statusCode, String body) {
             this(statusCode, Map.of(), body, null);

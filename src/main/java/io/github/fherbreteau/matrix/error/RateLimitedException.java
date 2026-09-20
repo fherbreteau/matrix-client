@@ -15,9 +15,9 @@ public final class RateLimitedException extends MatrixServerException {
     private final Long retryAfterMs;
 
     RateLimitedException(String errcode,
-                         String message,
-                         Map<String, JsonValue> fields,
-                         Long retryAfterMs) {
+        String message,
+        Map<String, JsonValue> fields,
+        Long retryAfterMs) {
         super(429, errcode, message, fields, true);
         this.retryAfterMs = retryAfterMs;
     }

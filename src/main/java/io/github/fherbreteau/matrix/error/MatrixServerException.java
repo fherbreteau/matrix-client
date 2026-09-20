@@ -22,10 +22,10 @@ public class MatrixServerException extends MatrixException {
     }
 
     public MatrixServerException(int statusCode,
-                                 String errcode,
-                                 String message,
-                                 Map<String, JsonValue> fields,
-                                 boolean retryable) {
+        String errcode,
+        String message,
+        Map<String, JsonValue> fields,
+        boolean retryable) {
         super(errcode, message);
         this.statusCode = statusCode;
         this.fields = Map.copyOf(fields);
@@ -45,8 +45,8 @@ public class MatrixServerException extends MatrixException {
      * and the response headers (used for {@code Retry-After} information).
      */
     public static MatrixServerException fromResponse(int statusCode,
-                                                     JsonValue body,
-                                                     Map<String, String> headers) {
+        JsonValue body,
+        Map<String, String> headers) {
         String errcode = null;
         String message = null;
         Map<String, JsonValue> additional = Map.of();

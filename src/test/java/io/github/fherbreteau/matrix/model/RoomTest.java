@@ -1,11 +1,11 @@
 package io.github.fherbreteau.matrix.model;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.InstanceOfAssertFactories.list;
+import org.junit.jupiter.api.Test;
 
 class RoomTest {
 

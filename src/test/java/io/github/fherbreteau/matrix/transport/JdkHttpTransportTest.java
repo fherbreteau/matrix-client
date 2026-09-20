@@ -1,31 +1,31 @@
 package io.github.fherbreteau.matrix.transport;
 
-import org.junit.jupiter.api.Test;
 
-import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import static org.assertj.core.api.InstanceOfAssertFactories.optional;
 
 import java.io.IOException;
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
-import java.net.http.HttpTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLParameters;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
-import static org.assertj.core.api.InstanceOfAssertFactories.optional;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import org.junit.jupiter.api.Test;
 
 class JdkHttpTransportTest {
 
@@ -81,14 +81,14 @@ class JdkHttpTransportTest {
 
         @Override
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request,
-                HttpResponse.BodyHandler<T> responseBodyHandler) {
+            HttpResponse.BodyHandler<T> responseBodyHandler) {
             return unsupported();
         }
 
         @Override
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request,
-                HttpResponse.BodyHandler<T> responseBodyHandler,
-                HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
+            HttpResponse.BodyHandler<T> responseBodyHandler,
+            HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
             return unsupported();
         }
     }
@@ -113,7 +113,7 @@ class JdkHttpTransportTest {
     private static final class FailingHttpClient extends TestHttpClient {
         @Override
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
-                throws IOException {
+            throws IOException {
             throw new IOException("boom");
         }
     }
@@ -121,7 +121,7 @@ class JdkHttpTransportTest {
     private static final class TimingOutHttpClient extends TestHttpClient {
         @Override
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
-                throws IOException {
+            throws IOException {
             throw new HttpTimeoutException("timed out");
         }
     }
@@ -129,7 +129,7 @@ class JdkHttpTransportTest {
     private static final class InterruptingHttpClient extends TestHttpClient {
         @Override
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
-                throws InterruptedException {
+            throws InterruptedException {
             throw new InterruptedException("interrupted");
         }
     }
@@ -198,7 +198,7 @@ class JdkHttpTransportTest {
         assertThat(client.counter).hasValue(1);
 
         var withBody = transport
-                .send(new HttpTransport.Request("POST", "https://matrix.example.org/x", Map.of(), "{\"a\":1}"));
+            .send(new HttpTransport.Request("POST", "https://matrix.example.org/x", Map.of(), "{\"a\":1}"));
         assertThat(withBody).extracting(Response::statusCode).isEqualTo(201);
         assertThat(client.counter).hasValue(2);
     }
@@ -208,8 +208,8 @@ class JdkHttpTransportTest {
         var transport = new JdkHttpTransport(new FailingHttpClient());
         var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
         var exception = assertThatExceptionOfType(UncheckedTransportException.class)
-                .isThrownBy(() -> transport.send(request))
-                .actual();
+            .isThrownBy(() -> transport.send(request))
+            .actual();
         assertThat(exception).hasMessage("HTTP request failed: GET https://x")
             .hasCauseInstanceOf(IOException.class);
     }
@@ -219,8 +219,8 @@ class JdkHttpTransportTest {
         var transport = new JdkHttpTransport(new TimingOutHttpClient());
         var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
         var exception = assertThatExceptionOfType(TransportTimeoutException.class)
-                .isThrownBy(() -> transport.send(request))
-                .actual();
+            .isThrownBy(() -> transport.send(request))
+            .actual();
         assertThat(exception).hasCauseInstanceOf(HttpTimeoutException.class);
     }
 

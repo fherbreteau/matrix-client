@@ -1,16 +1,15 @@
 package io.github.fherbreteau.matrix.error;
 
-import io.github.fherbreteau.matrix.json.JsonParser;
-import io.github.fherbreteau.matrix.json.JsonValue;
-
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.map;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
+
+import java.util.Map;
+
+import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonValue;
+import org.junit.jupiter.api.Test;
 
 class MatrixExceptionTest {
 
@@ -31,7 +30,7 @@ class MatrixExceptionTest {
     @Test
     void parsesMatrixErrorBody() {
         var exception = MatrixServerException.fromResponse(429,
-                JsonParser.parse("{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Rate limited\"}"));
+            JsonParser.parse("{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Rate limited\"}"));
         assertThat(exception).isInstanceOf(RateLimitedException.class);
         assertThat(exception).extracting(MatrixServerException::getStatusCode).isEqualTo(429);
         assertThat(exception).extracting(MatrixServerException::getErrcode).isEqualTo("M_LIMIT_EXCEEDED");
@@ -72,8 +71,8 @@ class MatrixExceptionTest {
     @Test
     void retainsUnknownFields() {
         var exception = MatrixServerException.fromResponse(400, JsonParser.parse("""
-                {"errcode":"M_INVALID_PARAM","error":"bad param","retry_after_ms":2000,"soft_fail":true}
-                """));
+            {"errcode":"M_INVALID_PARAM","error":"bad param","retry_after_ms":2000,"soft_fail":true}
+            """));
         assertThat(exception.getFields())
                 .containsEntry("retry_after_ms", JsonParser.parse("2000"))
                 .containsEntry("soft_fail", JsonParser.parse("true"))
@@ -82,12 +81,12 @@ class MatrixExceptionTest {
 
     @Test
     void retryableStatuses() {
-        for (int status : new int[] { 408, 429, 500, 502, 503, 504 }) {
+        for (int status : new int[] {408, 429, 500, 502, 503, 504}) {
             assertThat(MatrixServerException.fromResponse(status, null))
                     .extracting(MatrixServerException::isRetryable, BOOLEAN)
                     .as("status %d", status).isTrue();
         }
-        for (int status : new int[] { 400, 401, 403, 404, 405, 501 }) {
+        for (int status : new int[] {400, 401, 403, 404, 405, 501}) {
             assertThat(MatrixServerException.fromResponse(status, null))
                     .extracting(MatrixServerException::isRetryable, BOOLEAN)
                     .as("status %d", status).isFalse();
@@ -97,8 +96,8 @@ class MatrixExceptionTest {
     @Test
     void rateLimitedCarriesRetryAfter() {
         var exception = MatrixServerException.fromResponse(429,
-                JsonParser.parse("{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}"),
-                Map.of("retry-after", "12"));
+            JsonParser.parse("{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}"),
+            Map.of("retry-after", "12"));
         assertThat(exception).isInstanceOf(RateLimitedException.class);
         var rateLimited = (RateLimitedException) exception;
         assertThat(rateLimited).extracting(RateLimitedException::getRetryAfterMs).isEqualTo(12000L);
@@ -117,7 +116,7 @@ class MatrixExceptionTest {
     @Test
     void rateLimitedWithNonNumericRetryAfter() {
         var exception = MatrixServerException.fromResponse(429, JsonParser.parse("{}"),
-                Map.of("retry-after", "Wed, 21 Oct 2026 07:28:00 GMT"));
+            Map.of("retry-after", "Wed, 21 Oct 2026 07:28:00 GMT"));
         assertThat(exception).isInstanceOf(RateLimitedException.class)
                 .asInstanceOf(type(RateLimitedException.class))
                 .extracting(RateLimitedException::getRetryAfterMs).isNull();
@@ -136,7 +135,7 @@ class MatrixExceptionTest {
         var retryable = new MatrixServerException(503, "M_UNAVAILABLE", "down");
         var nonRetryable = new MatrixServerException(404, "M_NOT_FOUND", "gone");
         var explicit = new MatrixServerException(200, "M_CUSTOM", "weird",
-                Map.of("extra", JsonParser.parse("1")), true);
+            Map.of("extra", JsonParser.parse("1")), true);
         assertThat(retryable).extracting(MatrixServerException::isRetryable, BOOLEAN).isTrue();
         assertThat(nonRetryable).extracting(MatrixServerException::isRetryable, BOOLEAN).isFalse();
         assertThat(explicit).extracting(MatrixServerException::isRetryable, BOOLEAN).isTrue();

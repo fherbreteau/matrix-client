@@ -1,16 +1,16 @@
 package io.github.fherbreteau.matrix.json;
 
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.util.LinkedHashMap;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.collection;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
+
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+
+import org.junit.jupiter.api.Test;
 
 class JsonParserTest {
 
@@ -39,9 +39,9 @@ class JsonParserTest {
     @Test
     void roundTrips() {
         var obj = new JsonObject()
-                .put("name", "alice")
-                .put("count", JsonNumber.of(3))
-                .put("nested", new JsonObject().put("ok", JsonBoolean.of(true)));
+            .put("name", "alice")
+            .put("count", JsonNumber.of(3))
+            .put("nested", new JsonObject().put("ok", JsonBoolean.of(true)));
         JsonValue reparsed = JsonParser.parse(obj.toJson());
         assertThat(reparsed).extracting(JsonValue::asObject, type(JsonObject.class))
                 .extracting(x -> x.get("name"))
@@ -59,26 +59,26 @@ class JsonParserTest {
     @Test
     void rejectsMalformedInput() {
         String[] inputs = {
-                "{",
-                "{\"a\":}",
-                "{} trailing",
-                "nul",
-                "",
-                "[",
-                "[1,]",
-                "{\"a\"}",
-                "{\"a\":1",
-                "[1",
-                "\"unterminated",
-                "\"bad\\x\"",
-                "\"bad\\",
-                "\"bad\\uZZZZ\"",
-                "\"bad\\u0",
-                "tru",
-                "-",
-                "01x",
-                "{\"a\":1,",
-                "{\"a\" 1}"
+            "{",
+            "{\"a\":}",
+            "{} trailing",
+            "nul",
+            "",
+            "[",
+            "[1,]",
+            "{\"a\"}",
+            "{\"a\":1",
+            "[1",
+            "\"unterminated",
+            "\"bad\\x\"",
+            "\"bad\\",
+            "\"bad\\uZZZZ\"",
+            "\"bad\\u0",
+            "tru",
+            "-",
+            "01x",
+            "{\"a\":1,",
+            "{\"a\" 1}"
         };
         for (String input : inputs) {
             assertThatIllegalArgumentException().as("input: %s", input).isThrownBy(() -> JsonParser.parse(input));
@@ -133,21 +133,21 @@ class JsonParserTest {
     @Test
     void rejectsMalformedNumbers() {
         String[] inputs = {
-                "01",
-                "1.",
-                ".5",
-                "+1",
-                "1e",
-                "1e+",
-                "1.2.3",
-                "1e3e4",
-                "0x1f",
-                "1-2",
-                "Infinity",
-                "NaN",
-                "- 1",
-                "1.5e",
-                "--1"
+            "01",
+            "1.",
+            ".5",
+            "+1",
+            "1e",
+            "1e+",
+            "1.2.3",
+            "1e3e4",
+            "0x1f",
+            "1-2",
+            "Infinity",
+            "NaN",
+            "- 1",
+            "1.5e",
+            "--1"
         };
         for (String input : inputs) {
             assertThatIllegalArgumentException().as("input: %s", input).isThrownBy(() -> JsonParser.parse(input));
@@ -178,20 +178,20 @@ class JsonParserTest {
     @Test
     void matrixNestedPayloadRoundTrips() {
         var payload = new JsonObject()
-                .put("event_id", "$abc:matrix.org")
-                .put("sender", "@alice:matrix.org")
-                .put("type", "m.room.message")
-                .put("content", new JsonObject()
-                        .put("msgtype", "m.text")
-                        .put("body", "Hello \"world\"\nnew\tline")
-                        .put("formatted_body", "<b>é</b> \uD83D\uDE00"))
-                .put("unsigned", new JsonObject()
-                        .put("age", 42)
-                        .put("transaction_id", "m123.4"))
-                .put("unknown_future_field", new JsonObject()
-                        .put("nested_unknown", new JsonArray()
-                                .add(new JsonObject().put("x", 1.5))
-                                .add(JsonNull.INSTANCE)));
+            .put("event_id", "$abc:matrix.org")
+            .put("sender", "@alice:matrix.org")
+            .put("type", "m.room.message")
+            .put("content", new JsonObject()
+            .put("msgtype", "m.text")
+            .put("body", "Hello \"world\"\nnew\tline")
+            .put("formatted_body", "<b>é</b> \uD83D\uDE00"))
+            .put("unsigned", new JsonObject()
+            .put("age", 42)
+            .put("transaction_id", "m123.4"))
+            .put("unknown_future_field", new JsonObject()
+            .put("nested_unknown", new JsonArray()
+            .add(new JsonObject().put("x", 1.5))
+            .add(JsonNull.INSTANCE)));
         String serialized = payload.toJson();
         JsonValue reparsed = JsonParser.parse(serialized);
         assertThat(reparsed).extracting(JsonValue::toJson).isEqualTo(serialized);
@@ -223,8 +223,8 @@ class JsonParserTest {
     @Test
     void unknownFieldsAreRetained() {
         JsonValue value = JsonParser.parse("""
-                {"type":"m.room.message","content":{"msgtype":"m.text","body":"hi"},"org.matrix.custom":true}
-                """);
+            {"type":"m.room.message","content":{"msgtype":"m.text","body":"hi"},"org.matrix.custom":true}
+            """);
         var obj = value.asObject();
         assertThat(obj).extracting(JsonObject::names, collection(String.class)).containsExactlyInAnyOrder("type", "content", "org.matrix.custom");
         assertThat(obj).extracting(x -> x.get("org.matrix.custom"))

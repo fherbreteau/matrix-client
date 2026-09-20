@@ -1,12 +1,10 @@
 package io.github.fherbreteau.matrix.transport;
 
-import com.sun.net.httpserver.HttpServer;
-
-import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
-import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
+import static org.assertj.core.api.InstanceOfAssertFactories.map;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -15,11 +13,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
-import static org.assertj.core.api.InstanceOfAssertFactories.map;
+
+import com.sun.net.httpserver.HttpServer;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class JdkHttpTransportHttpServerTest {
 
@@ -75,8 +74,8 @@ class JdkHttpTransportHttpServerTest {
             exchange.close();
         });
         var transport = new JdkHttpTransport(JdkHttpTransport.config()
-                .accessToken("s3cret-token")
-                .build());
+            .accessToken("s3cret-token")
+            .build());
         var response = transport.send(new HttpTransport.Request("POST", base + "/rooms/!a:b/send", Map.of(), "{\"msg\":\"hi\"}"));
         assertThat(response).extracting(Response::statusCode).isEqualTo(200);
         assertThat(receivedBody).hasValue("{\"msg\":\"hi\"}");
@@ -155,8 +154,8 @@ class JdkHttpTransportHttpServerTest {
             exchange.close();
         });
         var transport = new JdkHttpTransport(JdkHttpTransport.config()
-                .requestTimeout(Duration.ofMillis(100))
-                .build());
+            .requestTimeout(Duration.ofMillis(100))
+            .build());
         var request = new HttpTransport.Request("GET", base + "/slow", Map.of(), null);
         try {
             assertThatExceptionOfType(TransportTimeoutException.class).isThrownBy(() -> transport.send(request));
@@ -175,8 +174,8 @@ class JdkHttpTransportHttpServerTest {
     @Test
     void redactsAuthorizationHeaderInRequestToString() {
         var request = new HttpTransport.Request("GET", "https://matrix.example.org/x",
-                Map.of(HttpTransport.Request.AUTHORIZATION_HEADER, "Bearer s3cret-token", "X-Custom", "visible"),
-                "{\"a\":1}");
+            Map.of(HttpTransport.Request.AUTHORIZATION_HEADER, "Bearer s3cret-token", "X-Custom", "visible"),
+            "{\"a\":1}");
         assertThat(request).extracting(Request::toString, STRING)
                 .contains("Authorization:***")
                 .doesNotContain("s3cret-token")

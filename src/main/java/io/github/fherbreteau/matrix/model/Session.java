@@ -10,7 +10,21 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * token never appears in {@link #toString()}.
  */
 public record Session(
-    String userId, String accessToken, String deviceId, String homeserver, JsonValue raw) {
+    String userId,
+    String accessToken,
+    String refreshToken,
+    Long expiresInMs,
+    String deviceId,
+    String homeserver,
+    JsonValue raw) {
+
+  /**
+   * Returns whether the access token can be renewed with {@code POST /_matrix/client/v3/refresh},
+   * i.e. the server issued a refresh token.
+   */
+  public boolean isRefreshable() {
+    return refreshToken != null;
+  }
 
   /**
    * Parses a login response body into a session.
@@ -30,6 +44,8 @@ public record Session(
     return new Session(
         userId.asString(),
         token.asString(),
+        stringValue(obj, "refresh_token"),
+        longValue(obj, "expires_in_ms"),
         stringValue(obj, "device_id"),
         stringValue(obj, "home_server"),
         body);
@@ -38,6 +54,11 @@ public record Session(
   private static String stringValue(JsonObject obj, String name) {
     JsonValue value = obj.get(name);
     return value != null && value.isString() ? value.asString() : null;
+  }
+
+  private static Long longValue(JsonObject obj, String name) {
+    JsonValue value = obj.get(name);
+    return value != null && value.isNumber() ? value.asLong() : null;
   }
 
   /** Returns the identifier of the authenticated user. */
@@ -55,6 +76,8 @@ public record Session(
     return "Session[userId="
         + userId
         + ", accessToken=***"
+        + ", refreshToken=***"
+        + (expiresInMs != null ? ", expiresInMs=" + expiresInMs : "")
         + (deviceId != null ? ", deviceId=" + deviceId : "")
         + (homeserver != null ? ", homeserver=" + homeserver : "")
         + "]";

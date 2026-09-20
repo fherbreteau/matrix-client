@@ -24,6 +24,10 @@ class AuthenticationTest {
   private static final String LOGIN_OK =
       "{\"user_id\":\"@alice:matrix.org\",\"access_token\":\"secret-token\",\"device_id\":\"DEV\"}";
 
+  private static final String LOGIN_REFRESHABLE =
+      "{\"user_id\":\"@alice:matrix.org\",\"access_token\":\"secret-token\","
+          + "\"refresh_token\":\"refresh-it\",\"expires_in_ms\":3600000,\"device_id\":\"DEV\"}";
+
   @Test
   void loginPostsPasswordFlowAndStoresSession() {
     var requests = new ArrayList<Request>();
@@ -64,7 +68,8 @@ class AuthenticationTest {
                     new Response(
                         403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Invalid password\"}"))
             .build();
-    assertThatThrownBy(() -> client.login(new PasswordCredentials("@alice:matrix.org", "wrong")))
+    var credentials = new PasswordCredentials("@alice:matrix.org", "wrong");
+    assertThatThrownBy(() -> client.login(credentials))
         .isInstanceOf(AuthenticationException.class)
         .satisfies(
             e -> {
@@ -84,7 +89,8 @@ class AuthenticationTest {
                         403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Invalid password\"}"))
             .build();
     try {
-      client.login(new PasswordCredentials("@alice:matrix.org", "top-secret-password"));
+      var credentials = new PasswordCredentials("@alice:matrix.org", "top-secret-password");
+      client.login(credentials);
     } catch (AuthenticationException e) {
       assertThat(e.getMessage()).doesNotContain("top-secret-password");
       assertThat(e.toString()).doesNotContain("top-secret-password");
@@ -103,8 +109,8 @@ class AuthenticationTest {
                         "{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}",
                         10000L))
             .build();
-    assertThatThrownBy(() -> client.login(new PasswordCredentials("@alice:matrix.org", "x")))
-        .isInstanceOf(RateLimitedException.class);
+    var credentials = new PasswordCredentials("@alice:matrix.org", "x");
+    assertThatThrownBy(() -> client.login(credentials)).isInstanceOf(RateLimitedException.class);
   }
 
   @Test
@@ -113,8 +119,8 @@ class AuthenticationTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{\"user_id\":\"@a:b\"}"))
             .build();
-    assertThatThrownBy(() -> client.login(new PasswordCredentials("@alice:matrix.org", "x")))
-        .isInstanceOf(DiscoveryException.class);
+    var credentials = new PasswordCredentials("@alice:matrix.org", "x");
+    assertThatThrownBy(() -> client.login(credentials)).isInstanceOf(DiscoveryException.class);
   }
 
   @Test
@@ -127,8 +133,8 @@ class AuthenticationTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     client.logout();
     assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/logout");
-    assertThat(requests.getLast().headers().get(Request.AUTHORIZATION_HEADER))
-        .isEqualTo("Bearer secret-token");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
     assertThat(client.getSession()).isEmpty();
   }
 
@@ -142,8 +148,8 @@ class AuthenticationTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     client.logoutAll();
     assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/logout/all");
-    assertThat(requests.getLast().headers().get(Request.AUTHORIZATION_HEADER))
-        .isEqualTo("Bearer secret-token");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
     assertThat(client.getSession()).isEmpty();
   }
 
@@ -215,7 +221,99 @@ class AuthenticationTest {
     Session second = client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(second.accessToken()).isEqualTo("t2");
     assertThat(client.getSession()).contains(second);
-    assertThat(store.current()).isNotEqualTo(first);
+    assertThat(store.current()).hasValue(second);
+    assertThat(first.accessToken()).isNotEqualTo(second.accessToken());
+  }
+
+  @Test
+  void refreshableLoginRequestsAndParsesRefreshToken() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new Response(200, LOGIN_REFRESHABLE), requests))
+            .build();
+    Session session =
+        client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
+    assertThat(session.isRefreshable()).isTrue();
+    assertThat(session.refreshToken()).isEqualTo("refresh-it");
+    assertThat(session.expiresInMs()).isEqualTo(3600000L);
+    assertThat(requests.getFirst().body()).contains("\"refresh_token\":true");
+  }
+
+  @Test
+  void nonRefreshableLoginDoesNotRequestRefreshToken() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new Response(200, LOGIN_OK), requests))
+            .build();
+    Session session = client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    assertThat(session.isRefreshable()).isFalse();
+    assertThat(requests.getFirst().body()).doesNotContain("refresh_token");
+  }
+
+  @Test
+  void refreshRotatesTokensAndReplacesSession() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    new Response(200, LOGIN_REFRESHABLE),
+                    new Response(
+                        200,
+                        "{\"user_id\":\"@alice:matrix.org\",\"access_token\":\"new-token\","
+                            + "\"refresh_token\":\"new-refresh\",\"expires_in_ms\":7200000}"),
+                    requests))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
+    Session refreshed = client.refresh();
+    assertThat(refreshed.accessToken()).isEqualTo("new-token");
+    assertThat(refreshed.refreshToken()).isEqualTo("new-refresh");
+    assertThat(refreshed.expiresInMs()).isEqualTo(7200000L);
+    Request refreshRequest = requests.getLast();
+    assertThat(refreshRequest.url()).endsWith("/_matrix/client/v3/refresh");
+    assertThat(refreshRequest.headers()).isEmpty();
+    assertThat(refreshRequest.body()).isEqualTo("{\"refresh_token\":\"refresh-it\"}");
+    assertThat(client.getSession()).contains(refreshed);
+  }
+
+  @Test
+  void refreshWithoutSessionRaisesAuthenticationException() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{}"))
+            .build();
+    assertThatThrownBy(client::refresh)
+        .isInstanceOf(AuthenticationException.class)
+        .hasMessageContaining("No authenticated session");
+  }
+
+  @Test
+  void refreshOfNonRefreshableSessionRaisesAuthenticationException() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(queued(new Response(200, LOGIN_OK), new Response(200, "{}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    assertThatThrownBy(client::refresh)
+        .isInstanceOf(AuthenticationException.class)
+        .hasMessageContaining("not refreshable");
+  }
+
+  @Test
+  void refreshWithInvalidRefreshTokenRaisesAuthenticationException() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                queued(
+                    new Response(200, LOGIN_REFRESHABLE),
+                    new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Invalid grant\"}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
+    assertThatThrownBy(client::refresh)
+        .isInstanceOf(AuthenticationException.class)
+        .hasMessageContaining("Invalid grant");
   }
 
   private static HttpTransportStub recording(Response response, List<Request> requests) {

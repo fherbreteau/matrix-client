@@ -123,9 +123,24 @@ public final class MatrixClient {
    *     invalid or the account cannot log in
    */
   public Session login(Credentials credentials, String deviceDisplayName) {
+    return login(credentials, deviceDisplayName, false);
+  }
+
+  /**
+   * Logs in with the given credentials, an optional device display name and an optional request for
+   * a refreshable token; stores the resulting session in the session store and returns it.
+   *
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
+   *     invalid or the account cannot log in
+   */
+  public Session login(
+      Credentials credentials, String deviceDisplayName, boolean requestRefreshToken) {
     var body = (JsonObject) credentials.toJson();
     if (deviceDisplayName != null) {
       body.put("initial_device_display_name", deviceDisplayName);
+    }
+    if (requestRefreshToken) {
+      body.put("refresh_token", true);
     }
     try {
       Session session = Session.from(post("_matrix/client/v3/login", body));
@@ -141,6 +156,36 @@ public final class MatrixClient {
   /** Returns the current authenticated session, if any. */
   public Optional<Session> getSession() {
     return sessionStore.current();
+  }
+
+  /**
+   * Renews the current session with its refresh token, replacing the stored session.
+   *
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session, the
+   *     session is not refreshable, or the refresh token is no longer valid
+   */
+  public Session refresh() {
+    Session session =
+        sessionStore
+            .current()
+            .orElseThrow(
+                () -> new AuthenticationException("M_MISSING_TOKEN", "No authenticated session"));
+    if (!session.isRefreshable()) {
+      throw new AuthenticationException("M_MISSING_TOKEN", "Session is not refreshable");
+    }
+    try {
+      Session refreshed =
+          Session.from(
+              post(
+                  "_matrix/client/v3/refresh",
+                  new JsonObject().put("refresh_token", session.refreshToken())));
+      sessionStore.save(refreshed);
+      return refreshed;
+    } catch (RateLimitedException e) {
+      throw e;
+    } catch (MatrixServerException e) {
+      throw new AuthenticationException(e.getErrcode(), e.getMessage());
+    }
   }
 
   /**

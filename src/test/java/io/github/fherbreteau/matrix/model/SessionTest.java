@@ -6,14 +6,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import org.junit.jupiter.api.Test;
 
 class SessionTest {
 
   private static final String LOGIN_BODY =
       """
-      {"user_id":"@alice:matrix.org","access_token":"secret-token","device_id":"DEV123",
-       "home_server":"matrix.org","expires_in_ms":3600000,"well_known":{}}
+      {"user_id":"@alice:matrix.org","access_token":"secret-token","refresh_token":"refresh-it",
+       "device_id":"DEV123","home_server":"matrix.org","expires_in_ms":3600000,"well_known":{}}
       """;
 
   @Test
@@ -21,6 +22,9 @@ class SessionTest {
     Session session = Session.from(JsonParser.parse(LOGIN_BODY));
     assertThat(session.userId()).isEqualTo("@alice:matrix.org");
     assertThat(session.accessToken()).isEqualTo("secret-token");
+    assertThat(session.refreshToken()).isEqualTo("refresh-it");
+    assertThat(session.expiresInMs()).isEqualTo(3600000L);
+    assertThat(session.isRefreshable()).isTrue();
     assertThat(session.deviceId()).isEqualTo("DEV123");
     assertThat(session.homeserver()).isEqualTo("matrix.org");
     assertThat(session.raw().asObject().get("expires_in_ms").asLong()).isEqualTo(3600000L);
@@ -44,22 +48,17 @@ class SessionTest {
   }
 
   @Test
-  void rejectsNonObjectBody() {
-    assertThatThrownBy(() -> Session.from(JsonParser.parse("[]")))
+  void rejectsInvalidBodies() {
+    JsonValue nonObject = JsonParser.parse("[]");
+    JsonValue missingToken = JsonParser.parse("{\"user_id\":\"@a:b\"}");
+    JsonValue missingUserId = JsonParser.parse("{\"access_token\":\"t\"}");
+    assertThatThrownBy(() -> Session.from(nonObject))
         .isInstanceOf(DiscoveryException.class)
         .hasMessageContaining("JSON object");
-  }
-
-  @Test
-  void rejectsMissingAccessToken() {
-    assertThatThrownBy(() -> Session.from(JsonParser.parse("{\"user_id\":\"@a:b\"}")))
+    assertThatThrownBy(() -> Session.from(missingToken))
         .isInstanceOf(DiscoveryException.class)
         .hasMessageContaining("access_token");
-  }
-
-  @Test
-  void rejectsMissingUserId() {
-    assertThatThrownBy(() -> Session.from(JsonParser.parse("{\"access_token\":\"t\"}")))
+    assertThatThrownBy(() -> Session.from(missingUserId))
         .isInstanceOf(DiscoveryException.class)
         .hasMessageContaining("access_token");
   }
@@ -71,8 +70,9 @@ class SessionTest {
         .contains("@alice:matrix.org")
         .contains("DEV123")
         .contains("accessToken=***")
+        .contains("refreshToken=***")
         .doesNotContain("secret-token")
-        .doesNotContain("expires_in_ms");
+        .doesNotContain("refresh-it");
   }
 
   @Test

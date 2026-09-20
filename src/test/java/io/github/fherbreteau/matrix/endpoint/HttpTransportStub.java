@@ -1,6 +1,7 @@
 package io.github.fherbreteau.matrix.endpoint;
 
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Queue;
 
 import io.github.fherbreteau.matrix.transport.HttpTransport;
@@ -19,18 +20,18 @@ final class HttpTransportStub implements HttpTransport {
     }
 
     static HttpTransportStub responding(int statusCode, String body) {
-        return new HttpTransportStub(new ArrayDeque<>(java.util.List.of(new Response(statusCode, body))),
-                new ArrayDeque<>());
+        return new HttpTransportStub(new ArrayDeque<>(List.of(new Response(statusCode, body))),
+            new ArrayDeque<>());
     }
 
     static HttpTransportStub failing() {
         return new HttpTransportStub(new ArrayDeque<>(),
-                new ArrayDeque<>(java.util.List.of(new TransportException("connection refused"))));
+            new ArrayDeque<>(List.of(new TransportException("connection refused"))));
     }
 
     static HttpTransportStub recording() {
-        return new HttpTransportStub(new ArrayDeque<>(java.util.List.of(new Response(404, "{}"))),
-                new ArrayDeque<>());
+        return new HttpTransportStub(new ArrayDeque<>(List.of(new Response(404, "{}"))),
+            new ArrayDeque<>());
     }
 
     void enqueue(Response response) {

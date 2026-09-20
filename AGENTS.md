@@ -99,6 +99,9 @@ gate; add tests in the same change instead. SonarCloud analyzes the project
 ## Code Style
 
 - Checkstyle (`checkstyle.xml`) enforces no trailing whitespace, LF line endings at EOF, no tabs, `FinalClass` rule (all classes with private constructors must be `final`), ordered imports (`java` group first, separated), `EmptyLineSeparator` between methods, `UnusedImports`, `WhitespaceAround`.
+- **Import preference**: when using a class for the first time, import it instead of
+  using its fully qualified name inline — unless the simple name conflicts with
+  another class of the same name already imported from a different package.
 - No comments in code unless explicitly requested.
 - Public classes and methods carry Javadoc (doclint runs in CI).
 - Prefer records and sealed interfaces where they fit.

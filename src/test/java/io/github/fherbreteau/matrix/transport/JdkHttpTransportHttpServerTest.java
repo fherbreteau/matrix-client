@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
@@ -32,7 +33,7 @@ class JdkHttpTransportHttpServerTest {
         }
     }
 
-    private String startServer(com.sun.net.httpserver.HttpHandler handler) {
+    private String startServer(HttpHandler handler) {
         try {
             server = HttpServer.create(new InetSocketAddress(0), 0);
         } catch (IOException e) {

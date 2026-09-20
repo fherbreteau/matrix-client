@@ -12,6 +12,7 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 
+import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonObject;
@@ -148,7 +149,7 @@ class MatrixClientTest {
                 .transport(request -> new HttpTransport.Response(200, "{\"versions\":\"not-an-array\"}"))
                 .validateVersions();
         assertThatThrownBy(builder::build)
-                .isInstanceOf(io.github.fherbreteau.matrix.error.DiscoveryException.class);
+                .isInstanceOf(DiscoveryException.class);
     }
 
     @Test
@@ -168,7 +169,7 @@ class MatrixClientTest {
                 .transport(request -> new HttpTransport.Response(200, "{\"nope\":true}"))
                 .build();
         assertThatThrownBy(client::getSupportedVersions)
-                .isInstanceOf(io.github.fherbreteau.matrix.error.DiscoveryException.class);
+                .isInstanceOf(DiscoveryException.class);
     }
 
     @Test

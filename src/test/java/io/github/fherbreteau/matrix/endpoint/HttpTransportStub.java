@@ -11,11 +11,20 @@ final class HttpTransportStub implements HttpTransport {
   private final Queue<Response> responses;
   private final Queue<RuntimeException> failures;
   private final Queue<String> urls;
+  private final List<java.util.function.Consumer<Request>> recorders = new java.util.ArrayList<>();
+
+  HttpTransportStub() {
+    this(new ArrayDeque<>(), new ArrayDeque<>());
+  }
 
   private HttpTransportStub(Queue<Response> responses, Queue<RuntimeException> failures) {
     this.responses = responses;
     this.failures = failures;
     this.urls = new ArrayDeque<>();
+  }
+
+  void recordInto(List<Request> requests) {
+    recorders.add(requests::add);
   }
 
   static HttpTransportStub responding(int statusCode, String body) {
@@ -49,6 +58,9 @@ final class HttpTransportStub implements HttpTransport {
   @Override
   public Response send(Request request) {
     urls.add(request.url());
+    for (java.util.function.Consumer<Request> recorder : recorders) {
+      recorder.accept(request);
+    }
     if (!failures.isEmpty()) {
       throw failures.remove();
     }

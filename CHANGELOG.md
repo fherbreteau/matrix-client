@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Google Java Style Enforcement**: The project now follows the Google Java Style Guide, enforced for everyone by two gates — formatting via `google-java-format` (Spotify `fmt-maven-plugin` `fmt:check` bound to `validate`, apply with `mvn fmt:format`: 2-space indentation, 4-space continuation indent, 100-column limit, unused-import removal, import sorting) and the official Checkstyle `google_checks.xml` ruleset at severity `error` (import order, whitespace, naming, Javadoc requirements on public members); the previous Eclipse formatter profile was removed and the codebase reformatted, with Javadoc added to all public members
 
+### 🚀 Features
+
+- **Authentication, Session, and Logout APIs**: Implemented issue #5 — password login (`m.login.password` via `MatrixClient.login(Credentials, ...)`), a sealed `Credentials` hierarchy (`PasswordCredentials` first, extensible with OAuth 2.0 later without breaking callers), login responses modeled as `Session` (user ID, access token, device ID, homeserver metadata, raw response with unknown fields preserved; `toString()` redacts secrets as do credentials), logout and logout-all with `Bearer` authorization, an injectable `SessionStore` (in-memory default, custom implementations supported) that keeps sessions deterministic (create, reuse, clear), and a typed `AuthenticationException` for invalid credentials, unknown tokens and missing sessions — credentials and tokens never appear in logs or exception messages
+
 ## 🤝 Contributing to Changelog
 
 When making changes, please:

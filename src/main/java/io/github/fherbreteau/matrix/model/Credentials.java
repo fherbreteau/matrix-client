@@ -1,0 +1,17 @@
+package io.github.fherbreteau.matrix.model;
+
+import io.github.fherbreteau.matrix.json.JsonValue;
+
+/**
+ * Login credentials. Sealed so new authentication flows (such as OAuth 2.0) can be added later
+ * without breaking callers. Implementations never expose secrets in {@code toString()}.
+ */
+public sealed interface Credentials permits PasswordCredentials {
+
+  /** Serializes the credentials as a login request body. */
+  JsonValue toJson();
+
+  /** Returns a representation that never includes secrets. */
+  @Override
+  String toString();
+}

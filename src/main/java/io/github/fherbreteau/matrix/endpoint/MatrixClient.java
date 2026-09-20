@@ -413,8 +413,7 @@ public final class MatrixClient {
   private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {
     try {
       JsonValue content =
-          authenticated(
-              "GET", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/state/" + type, null);
+          authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/state/" + type, null);
       JsonValue value = content.asObject().get(field);
       return value != null && value.isString() ? Optional.of(value.asString()) : Optional.empty();
     } catch (MatrixServerException e) {

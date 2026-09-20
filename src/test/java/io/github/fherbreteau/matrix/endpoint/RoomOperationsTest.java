@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.endpoint;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
@@ -198,9 +199,12 @@ class RoomOperationsTest {
                     new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Not in room\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var roomId = RoomId.of("!a:b");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.getRoomName(RoomId.of("!a:b")))
-        .satisfies(e -> assertThat(e.getErrcode()).isEqualTo("M_FORBIDDEN"));
+        .isThrownBy(() -> client.getRoomName(roomId))
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getErrcode)
+        .isEqualTo("M_FORBIDDEN");
   }
 
   @Test

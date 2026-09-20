@@ -7,11 +7,21 @@ import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.Credentials;
+import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
+import io.github.fherbreteau.matrix.model.RoomAlias;
+import io.github.fherbreteau.matrix.model.RoomAliasResolution;
+import io.github.fherbreteau.matrix.model.RoomEvent;
+import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
+import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -256,6 +266,167 @@ public final class MatrixClient {
   public void logoutAll() {
     authenticated("POST", "_matrix/client/v3/logout/all", null);
     sessionStore.clear();
+  }
+
+  /**
+   * Creates a room with default settings and returns its identifier.
+   *
+   * @return the identifier of the created room
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomId createRoom() {
+    return RoomId.of(
+        authenticated("POST", "_matrix/client/v3/createRoom", "{}")
+            .asObject()
+            .get("room_id")
+            .asString());
+  }
+
+  /**
+   * Joins a room by its identifier and returns the joined room.
+   *
+   * @param roomId the room to join
+   * @return the joined room identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomId joinRoom(RoomId roomId) {
+    return RoomId.of(
+        authenticated("POST", "_matrix/client/v3/join/" + encode(roomId.value()), "{}")
+            .asObject()
+            .get("room_id")
+            .asString());
+  }
+
+  /**
+   * Joins a room by one of its aliases and returns the joined room.
+   *
+   * @param roomAlias the room alias to join
+   * @return the joined room identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomId joinRoom(RoomAlias roomAlias) {
+    return RoomId.of(
+        authenticated("POST", "_matrix/client/v3/join/" + encode(roomAlias.value()), "{}")
+            .asObject()
+            .get("room_id")
+            .asString());
+  }
+
+  /**
+   * Leaves a room.
+   *
+   * @param roomId the room to leave
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void leaveRoom(RoomId roomId) {
+    authenticated("POST", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/leave", "{}");
+  }
+
+  /**
+   * Invites a user to a room.
+   *
+   * @param roomId the room to invite the user to
+   * @param userId the user to invite
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void invite(RoomId roomId, UserId userId) {
+    authenticated(
+        "POST",
+        "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/invite",
+        new JsonObject().put("user_id", userId.value()).toJson());
+  }
+
+  /**
+   * Retrieves the full state of a room. Unknown event types are preserved.
+   *
+   * @param roomId the room whose state to retrieve
+   * @return the full room state, preserving unknown event types
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public List<RoomEvent> getRoomState(RoomId roomId) {
+    JsonValue response =
+        authenticated("GET", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/state", null);
+    var events = new ArrayList<RoomEvent>();
+    if (response.isArray()) {
+      for (int i = 0; i < response.asArray().size(); i++) {
+        events.add(RoomEvent.from(response.asArray().get(i)));
+      }
+    }
+    return events;
+  }
+
+  /**
+   * Retrieves the members currently joined to a room.
+   *
+   * @param roomId the room whose members to retrieve
+   * @return the joined members with their display names
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public JoinedMembers getJoinedMembers(RoomId roomId) {
+    return JoinedMembers.from(
+        authenticated(
+            "GET", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/joined_members", null));
+  }
+
+  /**
+   * Retrieves the {@code m.room.name} state of a room, if set.
+   *
+   * @param roomId the room whose name to retrieve
+   * @return the room name, or empty when unset
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public Optional<String> getRoomName(RoomId roomId) {
+    return getRoomStateField(roomId, "m.room.name", "name");
+  }
+
+  /**
+   * Retrieves the {@code m.room.canonical_alias} state of a room, if set.
+   *
+   * @param roomId the room whose canonical alias to retrieve
+   * @return the canonical alias, or empty when unset
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public Optional<RoomAlias> getCanonicalAlias(RoomId roomId) {
+    return getRoomStateField(roomId, "m.room.canonical_alias", "alias").map(RoomAlias::of);
+  }
+
+  /**
+   * Resolves a room alias to its room identifier and candidate servers.
+   *
+   * @param roomAlias the alias to resolve
+   * @return the room identifier and candidate servers
+   */
+  public RoomAliasResolution resolveRoomAlias(RoomAlias roomAlias) {
+    return RoomAliasResolution.from(
+        get("_matrix/client/v3/directory/room/" + encode(roomAlias.value())));
+  }
+
+  private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {
+    try {
+      JsonValue content =
+          authenticated(
+              "GET", "_matrix/client/v3/rooms/" + encode(roomId.value()) + "/state/" + type, null);
+      JsonValue value = content.asObject().get(field);
+      return value != null && value.isString() ? Optional.of(value.asString()) : Optional.empty();
+    } catch (MatrixServerException e) {
+      if ("M_NOT_FOUND".equals(e.getErrcode())) {
+        return Optional.empty();
+      }
+      throw e;
+    }
+  }
+
+  private static String encode(String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
   }
 
   /**

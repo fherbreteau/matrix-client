@@ -1,6 +1,10 @@
 package io.github.fherbreteau.matrix.transport;
 
 import com.sun.net.httpserver.HttpServer;
+
+import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -11,10 +15,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
+import static org.assertj.core.api.InstanceOfAssertFactories.map;
 
 class JdkHttpTransportHttpServerTest {
 
@@ -50,9 +55,9 @@ class JdkHttpTransportHttpServerTest {
         });
         var transport = new JdkHttpTransport();
         var response = transport.send(new HttpTransport.Request("GET", base + "/anywhere", Map.of(), null));
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).isEqualTo(body);
-        assertThat(response.header("content-type")).isEqualTo("application/json");
+        assertThat(response).extracting(Response::statusCode).isEqualTo(200);
+        assertThat(response).extracting(Response::body).isEqualTo(body);
+        assertThat(response).extracting(x -> x.header("content-type")).isEqualTo("application/json");
     }
 
     @Test
@@ -73,10 +78,10 @@ class JdkHttpTransportHttpServerTest {
                 .accessToken("s3cret-token")
                 .build());
         var response = transport.send(new HttpTransport.Request("POST", base + "/rooms/!a:b/send", Map.of(), "{\"msg\":\"hi\"}"));
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(receivedBody.get()).isEqualTo("{\"msg\":\"hi\"}");
-        assertThat(receivedContentType.get()).isEqualTo("application/json");
-        assertThat(receivedAuth.get()).isEqualTo("Bearer s3cret-token");
+        assertThat(response).extracting(Response::statusCode).isEqualTo(200);
+        assertThat(receivedBody).hasValue("{\"msg\":\"hi\"}");
+        assertThat(receivedContentType).hasValue("application/json");
+        assertThat(receivedAuth).hasValue("Bearer s3cret-token");
     }
 
     @Test
@@ -88,8 +93,8 @@ class JdkHttpTransportHttpServerTest {
             exchange.close();
         });
         var transport = new JdkHttpTransport();
-        assertThat(transport.send(new HttpTransport.Request("PUT", base + "/_matrix/1", Map.of(), "{}")).statusCode()).isEqualTo(200);
-        assertThat(transport.send(new HttpTransport.Request("DELETE", base + "/_matrix/1", Map.of(), null)).statusCode()).isEqualTo(200);
+        assertThat(transport.send(new HttpTransport.Request("PUT", base + "/_matrix/1", Map.of(), "{}"))).extracting(Response::statusCode).isEqualTo(200);
+        assertThat(transport.send(new HttpTransport.Request("DELETE", base + "/_matrix/1", Map.of(), null))).extracting(Response::statusCode).isEqualTo(200);
     }
 
     @Test
@@ -103,8 +108,8 @@ class JdkHttpTransportHttpServerTest {
         });
         var transport = new JdkHttpTransport();
         var response = transport.send(new HttpTransport.Request("GET", base + "/limited", Map.of(), null));
-        assertThat(response.statusCode()).isEqualTo(429);
-        assertThat(response.retryAfterMs()).isEqualTo(7000L);
+        assertThat(response).extracting(Response::statusCode).isEqualTo(429);
+        assertThat(response).extracting(Response::retryAfterMs).isEqualTo(7000L);
     }
 
     @Test
@@ -122,7 +127,7 @@ class JdkHttpTransportHttpServerTest {
         });
         var transport = new JdkHttpTransport(JdkHttpTransport.config().build());
         var response = transport.send(new HttpTransport.Request("GET", base + "/redirect", Map.of(), null));
-        assertThat(response.body()).isEqualTo("{\"ok\":true}");
+        assertThat(response).extracting(Response::body).isEqualTo("{\"ok\":true}");
     }
 
     @Test
@@ -134,7 +139,7 @@ class JdkHttpTransportHttpServerTest {
         });
         var transport = new JdkHttpTransport(JdkHttpTransport.config().followRedirects(false).build());
         var response = transport.send(new HttpTransport.Request("GET", base + "/redirect", Map.of(), null));
-        assertThat(response.statusCode()).isEqualTo(302);
+        assertThat(response).extracting(Response::statusCode).isEqualTo(302);
     }
 
     @Test
@@ -172,13 +177,13 @@ class JdkHttpTransportHttpServerTest {
         var request = new HttpTransport.Request("GET", "https://matrix.example.org/x",
                 Map.of(HttpTransport.Request.AUTHORIZATION_HEADER, "Bearer s3cret-token", "X-Custom", "visible"),
                 "{\"a\":1}");
-        assertThat(request.toString())
+        assertThat(request).extracting(Request::toString, STRING)
                 .contains("Authorization:***")
                 .doesNotContain("s3cret-token")
                 .contains("X-Custom:'visible'")
                 .contains("body=7 bytes");
         var response = new HttpTransport.Response(200, Map.of(), "secret-body", null);
-        assertThat(response.toString())
+        assertThat(response).extracting(Response::toString, STRING)
                 .contains("statusCode=200")
                 .doesNotContain("secret-body");
     }
@@ -186,8 +191,8 @@ class JdkHttpTransportHttpServerTest {
     @Test
     void handlesNullHeadersGracefully() {
         var request = new HttpTransport.Request("GET", "https://x", null, null);
-        assertThat(request.headers()).isEmpty();
+        assertThat(request).extracting(Request::headers, map(String.class, Object.class)).isEmpty();
         var response = new HttpTransport.Response(200, null, "body", null);
-        assertThat(response.headers()).isEmpty();
+        assertThat(response).extracting(Response::headers, map(String.class, Object.class)).isEmpty();
     }
 }

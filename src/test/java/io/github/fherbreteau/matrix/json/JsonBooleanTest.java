@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.json;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 
 class JsonBooleanTest {
 
@@ -14,9 +15,9 @@ class JsonBooleanTest {
 
     @Test
     void predicatesAndSerialization() {
-        assertThat(JsonBoolean.TRUE.isBoolean()).isTrue();
-        assertThat(JsonBoolean.TRUE.asBoolean()).isTrue();
-        assertThat(JsonBoolean.TRUE.toJson()).isEqualTo("true");
-        assertThat(JsonBoolean.FALSE.toJson()).isEqualTo("false");
+        assertThat(JsonBoolean.TRUE).extracting(JsonValue::isBoolean, BOOLEAN).isTrue();
+        assertThat(JsonBoolean.TRUE).extracting(JsonValue::asBoolean, BOOLEAN).isTrue();
+        assertThat(JsonBoolean.TRUE).extracting(JsonValue::toJson).isEqualTo("true");
+        assertThat(JsonBoolean.FALSE).extracting(JsonValue::toJson).isEqualTo("false");
     }
 }

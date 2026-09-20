@@ -8,21 +8,32 @@ import java.util.LinkedHashMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import static org.assertj.core.api.InstanceOfAssertFactories.collection;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 class JsonParserTest {
 
     @Test
     void parsesObject() {
         JsonValue value = JsonParser.parse("{\"a\":1,\"b\":[true,null,\"x\"]}");
-        assertThat(value.isObject()).isTrue();
-        assertThat(value.asObject().get("a").asDouble()).isEqualTo(1.0);
-        assertThat(value.asObject().get("b").asArray().get(2).asString()).isEqualTo("x");
+        assertThat(value).extracting(JsonValue::isObject, BOOLEAN).isTrue();
+        assertThat(value).extracting(JsonValue::asObject)
+                .extracting(x -> x.get("a"))
+                .extracting(JsonValue::asDouble)
+                .isEqualTo(1.0);
+        assertThat(value).extracting(JsonValue::asObject)
+                .extracting(x -> x.get("b"))
+                .extracting(JsonValue::asArray, type(JsonArray.class))
+                .extracting(x -> x.get(2))
+                .extracting(JsonValue::asString)
+                .isEqualTo("x");
     }
 
     @Test
     void parsesEscapes() {
         JsonValue value = JsonParser.parse("\"line\\n\\u00e9\\\"q\\\"\"");
-        assertThat(value.asString()).isEqualTo("line\né\"q\"");
+        assertThat(value).extracting(JsonValue::asString).isEqualTo("line\né\"q\"");
     }
 
     @Test
@@ -32,9 +43,17 @@ class JsonParserTest {
                 .put("count", JsonNumber.of(3))
                 .put("nested", new JsonObject().put("ok", JsonBoolean.of(true)));
         JsonValue reparsed = JsonParser.parse(obj.toJson());
-        assertThat(reparsed.asObject().get("name").asString()).isEqualTo("alice");
-        assertThat(reparsed.asObject().get("nested").asObject().get("ok").asBoolean()).isTrue();
-        assertThat(obj.toJson()).isEqualTo("{\"name\":\"alice\",\"count\":3,\"nested\":{\"ok\":true}}");
+        assertThat(reparsed).extracting(JsonValue::asObject, type(JsonObject.class))
+                .extracting(x -> x.get("name"))
+                .extracting(JsonValue::asString)
+                .isEqualTo("alice");
+        assertThat(reparsed).extracting(JsonValue::asObject, type(JsonObject.class))
+                .extracting(x -> x.get("nested"))
+                .extracting(JsonValue::asObject, type(JsonObject.class))
+                .extracting(x -> x.get("ok"))
+                .extracting(JsonValue::asBoolean, BOOLEAN).isTrue();
+        assertThat(obj).extracting(JsonValue::toJson)
+                .isEqualTo("{\"name\":\"alice\",\"count\":3,\"nested\":{\"ok\":true}}");
     }
 
     @Test
@@ -68,9 +87,10 @@ class JsonParserTest {
 
     @Test
     void parsesSurrogatePairs() {
-        assertThat(JsonParser.parse("\"\\uD83D\\uDE00\"").asString()).isEqualTo("\uD83D\uDE00");
-        assertThat(JsonParser.parse("\"hi \\uD83D\\uDE00!\"").asString()).isEqualTo("hi \uD83D\uDE00!");
-        assertThat(JsonParser.parse("\"\\u00E9\"").asString()).isEqualTo("é");
+        assertThat(JsonParser.parse("\"\\uD83D\\uDE00\"")).extracting(JsonValue::asString).isEqualTo("\uD83D\uDE00");
+        assertThat(JsonParser.parse("\"hi \\uD83D\\uDE00!\"")).extracting(JsonValue::asString)
+                .isEqualTo("hi \uD83D\uDE00!");
+        assertThat(JsonParser.parse("\"\\u00E9\"")).extracting(JsonValue::asString).isEqualTo("é");
     }
 
     @Test
@@ -91,23 +111,23 @@ class JsonParserTest {
 
     @Test
     void parsesStrictNumbers() {
-        assertThat(JsonParser.parse("42").toJson()).isEqualTo("42");
-        assertThat(JsonParser.parse("-7").toJson()).isEqualTo("-7");
-        assertThat(JsonParser.parse("1.5").asDouble()).isEqualTo(1.5);
-        assertThat(JsonParser.parse("1e3").asDouble()).isEqualTo(1000.0);
-        assertThat(JsonParser.parse("2.5E-3").asDouble()).isEqualTo(0.0025);
-        assertThat(JsonParser.parse("-1.25e+2").asDouble()).isEqualTo(-125.0);
-        assertThat(JsonParser.parse("0.10").toJson()).isEqualTo("0.1");
-        assertThat(JsonParser.parse("-0").toJson()).isEqualTo("0");
+        assertThat(JsonParser.parse("42")).extracting(JsonValue::toJson).isEqualTo("42");
+        assertThat(JsonParser.parse("-7")).extracting(JsonValue::toJson).isEqualTo("-7");
+        assertThat(JsonParser.parse("1.5")).extracting(JsonValue::asDouble).isEqualTo(1.5);
+        assertThat(JsonParser.parse("1e3")).extracting(JsonValue::asDouble).isEqualTo(1000.0);
+        assertThat(JsonParser.parse("2.5E-3")).extracting(JsonValue::asDouble).isEqualTo(0.0025);
+        assertThat(JsonParser.parse("-1.25e+2")).extracting(JsonValue::asDouble).isEqualTo(-125.0);
+        assertThat(JsonParser.parse("0.10")).extracting(JsonValue::toJson).isEqualTo("0.1");
+        assertThat(JsonParser.parse("-0")).extracting(JsonValue::toJson).isEqualTo("0");
     }
 
     @Test
     void preservesLargeIntegralValues() {
         JsonValue value = JsonParser.parse("123456789012345678901234567890");
-        var number = (JsonNumber) value;
-        assertThat(number.isNumber()).isTrue();
-        assertThat(number.asBigDecimal()).isEqualTo(new BigDecimal("123456789012345678901234567890"));
-        assertThat(number.toJson()).isEqualTo("123456789012345678901234567890");
+        assertThat(value).extracting(JsonValue::isNumber, BOOLEAN).isTrue();
+        assertThat(value).extracting(JsonValue::asBigDecimal)
+                .isEqualTo(new BigDecimal("123456789012345678901234567890"));
+        assertThat(value).extracting(JsonValue::toJson).isEqualTo("123456789012345678901234567890");
     }
 
     @Test
@@ -174,14 +194,30 @@ class JsonParserTest {
                                 .add(JsonNull.INSTANCE)));
         String serialized = payload.toJson();
         JsonValue reparsed = JsonParser.parse(serialized);
-        assertThat(reparsed.toJson()).isEqualTo(serialized);
+        assertThat(reparsed).extracting(JsonValue::toJson).isEqualTo(serialized);
         var content = reparsed.asObject().get("content").asObject();
-        assertThat(content.get("body").asString()).isEqualTo("Hello \"world\"\nnew\tline");
-        assertThat(content.get("formatted_body").asString()).isEqualTo("<b>é</b> \uD83D\uDE00");
+        assertThat(content).extracting(x -> x.get("body"))
+                .extracting(JsonValue::asString)
+                .isEqualTo("Hello \"world\"\nnew\tline");
+        assertThat(content).extracting(x -> x.get("formatted_body"))
+                .extracting(JsonValue::asString)
+                .isEqualTo("<b>é</b> \uD83D\uDE00");
         var unknown = reparsed.asObject().get("unknown_future_field").asObject();
-        assertThat(unknown.get("nested_unknown").asArray().size()).isEqualTo(2);
-        assertThat(unknown.get("nested_unknown").asArray().get(0).asObject().get("x").asDouble()).isEqualTo(1.5);
-        assertThat(unknown.get("nested_unknown").asArray().get(1).isNull()).isTrue();
+        assertThat(unknown).extracting(x -> x.get("nested_unknown"))
+                .extracting(JsonValue::asArray, type(JsonArray.class))
+                .extracting(JsonArray::size)
+                .isEqualTo(2);
+        assertThat(unknown).extracting(x -> x.get("nested_unknown"))
+                .extracting(JsonValue::asArray, type(JsonArray.class))
+                .extracting(x -> x.get(0))
+                .extracting(JsonValue::asObject, type(JsonObject.class))
+                .extracting(x -> x.get("x"))
+                .extracting(JsonValue::asDouble)
+                .isEqualTo(1.5);
+        assertThat(unknown).extracting(x -> x.get("nested_unknown"))
+                .extracting(JsonValue::asArray, type(JsonArray.class))
+                .extracting(x -> x.get(1))
+                .extracting(JsonValue::isNull, BOOLEAN).isTrue();
     }
 
     @Test
@@ -190,11 +226,12 @@ class JsonParserTest {
                 {"type":"m.room.message","content":{"msgtype":"m.text","body":"hi"},"org.matrix.custom":true}
                 """);
         var obj = value.asObject();
-        assertThat(obj.names()).containsExactlyInAnyOrder("type", "content", "org.matrix.custom");
-        assertThat(obj.get("org.matrix.custom").asBoolean()).isTrue();
-        assertThat(obj.getOrDefault("missing", JsonNull.INSTANCE)).isSameAs(JsonNull.INSTANCE);
-        assertThat(obj.size()).isEqualTo(3);
-        assertThat(obj.entrySet()).hasSize(3);
+        assertThat(obj).extracting(JsonObject::names, collection(String.class)).containsExactlyInAnyOrder("type", "content", "org.matrix.custom");
+        assertThat(obj).extracting(x -> x.get("org.matrix.custom"))
+                .extracting(JsonValue::asBoolean, BOOLEAN).isTrue();
+        assertThat(obj).extracting(x -> x.getOrDefault("missing", JsonNull.INSTANCE)).isSameAs(JsonNull.INSTANCE);
+        assertThat(obj).extracting(JsonObject::size).isEqualTo(3);
+        assertThat(obj).extracting(JsonObject::entrySet, collection(Object.class)).hasSize(3);
     }
 
     @Test
@@ -202,15 +239,20 @@ class JsonParserTest {
         var obj = new JsonObject(new LinkedHashMap<>());
         obj.put("b", 1);
         obj.put("a", 2);
-        assertThat(obj.toJson()).isEqualTo("{\"b\":1,\"a\":2}");
-        assertThat(JsonParser.parse("{\"z\":1,\"a\":2}").toJson()).isEqualTo("{\"z\":1,\"a\":2}");
+        assertThat(obj).extracting(JsonValue::toJson).isEqualTo("{\"b\":1,\"a\":2}");
+        assertThat(JsonParser.parse("{\"z\":1,\"a\":2}")).extracting(JsonValue::toJson).isEqualTo("{\"z\":1,\"a\":2}");
     }
 
     @Test
     void serializesControlCharactersAndUnicodeSafely() {
         var payload = new JsonObject().put("emoji", "🙂").put("del", "\u007f");
-        assertThat(payload.get("emoji").asString()).isEqualTo("🙂");
-        assertThat(payload.get("del").asString()).isEqualTo("\u007f");
-        assertThat(JsonParser.parse(payload.toJson()).asObject().get("del").asString()).isEqualTo("\u007f");
+        assertThat(payload).extracting(x -> x.get("emoji"))
+                .extracting(JsonValue::asString).isEqualTo("🙂");
+        assertThat(payload).extracting(x -> x.get("del"))
+                .extracting(JsonValue::asString).isEqualTo("\u007f");
+        assertThat(JsonParser.parse(payload.toJson()))
+                .extracting(JsonValue::asObject)
+                .extracting(x -> x.get("del"))
+                .extracting(JsonValue::asString).isEqualTo("\u007f");
     }
 }

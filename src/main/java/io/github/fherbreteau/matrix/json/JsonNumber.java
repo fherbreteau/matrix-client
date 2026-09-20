@@ -15,17 +15,32 @@ public final class JsonNumber implements JsonValue {
     this.value = value;
   }
 
-  /** Creates a JSON number from a long. */
+  /**
+   * Creates a JSON number from a long.
+   *
+   * @param value the numeric value
+   * @return a JSON number
+   */
   public static JsonNumber of(long value) {
     return new JsonNumber(BigDecimal.valueOf(value));
   }
 
-  /** Creates a JSON number from a double. */
+  /**
+   * Creates a JSON number from a double.
+   *
+   * @param value the numeric value
+   * @return a JSON number
+   */
   public static JsonNumber of(double value) {
     return new JsonNumber(BigDecimal.valueOf(value));
   }
 
-  /** Creates a JSON number from an arbitrary-precision decimal. */
+  /**
+   * Creates a JSON number from an arbitrary-precision decimal.
+   *
+   * @param value the numeric value
+   * @return a JSON number
+   */
   public static JsonNumber of(BigDecimal value) {
     return new JsonNumber(Objects.requireNonNull(value, "value"));
   }
@@ -40,12 +55,20 @@ public final class JsonNumber implements JsonValue {
     return value.doubleValue();
   }
 
-  /** Returns this number as a {@code long}, truncating fractional values. */
+  /**
+   * Returns this number as a {@code long}, truncating fractional values.
+   *
+   * @return the number as a {@code long}, truncating fractional values
+   */
   public long asLong() {
     return value.longValue();
   }
 
-  /** Returns this number as a {@link BigDecimal} preserving full precision. */
+  /**
+   * Returns this number as a {@link BigDecimal} preserving full precision.
+   *
+   * @return the JSON serialization of this number
+   */
   @Override
   public BigDecimal asBigDecimal() {
     return value;

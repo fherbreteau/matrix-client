@@ -8,13 +8,22 @@ public class JsonParseException extends IllegalArgumentException {
 
   private final int position;
 
-  /** Creates a parse exception with the given message and position. */
+  /**
+   * Creates a parse exception with the given message and position.
+   *
+   * @param message the error description
+   * @param position the position of the offending character in the input
+   */
   public JsonParseException(String message, int position) {
     super(message + " at position " + position);
     this.position = position;
   }
 
-  /** Returns the position of the offending character in the parsed input. */
+  /**
+   * Returns the position of the offending character in the parsed input.
+   *
+   * @return the position of the offending character in the parsed input
+   */
   public int getPosition() {
     return position;
   }

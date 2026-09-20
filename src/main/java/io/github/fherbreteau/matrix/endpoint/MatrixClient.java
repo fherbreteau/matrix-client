@@ -61,12 +61,21 @@ public final class MatrixClient {
             : null;
   }
 
-  /** Returns a builder for a client pointing at the given homeserver URL. */
+  /**
+   * Returns a builder for a client pointing at the given homeserver URL.
+   *
+   * @param homeserverUrl the base URL of the homeserver
+   * @return a builder for a client pointing at the homeserver
+   */
   public static Builder builder(String homeserverUrl) {
     return new Builder(homeserverUrl);
   }
 
-  /** Returns the transport used to reach the homeserver. */
+  /**
+   * Returns the transport used to reach the homeserver.
+   *
+   * @return the transport used to reach the homeserver
+   */
   public HttpTransport getTransport() {
     return transport;
   }
@@ -78,6 +87,8 @@ public final class MatrixClient {
   /**
    * Returns the result of the discovery performed at build time, or {@code null} when discovery was
    * not requested.
+   *
+   * @return the discovery result, or {@code null} when discovery was not requested
    */
   public DiscoveredHomeserver getDiscovery() {
     return discovery;
@@ -86,12 +97,18 @@ public final class MatrixClient {
   /**
    * Returns the validated capabilities of the homeserver when version validation was requested at
    * build time, or {@code null} otherwise.
+   *
+   * @return the validated capabilities, or {@code null} when not validated
    */
   public MatrixVersions getCapabilities() {
     return versions;
   }
 
-  /** Retrieves the homeserver's supported Matrix spec versions. */
+  /**
+   * Retrieves the homeserver's supported Matrix spec versions.
+   *
+   * @return the parsed {@code /versions} response
+   */
   public JsonValue getVersions() {
     return get("_matrix/client/versions");
   }
@@ -100,6 +117,7 @@ public final class MatrixClient {
    * Retrieves and validates the homeserver's supported Matrix spec versions. Unknown fields (such
    * as {@code unstable_features}) are preserved on the returned {@link MatrixVersions}.
    *
+   * @return the validated spec versions and features of the homeserver
    * @throws io.github.fherbreteau.matrix.error.DiscoveryException if the response is malformed
    */
   public MatrixVersions getSupportedVersions() {
@@ -110,6 +128,8 @@ public final class MatrixClient {
    * Logs in with the given credentials, stores the resulting session in the session store and
    * returns it.
    *
+   * @param credentials the login credentials
+   * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
    */
@@ -121,6 +141,9 @@ public final class MatrixClient {
    * Logs in with the given credentials, stores the resulting session in the session store and
    * returns it.
    *
+   * @param credentials the login credentials
+   * @param requestRefreshToken whether to request a refreshable token
+   * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
    */
@@ -132,6 +155,9 @@ public final class MatrixClient {
    * Logs in with the given credentials and an optional device display name, stores the resulting
    * session in the session store and returns it.
    *
+   * @param credentials the login credentials
+   * @param deviceDisplayName the optional device display name
+   * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
    */
@@ -143,6 +169,10 @@ public final class MatrixClient {
    * Logs in with the given credentials, an optional device display name and an optional request for
    * a refreshable token; stores the resulting session in the session store and returns it.
    *
+   * @param credentials the login credentials
+   * @param deviceDisplayName the optional device display name
+   * @param requestRefreshToken whether to request a refreshable token
+   * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
    */
@@ -166,7 +196,11 @@ public final class MatrixClient {
     }
   }
 
-  /** Returns the current authenticated session, if any. */
+  /**
+   * Returns the current authenticated session, if any.
+   *
+   * @return the current authenticated session, if any
+   */
   public Optional<Session> getSession() {
     return sessionStore.current();
   }
@@ -174,6 +208,7 @@ public final class MatrixClient {
   /**
    * Renews the current session with its refresh token, replacing the stored session.
    *
+   * @return the refreshed session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session, the
    *     session is not refreshable, or the refresh token is no longer valid
    */
@@ -223,17 +258,35 @@ public final class MatrixClient {
     sessionStore.clear();
   }
 
-  /** Performs a GET request against the homeserver and returns the parsed JSON body. */
+  /**
+   * Performs a GET request against the homeserver and returns the parsed JSON body.
+   *
+   * @param path the endpoint path relative to the homeserver URL
+   * @return the parsed JSON response
+   */
   public JsonValue get(String path) {
     return request("GET", path, null);
   }
 
-  /** Performs a POST request with a JSON body and returns the parsed JSON response. */
+  /**
+   * Performs a POST request with a JSON body and returns the parsed JSON response.
+   *
+   * @param path the endpoint path relative to the homeserver URL
+   * @param body the JSON request body, or {@code null} for none
+   * @return the parsed JSON response
+   */
   public JsonValue post(String path, JsonValue body) {
     return request("POST", path, body == null ? null : body.toJson());
   }
 
-  /** Performs an HTTP request against the homeserver and returns the parsed JSON response. */
+  /**
+   * Performs an HTTP request against the homeserver and returns the parsed JSON response.
+   *
+   * @param method the HTTP method
+   * @param path the endpoint path relative to the homeserver URL
+   * @param body the JSON request body, or {@code null} for none
+   * @return the parsed JSON response
+   */
   public JsonValue request(String method, String path, String body) {
     return request(method, path, body, Map.of());
   }
@@ -325,6 +378,9 @@ public final class MatrixClient {
     /**
      * Overrides the session store used to persist the authenticated session; defaults to an
      * in-memory store.
+     *
+     * @param sessionStore the store persisting the authenticated session
+     * @return this builder for chaining
      */
     public Builder sessionStore(SessionStore sessionStore) {
       this.sessionStore = sessionStore;
@@ -334,6 +390,8 @@ public final class MatrixClient {
     /**
      * Resolves the homeserver URL through {@code /.well-known/matrix/client} at build time; on any
      * discovery failure the explicit base URL is used as fallback.
+     *
+     * @return this builder for chaining
      */
     public Builder discover() {
       this.discover = true;
@@ -343,19 +401,30 @@ public final class MatrixClient {
     /**
      * Fetches and validates {@code /_matrix/client/versions} at build time so malformed capability
      * responses fail fast.
+     *
+     * @return this builder for chaining
      */
     public Builder validateVersions() {
       this.validateVersions = true;
       return this;
     }
 
-    /** Overrides the transport used to reach the homeserver. */
+    /**
+     * Overrides the transport used to reach the homeserver.
+     *
+     * @param transport the transport used to reach the homeserver
+     * @return this builder for chaining
+     */
     public Builder transport(HttpTransport transport) {
       this.transport = transport;
       return this;
     }
 
-    /** Builds the client, applying discovery and capability validation if requested. */
+    /**
+     * Builds the client, applying discovery and capability validation if requested.
+     *
+     * @return the configured client
+     */
     public MatrixClient build() {
       return new MatrixClient(this);
     }

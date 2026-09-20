@@ -6,7 +6,12 @@ package io.github.fherbreteau.matrix.transport;
  */
 public final class TransportInterruptedException extends TransportException {
 
-  /** Creates an interruption exception with the given message and cause. */
+  /**
+   * Creates an interruption exception with the given message and cause.
+   *
+   * @param message the error message
+   * @param cause the underlying cause
+   */
   public TransportInterruptedException(String message, Throwable cause) {
     super(message, cause);
   }

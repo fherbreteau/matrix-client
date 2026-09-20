@@ -20,6 +20,10 @@ public class MatrixServerException extends MatrixException {
   /**
    * Creates a server exception with the given HTTP status and Matrix error fields; retryability is
    * derived from the status code.
+   *
+   * @param statusCode the HTTP status code
+   * @param errcode the Matrix error code
+   * @param message the error message
    */
   public MatrixServerException(int statusCode, String errcode, String message) {
     this(statusCode, errcode, message, Map.of(), isRetryableStatus(statusCode));
@@ -28,6 +32,12 @@ public class MatrixServerException extends MatrixException {
   /**
    * Creates a server exception with the given HTTP status, Matrix error fields, additional unknown
    * fields and retryability flag.
+   *
+   * @param statusCode the HTTP status code
+   * @param errcode the Matrix error code
+   * @param message the error message
+   * @param fields the additional error-body fields
+   * @param retryable whether the request may be retried
    */
   public MatrixServerException(
       int statusCode,
@@ -44,6 +54,10 @@ public class MatrixServerException extends MatrixException {
   /**
    * Builds the exception from an HTTP status and the parsed JSON error body. Unknown fields of the
    * body are preserved.
+   *
+   * @param statusCode the HTTP status code
+   * @param body the parsed error body, if any
+   * @return the exception mapped from the response
    */
   public static MatrixServerException fromResponse(int statusCode, JsonValue body) {
     return fromResponse(statusCode, body, null);
@@ -52,6 +66,11 @@ public class MatrixServerException extends MatrixException {
   /**
    * Builds the exception from an HTTP status, the parsed JSON error body and the response headers
    * (used for {@code Retry-After} information).
+   *
+   * @param statusCode the HTTP status code
+   * @param body the parsed error body, if any
+   * @param headers the response headers
+   * @return the exception mapped from the response
    */
   public static MatrixServerException fromResponse(
       int statusCode, JsonValue body, Map<String, String> headers) {
@@ -125,6 +144,8 @@ public class MatrixServerException extends MatrixException {
   /**
    * Returns the additional (unknown) fields of the Matrix error body, beyond {@code errcode} and
    * {@code error}.
+   *
+   * @return the additional error-body fields beyond errcode and error
    */
   public Map<String, JsonValue> getFields() {
     return fields == null ? Map.of() : fields;
@@ -133,6 +154,8 @@ public class MatrixServerException extends MatrixException {
   /**
    * Returns whether the same request can be retried with a chance of success (timeouts, rate
    * limits, transient server errors).
+   *
+   * @return whether the same request may be retried
    */
   public boolean isRetryable() {
     return retryable;

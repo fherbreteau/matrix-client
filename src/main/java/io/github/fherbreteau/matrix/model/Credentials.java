@@ -8,7 +8,11 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  */
 public sealed interface Credentials permits PasswordCredentials {
 
-  /** Serializes the credentials as a login request body. */
+  /**
+   * Serializes the credentials as a login request body.
+   *
+   * @return the login request body for these credentials
+   */
   JsonValue toJson();
 
   /** Returns a representation that never includes secrets. */

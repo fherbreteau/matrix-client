@@ -6,7 +6,12 @@ package io.github.fherbreteau.matrix.error;
  */
 public final class AuthenticationException extends MatrixException {
 
-  /** Creates an authentication exception with the given error code and message. */
+  /**
+   * Creates an authentication exception with the given error code and message.
+   *
+   * @param errcode the Matrix error code
+   * @param message the error message
+   */
   public AuthenticationException(String errcode, String message) {
     super(errcode, message);
   }

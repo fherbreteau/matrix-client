@@ -28,12 +28,20 @@ public final class JdkHttpTransport implements HttpTransport {
     this(HttpClient.newHttpClient(), HttpTransportConfig.builder().build());
   }
 
-  /** Creates a transport over the given {@code HttpClient} with default configuration. */
+  /**
+   * Creates a transport over the given {@code HttpClient} with default configuration.
+   *
+   * @param client the HTTP client used to send requests
+   */
   public JdkHttpTransport(HttpClient client) {
     this(client, HttpTransportConfig.builder().build());
   }
 
-  /** Creates a transport with a {@code HttpClient} built from the given configuration. */
+  /**
+   * Creates a transport with a {@code HttpClient} built from the given configuration.
+   *
+   * @param config the transport configuration
+   */
   public JdkHttpTransport(HttpTransportConfig config) {
     this(newClient(config), config);
   }
@@ -46,6 +54,8 @@ public final class JdkHttpTransport implements HttpTransport {
   /**
    * Returns a builder producing a {@link HttpTransportConfig}; use it to create a transport with
    * {@code new JdkHttpTransport(config.build())}.
+   *
+   * @return a builder producing a transport configuration
    */
   public static HttpTransportConfig.Builder config() {
     return HttpTransportConfig.builder();

@@ -12,7 +12,12 @@ public final class JsonBoolean implements JsonValue {
     this.value = value;
   }
 
-  /** Returns the {@link JsonBoolean} constant for the given value. */
+  /**
+   * Returns the {@link JsonBoolean} constant for the given value.
+   *
+   * @param value the boolean value
+   * @return the {@link JsonBoolean} constant for the value
+   */
   public static JsonBoolean of(boolean value) {
     return value ? TRUE : FALSE;
   }

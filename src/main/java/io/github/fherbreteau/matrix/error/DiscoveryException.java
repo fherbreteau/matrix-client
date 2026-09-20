@@ -7,7 +7,11 @@ package io.github.fherbreteau.matrix.error;
  */
 public final class DiscoveryException extends MatrixException {
 
-  /** Creates a discovery exception with the given message. */
+  /**
+   * Creates a discovery exception with the given message.
+   *
+   * @param message the error message
+   */
   public DiscoveryException(String message) {
     super("M_UNRECOGNIZED", message);
   }

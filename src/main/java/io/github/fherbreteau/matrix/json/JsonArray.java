@@ -13,7 +13,11 @@ public final class JsonArray implements JsonValue {
     this(new ArrayList<>());
   }
 
-  /** Creates a JSON array backed by the given values. */
+  /**
+   * Creates a JSON array backed by the given values.
+   *
+   * @param values the initial elements of the array
+   */
   public JsonArray(List<JsonValue> values) {
     this.values = values;
   }
@@ -28,18 +32,32 @@ public final class JsonArray implements JsonValue {
     return this;
   }
 
-  /** Returns the value at the given index. */
+  /**
+   * Returns the value at the given index.
+   *
+   * @param index the element index
+   * @return the value at the given index
+   */
   public JsonValue get(int index) {
     return values.get(index);
   }
 
-  /** Appends a value and returns this array for chaining. */
+  /**
+   * Appends a value and returns this array for chaining.
+   *
+   * @param value the value to append
+   * @return this array for chaining
+   */
   public JsonArray add(JsonValue value) {
     values.add(value);
     return this;
   }
 
-  /** Returns the number of elements. */
+  /**
+   * Returns the number of elements.
+   *
+   * @return the number of elements
+   */
   public int size() {
     return values.size();
   }

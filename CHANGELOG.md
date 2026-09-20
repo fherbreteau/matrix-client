@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔧 Build System
 
-- **Google Java Style Enforcement**: The project now follows the Google Java Style Guide, enforced for everyone by two gates — formatting via `google-java-format` (Spotify `fmt-maven-plugin` `fmt:check` bound to `validate`, apply with `mvn fmt:format`: 2-space indentation, 4-space continuation indent, 100-column limit, unused-import removal, import sorting) and the official Checkstyle `google_checks.xml` ruleset at severity `error` (import order, whitespace, naming, Javadoc requirements on public members); the previous Eclipse formatter profile was removed and the codebase reformatted, with Javadoc added to all public members
+- **Google Java Style Enforcement**: The project now follows the Google Java Style Guide, enforced for everyone by two gates — formatting via `google-java-format` (Spotify `fmt-maven-plugin` `fmt:check` bound to `validate`, apply with `mvn fmt:format`: 2-space indentation, 4-space continuation indent, 100-column limit, unused-import removal, import sorting) and the official Checkstyle `google_checks.xml` ruleset at severity `error` (import order, whitespace, naming, Javadoc requirements on public members) and Javadoc `JavadocMethod` enforcement: `@param` on every parameter and `@return` on every non-void public method are now mandatory, with tag order enforced; the previous Eclipse formatter profile was removed and the codebase reformatted, with Javadoc added to all public members
 
 ### 🚀 Features
 

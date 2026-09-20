@@ -33,41 +33,73 @@ public sealed interface JsonValue
     return false;
   }
 
-  /** Returns this value as a {@link JsonObject}. */
+  /**
+   * Returns this value as a {@link JsonObject}.
+   *
+   * @return this value as a {@link JsonObject}
+   */
   default JsonObject asObject() {
     throw new UnsupportedOperationException("Not a JSON object");
   }
 
-  /** Returns this value as a {@link JsonArray}. */
+  /**
+   * Returns this value as a {@link JsonArray}.
+   *
+   * @return this value as a {@link JsonArray}
+   */
   default JsonArray asArray() {
     throw new UnsupportedOperationException("Not a JSON array");
   }
 
-  /** Returns this value as a string. */
+  /**
+   * Returns this value as a string.
+   *
+   * @return this value as a string
+   */
   default String asString() {
     throw new UnsupportedOperationException("Not a JSON string");
   }
 
-  /** Returns this value as a double. */
+  /**
+   * Returns this value as a double.
+   *
+   * @return this value as a double
+   */
   default double asDouble() {
     throw new UnsupportedOperationException("Not a JSON number");
   }
 
-  /** Returns this value as a long. */
+  /**
+   * Returns this value as a long.
+   *
+   * @return this value as a long
+   */
   default long asLong() {
     throw new UnsupportedOperationException("Not a JSON number");
   }
 
-  /** Returns this value as a {@link BigDecimal} preserving full precision. */
+  /**
+   * Returns this value as a {@link BigDecimal} preserving full precision.
+   *
+   * @return this value as a {@link BigDecimal} preserving full precision
+   */
   default BigDecimal asBigDecimal() {
     throw new UnsupportedOperationException("Not a JSON number");
   }
 
-  /** Returns this value as a boolean. */
+  /**
+   * Returns this value as a boolean.
+   *
+   * @return this value as a boolean
+   */
   default boolean asBoolean() {
     throw new UnsupportedOperationException("Not a JSON boolean");
   }
 
-  /** Serializes this value back to a JSON string. */
+  /**
+   * Serializes this value back to a JSON string.
+   *
+   * @return the JSON serialization of this value
+   */
   String toJson();
 }

@@ -9,7 +9,12 @@ public final class JsonString implements JsonValue {
     this.value = value;
   }
 
-  /** Creates a JSON string value. */
+  /**
+   * Creates a JSON string value.
+   *
+   * @param value the string value
+   * @return a JSON string value
+   */
   public static JsonString of(String value) {
     return new JsonString(value);
   }

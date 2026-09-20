@@ -27,6 +27,8 @@ public final class MatrixVersions {
   /**
    * Validates and parses a {@code /versions} response body.
    *
+   * @param body the parsed response body
+   * @return the validated versions and features
    * @throws DiscoveryException if the body is not a JSON object or does not contain a {@code
    *     versions} array of strings
    */
@@ -57,12 +59,21 @@ public final class MatrixVersions {
     return new MatrixVersions(versions, fields);
   }
 
-  /** Returns the Matrix spec versions supported by the homeserver. */
+  /**
+   * Returns the Matrix spec versions supported by the homeserver.
+   *
+   * @return the Matrix spec versions supported by the homeserver
+   */
   public List<String> getVersions() {
     return versions;
   }
 
-  /** Returns whether the homeserver supports the given Matrix spec version. */
+  /**
+   * Returns whether the homeserver supports the given Matrix spec version.
+   *
+   * @param version the Matrix spec version to check
+   * @return whether the version is supported
+   */
   public boolean supports(String version) {
     return versions.contains(version);
   }
@@ -70,6 +81,8 @@ public final class MatrixVersions {
   /**
    * Returns the additional fields of the response (such as {@code unstable_features}), beyond the
    * {@code versions} array.
+   *
+   * @return the additional response fields beyond the versions array
    */
   public Map<String, JsonValue> getFields() {
     return fields;

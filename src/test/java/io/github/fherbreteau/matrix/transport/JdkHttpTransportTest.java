@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
+import java.net.http.HttpTimeoutException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -109,6 +110,13 @@ class JdkHttpTransportTest {
         }
     }
 
+    private static final class TimingOutHttpClient extends TestHttpClient {
+        @Override
+        public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) throws IOException {
+            throw new HttpTimeoutException("timed out");
+        }
+    }
+
     private static final class InterruptingHttpClient extends TestHttpClient {
         @Override
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) throws InterruptedException {
@@ -146,7 +154,7 @@ class JdkHttpTransportTest {
 
         @Override
         public java.net.http.HttpHeaders headers() {
-            return unsupported();
+            return java.net.http.HttpHeaders.of(Map.of(), (name, value) -> true);
         }
 
         @Override
@@ -191,7 +199,18 @@ class JdkHttpTransportTest {
         var exception = assertThatExceptionOfType(UncheckedTransportException.class)
                 .isThrownBy(() -> transport.send(request))
                 .actual();
-        assertThat(exception.getMessage()).isEqualTo("HTTP request failed");
+        assertThat(exception.getMessage()).isEqualTo("HTTP request failed: GET https://x");
+        assertThat(exception).hasCauseInstanceOf(IOException.class);
+    }
+
+    @Test
+    void mapsTimeoutException() {
+        var transport = new JdkHttpTransport(new TimingOutHttpClient());
+        var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
+        var exception = assertThatExceptionOfType(TransportTimeoutException.class)
+                .isThrownBy(() -> transport.send(request))
+                .actual();
+        assertThat(exception).hasCauseInstanceOf(HttpTimeoutException.class);
     }
 
     @Test
@@ -199,7 +218,7 @@ class JdkHttpTransportTest {
         var transport = new JdkHttpTransport(new InterruptingHttpClient());
         var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
         try {
-            assertThatExceptionOfType(IllegalStateException.class)
+            assertThatExceptionOfType(TransportInterruptedException.class)
                     .isThrownBy(() -> transport.send(request));
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
         } finally {

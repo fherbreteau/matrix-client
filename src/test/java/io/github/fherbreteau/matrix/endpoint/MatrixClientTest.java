@@ -1,12 +1,14 @@
 package io.github.fherbreteau.matrix.endpoint;
 
 import io.github.fherbreteau.matrix.error.MatrixServerException;
+import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -59,6 +61,22 @@ class MatrixClientTest {
         assertThat(exception.getStatusCode()).isEqualTo(403);
         assertThat(exception.getErrcode()).isEqualTo("M_FORBIDDEN");
         assertThat(exception.getMessage()).isEqualTo("Invalid password");
+    }
+
+    @Test
+    void rateLimitedResponseRaisesRateLimitedException() {
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(429,
+                        Map.of("retry-after", "30"),
+                        "{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}",
+                        30000L))
+                .build();
+        var exception = assertThatExceptionOfType(RateLimitedException.class)
+                .isThrownBy(client::getVersions)
+                .actual();
+        assertThat(exception.getRetryAfterMs()).isEqualTo(30000L);
+        assertThat(exception.getErrcode()).isEqualTo("M_LIMIT_EXCEEDED");
+        assertThat(exception.isRetryable()).isTrue();
     }
 
     @Test

@@ -66,7 +66,9 @@ public final class MatrixClient {
         Request request = new Request(method, homeserverUrl + "/" + path, headers, body);
         HttpTransport.Response response = transport.send(request);
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw MatrixServerException.fromResponse(response.statusCode(), parseOrNull(response.body()));
+            throw MatrixServerException.fromResponse(response.statusCode(),
+                    parseOrNull(response.body()),
+                    response.headers());
         }
         if (response.body() == null || response.body().isBlank()) {
             return new io.github.fherbreteau.matrix.json.JsonObject();

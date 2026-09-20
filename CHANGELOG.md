@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
-- **Room and Membership Operations**: Implemented issue #6 — typed room APIs on `MatrixClient` (create room, join by identifier or alias, leave, invite, full room state, joined members, room name and canonical alias, alias resolution) with fully validated identifier types (`RoomId`, `RoomAlias`, `UserId`, `EventId`, `DeviceId`), percent-encoded identifiers in request paths, room state preserving unknown event types and fields (via a `RoomEvent` content now modeled as raw `JsonValue`), and parsed `JoinedMembers`/`RoomAliasResolution` responses; success and Matrix error paths are covered by tests (157 total)
+- **Room and Membership Operations**: Implemented issue #6 — typed room APIs on `MatrixClient` (create room, join by identifier or alias, leave, invite, full room state, joined members, room name and canonical alias, alias resolution) with fully validated identifier types (`RoomId`, `RoomAlias`, `UserId`, `EventId`, `DeviceId`), percent-encoded identifiers in request paths, room state preserving unknown event types and fields (via a `RoomEvent` content now modeled as raw `JsonValue`), and parsed `JoinedMembers`/`RoomAliasResolution` responses; success and Matrix error paths are covered by tests (157 total) (#22)
 
 ## 🤝 Contributing to Changelog
 

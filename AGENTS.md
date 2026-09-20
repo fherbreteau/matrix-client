@@ -43,7 +43,7 @@ mvn javadoc:javadoc
 
 All of the following must pass before committing:
 
-1. **Java**: `mvn clean verify` — compiles with `--release 25`, runs the unit tests,
+1. **Java**: `mvn clean verify` — compiles with `--release 25`, runs Checkstyle (0 violations), the unit tests,
    JaCoCo coverage (≥80% instructions, 0 missed methods/classes), and builds the modular jar.
 2. **Javadoc**: `mvn javadoc:javadoc` — must complete without errors (doclint is
    configured as `all,-missing`).
@@ -90,6 +90,7 @@ gate; add tests in the same change instead. SonarCloud analyzes the project
 
 ## Code Style
 
+- Checkstyle (`checkstyle.xml`) enforces no trailing whitespace, LF line endings at EOF, no tabs, `FinalClass` rule (all classes with private constructors must be `final`), ordered imports (`java` group first, separated), `EmptyLineSeparator` between methods, `UnusedImports`, `WhitespaceAround`.
 - No comments in code unless explicitly requested.
 - Public classes and methods carry Javadoc (doclint runs in CI).
 - Prefer records and sealed interfaces where they fit.

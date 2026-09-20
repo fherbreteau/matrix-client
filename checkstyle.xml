@@ -73,6 +73,7 @@
         <module name="SuppressWarningsHolder"/>
         <module name="TypecastParenPad"/>
         <module name="TypeName"/>
+        <module name="UnnecessaryFullyQualifiedType"/>
         <module name="UnnecessaryParentheses"/>
         <module name="UnusedImports"/>
         <module name="UpperEll"/>

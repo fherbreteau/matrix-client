@@ -1,13 +1,13 @@
 package io.github.fherbreteau.matrix.endpoint;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 class HomeserverDiscoveryTest {
 
@@ -34,10 +34,10 @@ class HomeserverDiscoveryTest {
     @Test
     void discoversFromWellKnown() {
         var transport = HttpTransportStub.responding(200, """
-                {"m.homeserver":{"base_url":"https://matrix.example.org:8448/"},
-                 "m.identity_server":{"base_url":"https://id.example.org"},
-                 "org.example.unknown":{"x":1}}
-                """);
+            {"m.homeserver":{"base_url":"https://matrix.example.org:8448/"},
+             "m.identity_server":{"base_url":"https://id.example.org"},
+             "org.example.unknown":{"x":1}}
+            """);
         var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");
         assertThat(discovered.homeserverUrl()).isEqualTo("https://matrix.example.org:8448");
         assertThat(discovered.identityServerUrl()).isEqualTo("https://id.example.org");

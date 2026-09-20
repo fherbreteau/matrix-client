@@ -1,20 +1,20 @@
 package io.github.fherbreteau.matrix.model;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MatrixVersionsTest {
 
     @Test
     void parsesVersionsAndUnknownFields() {
         var versions = MatrixVersions.from(JsonParser.parse("""
-                {"versions":["v1.5","v1.11"],"unstable_features":{"new_feature":true},"other":42}
-                """));
+            {"versions":["v1.5","v1.11"],"unstable_features":{"new_feature":true},"other":42}
+            """));
         assertThat(versions.getVersions()).containsExactly("v1.5", "v1.11");
         assertThat(versions.supports("v1.11")).isTrue();
         assertThat(versions.supports("v9.99")).isFalse();
@@ -36,11 +36,11 @@ class MatrixVersionsTest {
         record Case(String body, String message) {
         }
         var cases = new Case[] {
-                new Case("[]", "JSON object"),
-                new Case("{}", "versions array"),
-                new Case("{\"versions\":\"v1.11\"}", "versions array"),
-                new Case("{\"versions\":[\"v1.11\",42]}", "only strings"),
-                new Case("{\"versions\":[null]}", "only strings")
+            new Case("[]", "JSON object"),
+            new Case("{}", "versions array"),
+            new Case("{\"versions\":\"v1.11\"}", "versions array"),
+            new Case("{\"versions\":[\"v1.11\",42]}", "only strings"),
+            new Case("{\"versions\":[null]}", "only strings")
         };
         for (Case c : cases) {
             JsonValue body = JsonParser.parse(c.body());

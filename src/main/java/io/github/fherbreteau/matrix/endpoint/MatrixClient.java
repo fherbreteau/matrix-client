@@ -36,6 +36,8 @@ import java.util.Optional;
  */
 public final class MatrixClient {
 
+  private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
+
   private final HttpTransport transport;
   private final String homeserverUrl;
   private final MatrixVersions versions;
@@ -169,9 +171,9 @@ public final class MatrixClient {
         sessionStore
             .current()
             .orElseThrow(
-                () -> new AuthenticationException("M_MISSING_TOKEN", "No authenticated session"));
+                () -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"));
     if (!session.isRefreshable()) {
-      throw new AuthenticationException("M_MISSING_TOKEN", "Session is not refreshable");
+      throw new AuthenticationException(M_MISSING_TOKEN, "Session is not refreshable");
     }
     try {
       Session refreshed =
@@ -243,7 +245,7 @@ public final class MatrixClient {
         sessionStore
             .current()
             .orElseThrow(
-                () -> new AuthenticationException("M_MISSING_TOKEN", "No authenticated session"));
+                () -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"));
     try {
       return request(
           method,
@@ -262,7 +264,7 @@ public final class MatrixClient {
     String errcode = e.getErrcode();
     return e.getStatusCode() == 401
         || "M_UNKNOWN_TOKEN".equals(errcode)
-        || "M_MISSING_TOKEN".equals(errcode)
+        || M_MISSING_TOKEN.equals(errcode)
         || "M_INVALID_TOKEN".equals(errcode);
   }
 

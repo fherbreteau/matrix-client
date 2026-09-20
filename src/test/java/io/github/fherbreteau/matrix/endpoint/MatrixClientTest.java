@@ -1,6 +1,7 @@
 package io.github.fherbreteau.matrix.endpoint;
 
 import io.github.fherbreteau.matrix.error.MatrixServerException;
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import org.junit.jupiter.api.Test;
 
@@ -8,20 +9,22 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 class MatrixClientTest {
 
     @Test
     void canInstantiateClient() {
-        MatrixClient client = MatrixClient.builder("https://matrix.example.org").build();
-        assertEquals("https://matrix.example.org", client.getHomeserverUrl());
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org/").build();
+        assertThat(client.getHomeserverUrl()).isEqualTo("https://matrix.example.org");
+        assertThat(client.getTransport()).isInstanceOf(HttpTransport.class);
     }
 
     @Test
     void rejectsBlankHomeserverUrl() {
-        assertThrows(IllegalArgumentException.class, () -> MatrixClient.builder(" ").build());
+        assertThatIllegalArgumentException().isThrownBy(() -> MatrixClient.builder(" ").build());
     }
 
     @Test
@@ -32,7 +35,17 @@ class MatrixClientTest {
                 .transport(request -> responses.pop())
                 .build();
         var versions = client.getVersions();
-        assertEquals("v1.11", versions.asObject().get("versions").asArray().get(0).asString());
+        assertThat(versions.asObject().get("versions").asArray().get(0).asString()).isEqualTo("v1.11");
+    }
+
+    @Test
+    void blankResponseYieldsEmptyObject() {
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(200, ""))
+                .build();
+        var result = client.post("test", null);
+        assertThat(result.isObject()).isTrue();
+        assertThat(result.asObject().names()).isEmpty();
     }
 
     @Test
@@ -41,9 +54,33 @@ class MatrixClientTest {
                 .transport(request -> new HttpTransport.Response(403,
                         "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Invalid password\"}"))
                 .build();
-        var exception = assertThrows(MatrixServerException.class, client::getVersions);
-        assertEquals(403, exception.getStatusCode());
-        assertEquals("M_FORBIDDEN", exception.getErrcode());
-        assertEquals("Invalid password", exception.getMessage());
+        var exception = assertThatExceptionOfType(MatrixServerException.class)
+                .isThrownBy(client::getVersions)
+                .actual();
+        assertThat(exception.getStatusCode()).isEqualTo(403);
+        assertThat(exception.getErrcode()).isEqualTo("M_FORBIDDEN");
+        assertThat(exception.getMessage()).isEqualTo("Invalid password");
+    }
+
+    @Test
+    void serverErrorWithNonJsonBodyFallsBack() {
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(500, "oops"))
+                .build();
+        var exception = assertThatExceptionOfType(MatrixServerException.class)
+                .isThrownBy(client::getVersions)
+                .actual();
+        assertThat(exception.getErrcode()).isEqualTo("M_UNRECOGNIZED");
+        assertThat(exception.getMessage()).isEqualTo("HTTP 500");
+    }
+
+    @Test
+    void stubTransportReceivesRequests() {
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(200, "{}"))
+                .build();
+        var response = client.post("_matrix/client/r0/rooms/!a:b/send/m.room.message/1",
+                new JsonObject().put("body", "hello"));
+        assertThat(response.isObject()).isTrue();
     }
 }

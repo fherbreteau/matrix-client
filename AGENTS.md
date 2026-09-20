@@ -44,10 +44,18 @@ mvn javadoc:javadoc
 All of the following must pass before committing:
 
 1. **Java**: `mvn clean verify` — compiles with `--release 25`, runs the unit tests,
-   and builds the modular jar.
+   JaCoCo coverage (≥80% instructions, 0 missed methods/classes), and builds the modular jar.
 2. **Javadoc**: `mvn javadoc:javadoc` — must complete without errors (doclint is
    configured as `all,-missing`).
 3. **CI**: GitHub Actions (`.github/workflows/ci.yml`) builds on Java 25.
+
+### Coverage Rule (≥80%)
+
+Code coverage must remain **above 80%**. The JaCoCo check in `mvn verify`
+enforces ≥80% instructions coverage with **0 missed methods and 0 missed
+classes** at the bundle level — never land code that drops coverage below the
+gate; add tests in the same change instead. SonarCloud analyzes the project
+(`sonar` profile, `mvn -Psonar verify sonar:sonar` in CI with `SONAR_TOKEN`).
 
 ## Module System Rules
 

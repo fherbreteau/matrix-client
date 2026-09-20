@@ -11,12 +11,18 @@ class JsonObjectTest {
         var obj = new JsonObject();
         obj.put("a", JsonString.of("1"));
         obj.put("b", JsonNumber.of(2));
+        obj.put("long", 3L);
+        obj.put("double", 2.5);
+        obj.put("flag", false);
         assertThat(obj.get("a").asString()).isEqualTo("1");
         assertThat(obj.get("b").asDouble()).isEqualTo(2);
+        assertThat(obj.get("long").asLong()).isEqualTo(3L);
+        assertThat(obj.get("double").asDouble()).isEqualTo(2.5);
+        assertThat(obj.get("flag").asBoolean()).isFalse();
         assertThat(obj.has("a")).isTrue();
         assertThat(obj.has("c")).isFalse();
-        assertThat(obj.names()).hasSize(2);
-        assertThat(obj.toJson()).isEqualTo("{\"a\":\"1\",\"b\":2}");
+        assertThat(obj.names()).hasSize(5);
+        assertThat(obj.toJson()).isEqualTo("{\"a\":\"1\",\"b\":2,\"long\":3,\"double\":2.5,\"flag\":false}");
     }
 
     @Test

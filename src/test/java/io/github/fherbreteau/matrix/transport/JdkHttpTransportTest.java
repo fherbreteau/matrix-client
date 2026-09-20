@@ -187,8 +187,9 @@ class JdkHttpTransportTest {
     @Test
     void mapsIOException() {
         var transport = new JdkHttpTransport(new FailingHttpClient());
+        var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
         var exception = assertThatExceptionOfType(UncheckedTransportException.class)
-                .isThrownBy(() -> transport.send(new HttpTransport.Request("GET", "https://x", Map.of(), null)))
+                .isThrownBy(() -> transport.send(request))
                 .actual();
         assertThat(exception.getMessage()).isEqualTo("HTTP request failed");
     }
@@ -196,9 +197,10 @@ class JdkHttpTransportTest {
     @Test
     void mapsInterruptedException() {
         var transport = new JdkHttpTransport(new InterruptingHttpClient());
+        var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
         try {
             assertThatExceptionOfType(IllegalStateException.class)
-                    .isThrownBy(() -> transport.send(new HttpTransport.Request("GET", "https://x", Map.of(), null)));
+                    .isThrownBy(() -> transport.send(request));
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
         } finally {
             Thread.interrupted();

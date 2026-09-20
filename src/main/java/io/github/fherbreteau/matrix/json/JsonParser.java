@@ -40,7 +40,7 @@ public final class JsonParser {
 
     private JsonObject parseObject() {
         var obj = new JsonObject();
-        pos++; // {
+        pos++;
         skipWhitespace();
         if (peek() == '}') {
             pos++;
@@ -74,7 +74,7 @@ public final class JsonParser {
 
     private JsonArray parseArray() {
         var arr = new JsonArray();
-        pos++; // [
+        pos++;
         skipWhitespace();
         if (peek() == ']') {
             pos++;
@@ -138,7 +138,7 @@ public final class JsonParser {
         pos += 4;
         try {
             return (char) Integer.parseInt(hex, 16);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             throw error("Invalid unicode escape: " + hex);
         }
     }
@@ -153,7 +153,7 @@ public final class JsonParser {
         }
         try {
             return JsonNumber.of(Double.parseDouble(input.substring(start, pos)));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             throw error("Invalid number");
         }
     }

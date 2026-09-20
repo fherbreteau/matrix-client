@@ -66,18 +66,23 @@ public final class MatrixClient {
         Request request = new Request(method, homeserverUrl + "/" + path, headers, body);
         HttpTransport.Response response = transport.send(request);
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            JsonValue parsed = null;
-            try {
-                parsed = JsonParser.parse(response.body());
-            } catch (IllegalArgumentException ignored) {
-                // non-JSON error body; errcode will fall back to M_UNRECOGNIZED
-            }
-            throw MatrixServerException.fromResponse(response.statusCode(), parsed);
+            throw MatrixServerException.fromResponse(response.statusCode(), parseOrNull(response.body()));
         }
         if (response.body() == null || response.body().isBlank()) {
             return new io.github.fherbreteau.matrix.json.JsonObject();
         }
         return JsonParser.parse(response.body());
+    }
+
+    private static JsonValue parseOrNull(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        try {
+            return JsonParser.parse(body);
+        } catch (IllegalArgumentException _) {
+            return null;
+        }
     }
 
     public static final class Builder {

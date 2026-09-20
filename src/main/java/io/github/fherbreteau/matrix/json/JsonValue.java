@@ -1,5 +1,7 @@
 package io.github.fherbreteau.matrix.json;
 
+import java.math.BigDecimal;
+
 /**
  * A minimal JSON value. Implemented by the object, array, string, number,
  * boolean and null representations produced by {@link JsonParser}.
@@ -43,6 +45,14 @@ public sealed interface JsonValue permits JsonObject, JsonArray, JsonString, Jso
     }
 
     default double asDouble() {
+        throw new UnsupportedOperationException("Not a JSON number");
+    }
+
+    default long asLong() {
+        throw new UnsupportedOperationException("Not a JSON number");
+    }
+
+    default BigDecimal asBigDecimal() {
         throw new UnsupportedOperationException("Not a JSON number");
     }
 

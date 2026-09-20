@@ -3,6 +3,9 @@ package io.github.fherbreteau.matrix.json;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A JSON array.
+ */
 public final class JsonArray implements JsonValue {
 
     private final List<JsonValue> values;

@@ -36,6 +36,8 @@ class JsonValueTest {
         assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(value::asArray);
         assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(value::asString);
         assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(value::asDouble);
+        assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(value::asLong);
+        assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(value::asBigDecimal);
         assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(value::asBoolean);
     }
 }

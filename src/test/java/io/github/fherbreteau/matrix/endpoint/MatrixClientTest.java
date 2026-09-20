@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.endpoint;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.collection;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
@@ -92,13 +93,82 @@ class MatrixClientTest {
     @Test
     void serverErrorWithNonJsonBodyFallsBack() {
         MatrixClient client = MatrixClient.builder("https://matrix.example.org")
-            .transport(request -> new HttpTransport.Response(500, "oops"))
-            .build();
+                .transport(request -> new HttpTransport.Response(500, "oops"))
+                .build();
         var exception = assertThatExceptionOfType(MatrixServerException.class)
-            .isThrownBy(client::getVersions)
-            .actual();
-        assertThat(exception).extracting(MatrixServerException::getErrcode).isEqualTo("M_UNRECOGNIZED");
-        assertThat(exception).extracting(MatrixServerException::getMessage).isEqualTo("HTTP 500");
+                .isThrownBy(client::getVersions)
+                .actual();
+        assertThat(exception.getErrcode()).isEqualTo("M_UNRECOGNIZED");
+        assertThat(exception.getMessage()).isEqualTo("HTTP 500");
+    }
+
+    @Test
+    void discoveryResolvesHomeserverAtBuildTime() {
+        var stub = HttpTransportStub.responding(200,
+                "{\"m.homeserver\":{\"base_url\":\"https://real.example.org:8448/\"}}");
+        stub.enqueue(new HttpTransport.Response(200,
+                "{\"versions\":[\"v1.11\"],\"unstable_features\":{\"x\":true}}"));
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(stub)
+                .discover()
+                .validateVersions()
+                .build();
+        assertThat(client.getHomeserverUrl()).isEqualTo("https://real.example.org:8448");
+        assertThat(client.getDiscovery().homeserverUrl()).isEqualTo("https://real.example.org:8448");
+        assertThat(client.getDiscovery().usedFallback()).isFalse();
+        assertThat(client.getCapabilities().supports("v1.11")).isTrue();
+        assertThat(client.getCapabilities().getFields()).containsKey("unstable_features");
+    }
+
+    @Test
+    void discoveryFallsBackToExplicitUrl() {
+        var stub = HttpTransportStub.failing();
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(stub)
+                .discover()
+                .build();
+        assertThat(client.getHomeserverUrl()).isEqualTo("https://matrix.example.org");
+        assertThat(client.getDiscovery().usedFallback()).isTrue();
+        assertThat(client.getCapabilities()).isNull();
+    }
+
+    @Test
+    void unsupportedVersionsResponseFailsFastAtBuildTime() {
+        var stub = HttpTransportStub.failing();
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(stub)
+                .discover()
+                .build();
+        assertThat(client.getHomeserverUrl()).isEqualTo("https://matrix.example.org");
+    }
+
+    @Test
+    void malformedVersionsFailFastAtBuildTime() {
+        var builder = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(200, "{\"versions\":\"not-an-array\"}"))
+                .validateVersions();
+        assertThatThrownBy(builder::build)
+                .isInstanceOf(io.github.fherbreteau.matrix.error.DiscoveryException.class);
+    }
+
+    @Test
+    void getSupportedVersionsValidates() {
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(200,
+                        "{\"versions\":[\"v1.11\"],\"unstable_features\":{\"f\":true}}"))
+                .build();
+        var versions = client.getSupportedVersions();
+        assertThat(versions.supports("v1.11")).isTrue();
+        assertThat(versions.getFields()).containsKey("unstable_features");
+    }
+
+    @Test
+    void malformedSupportedVersionsRaiseDiscoveryException() {
+        MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+                .transport(request -> new HttpTransport.Response(200, "{\"nope\":true}"))
+                .build();
+        assertThatThrownBy(client::getSupportedVersions)
+                .isInstanceOf(io.github.fherbreteau.matrix.error.DiscoveryException.class);
     }
 
     @Test

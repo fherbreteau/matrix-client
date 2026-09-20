@@ -1,7 +1,6 @@
 package io.github.fherbreteau.matrix.error;
 
 import io.github.fherbreteau.matrix.json.JsonParser;
-import io.github.fherbreteau.matrix.json.JsonValue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

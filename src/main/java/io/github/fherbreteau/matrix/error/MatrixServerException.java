@@ -14,7 +14,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 public class MatrixServerException extends MatrixException {
 
     private final int statusCode;
-    private final Map<String, JsonValue> fields;
+    private final transient Map<String, JsonValue> fields;
     private final boolean retryable;
 
     public MatrixServerException(int statusCode, String errcode, String message) {
@@ -115,7 +115,7 @@ public class MatrixServerException extends MatrixException {
      * beyond {@code errcode} and {@code error}.
      */
     public Map<String, JsonValue> getFields() {
-        return fields;
+        return fields == null ? Map.of() : fields;
     }
 
     /**

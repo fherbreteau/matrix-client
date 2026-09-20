@@ -9,6 +9,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * {@code M_LIMIT_EXCEEDED}). Carries the parsed {@code Retry-After} delay
  * in milliseconds when the server provides one, making the failure retryable.
  */
+@SuppressWarnings("java:S110")
 public final class RateLimitedException extends MatrixServerException {
 
     private final Long retryAfterMs;

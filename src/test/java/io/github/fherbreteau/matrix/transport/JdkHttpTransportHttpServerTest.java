@@ -139,10 +139,11 @@ class JdkHttpTransportHttpServerTest {
 
     @Test
     void requestTimeoutRaisesTimeoutException() {
+        var latch = new java.util.concurrent.CountDownLatch(1);
         String base = startServer(exchange -> {
             try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
+                latch.await();
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
             }
             exchange.sendResponseHeaders(200, -1);
@@ -152,7 +153,11 @@ class JdkHttpTransportHttpServerTest {
                 .requestTimeout(Duration.ofMillis(100))
                 .build());
         var request = new HttpTransport.Request("GET", base + "/slow", Map.of(), null);
-        assertThatExceptionOfType(TransportTimeoutException.class).isThrownBy(() -> transport.send(request));
+        try {
+            assertThatExceptionOfType(TransportTimeoutException.class).isThrownBy(() -> transport.send(request));
+        } finally {
+            latch.countDown();
+        }
     }
 
     @Test

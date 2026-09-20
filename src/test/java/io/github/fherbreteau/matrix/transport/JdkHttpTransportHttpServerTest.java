@@ -12,6 +12,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.sun.net.httpserver.HttpServer;
@@ -143,7 +144,7 @@ class JdkHttpTransportHttpServerTest {
 
     @Test
     void requestTimeoutRaisesTimeoutException() {
-        var latch = new java.util.concurrent.CountDownLatch(1);
+        var latch = new CountDownLatch(1);
         String base = startServer(exchange -> {
             try {
                 latch.await();

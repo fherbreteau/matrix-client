@@ -12,6 +12,7 @@ import java.net.CookieHandler;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
@@ -25,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 
 class JdkHttpTransportTest {
@@ -153,7 +155,7 @@ class JdkHttpTransportTest {
         }
 
         @Override
-        public java.net.http.HttpRequest request() {
+        public HttpRequest request() {
             return unsupported();
         }
 
@@ -163,8 +165,8 @@ class JdkHttpTransportTest {
         }
 
         @Override
-        public java.net.http.HttpHeaders headers() {
-            return java.net.http.HttpHeaders.of(Map.of(), (name, value) -> true);
+        public HttpHeaders headers() {
+            return HttpHeaders.of(Map.of(), (name, value) -> true);
         }
 
         @Override
@@ -183,7 +185,7 @@ class JdkHttpTransportTest {
         }
 
         @Override
-        public Optional<javax.net.ssl.SSLSession> sslSession() {
+        public Optional<SSLSession> sslSession() {
             return unsupported();
         }
     }

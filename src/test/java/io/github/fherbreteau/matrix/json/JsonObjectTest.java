@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
 import static org.assertj.core.api.InstanceOfAssertFactories.collection;
 
+import java.util.LinkedHashMap;
+
 import org.junit.jupiter.api.Test;
 
 class JsonObjectTest {
@@ -37,7 +39,7 @@ class JsonObjectTest {
 
     @Test
     void nestedObjectSerialization() {
-        var obj = new JsonObject(new java.util.LinkedHashMap<>());
+        var obj = new JsonObject(new LinkedHashMap<>());
         obj.put("null", JsonNull.INSTANCE);
         obj.put("bool", JsonBoolean.of(false));
         assertThat(obj).extracting(x -> x.get("missing")).isNull();

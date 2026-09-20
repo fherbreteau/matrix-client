@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import io.github.fherbreteau.matrix.error.MatrixServerException;
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
@@ -71,7 +72,7 @@ public final class MatrixClient {
                     response.headers());
         }
         if (response.body() == null || response.body().isBlank()) {
-            return new io.github.fherbreteau.matrix.json.JsonObject();
+            return new JsonObject();
         }
         return JsonParser.parse(response.body());
     }

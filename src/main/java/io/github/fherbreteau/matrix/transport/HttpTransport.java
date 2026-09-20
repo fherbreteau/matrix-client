@@ -1,5 +1,6 @@
 package io.github.fherbreteau.matrix.transport;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -80,7 +81,7 @@ public interface HttpTransport {
         }
 
         public String header(String name) {
-            return headers.get(name.toLowerCase(java.util.Locale.ROOT));
+            return headers.get(name.toLowerCase(Locale.ROOT));
         }
 
         @Override

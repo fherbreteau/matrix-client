@@ -8,6 +8,8 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -101,8 +103,8 @@ public final class JdkHttpTransport implements HttpTransport {
     }
 
     private static Map<String, String> lowerCaseHeaders(HttpResponse<String> response) {
-        var headers = new java.util.HashMap<String, String>();
-        for (Map.Entry<String, java.util.List<String>> header : response.headers().map().entrySet()) {
+        var headers = new HashMap<String, String>();
+        for (Map.Entry<String, List<String>> header : response.headers().map().entrySet()) {
             if (!header.getValue().isEmpty()) {
                 headers.put(header.getKey().toLowerCase(Locale.ROOT), header.getValue().getFirst());
             }

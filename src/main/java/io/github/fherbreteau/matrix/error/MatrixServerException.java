@@ -1,5 +1,7 @@
 package io.github.fherbreteau.matrix.error;
 
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
@@ -76,7 +78,7 @@ public class MatrixServerException extends MatrixException {
     }
 
     private static Map<String, JsonValue> unknownFields(JsonObject obj) {
-        var additional = new java.util.LinkedHashMap<String, JsonValue>();
+        var additional = new LinkedHashMap<String, JsonValue>();
         for (Map.Entry<String, JsonValue> entry : obj.entrySet()) {
             if (!"errcode".equals(entry.getKey()) && !"error".equals(entry.getKey())) {
                 additional.put(entry.getKey(), entry.getValue());
@@ -94,7 +96,7 @@ public class MatrixServerException extends MatrixException {
             return null;
         }
         try {
-            return java.time.Duration.ofSeconds(Long.parseLong(value.strip())).toMillis();
+            return Duration.ofSeconds(Long.parseLong(value.strip())).toMillis();
         } catch (NumberFormatException _) {
             return null;
         }

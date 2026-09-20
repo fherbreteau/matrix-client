@@ -97,10 +97,10 @@ class JsonParserTest {
   void parsesSurrogatePairs() {
     assertThat(JsonParser.parse("\"\\uD83D\\uDE00\""))
         .extracting(JsonValue::asString)
-        .isEqualTo("\uD83D\uDE00");
+        .isEqualTo("😀");
     assertThat(JsonParser.parse("\"hi \\uD83D\\uDE00!\""))
         .extracting(JsonValue::asString)
-        .isEqualTo("hi \uD83D\uDE00!");
+        .isEqualTo("hi 😀!");
     assertThat(JsonParser.parse("\"\\u00E9\"")).extracting(JsonValue::asString).isEqualTo("é");
   }
 
@@ -201,7 +201,7 @@ class JsonParserTest {
                 new JsonObject()
                     .put("msgtype", "m.text")
                     .put("body", "Hello \"world\"\nnew\tline")
-                    .put("formatted_body", "<b>é</b> \uD83D\uDE00"))
+                    .put("formatted_body", "<b>é</b> 😀"))
             .put("unsigned", new JsonObject().put("age", 42).put("transaction_id", "m123.4"))
             .put(
                 "unknown_future_field",
@@ -222,7 +222,7 @@ class JsonParserTest {
     assertThat(content)
         .extracting(x -> x.get("formatted_body"))
         .extracting(JsonValue::asString)
-        .isEqualTo("<b>é</b> \uD83D\uDE00");
+        .isEqualTo("<b>é</b> 😀");
     var unknown = reparsed.asObject().get("unknown_future_field").asObject();
     assertThat(unknown)
         .extracting(x -> x.get("nested_unknown"))

@@ -16,8 +16,8 @@ class MatrixVersionsTest {
         MatrixVersions.from(
             JsonParser.parse(
                 """
-            {"versions":["v1.5","v1.11"],"unstable_features":{"new_feature":true},"other":42}
-            """));
+                {"versions":["v1.5","v1.11"],"unstable_features":{"new_feature":true},"other":42}
+                """));
     assertThat(versions.getVersions()).containsExactly("v1.5", "v1.11");
     assertThat(versions.supports("v1.11")).isTrue();
     assertThat(versions.supports("v9.99")).isFalse();
@@ -37,6 +37,7 @@ class MatrixVersionsTest {
   @Test
   void rejectsInvalidBodies() {
     record Case(String body, String message) {}
+
     var cases =
         new Case[] {
           new Case("[]", "JSON object"),

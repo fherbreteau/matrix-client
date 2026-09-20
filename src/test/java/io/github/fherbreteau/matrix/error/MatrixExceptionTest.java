@@ -78,8 +78,8 @@ class MatrixExceptionTest {
             400,
             JsonParser.parse(
                 """
-            {"errcode":"M_INVALID_PARAM","error":"bad param","retry_after_ms":2000,"soft_fail":true}
-            """));
+                {"errcode":"M_INVALID_PARAM","error":"bad param","retry_after_ms":2000,"soft_fail":true}
+                """));
     assertThat(exception.getFields())
         .containsEntry("retry_after_ms", JsonParser.parse("2000"))
         .containsEntry("soft_fail", JsonParser.parse("true"))

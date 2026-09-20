@@ -214,7 +214,7 @@ class JdkHttpTransportTest {
   }
 
   @Test
-  void mapsIOException() {
+  void mapsIoException() {
     var transport = new JdkHttpTransport(new FailingHttpClient());
     var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);
     var exception =

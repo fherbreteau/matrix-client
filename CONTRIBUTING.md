@@ -113,7 +113,7 @@ git push origin feature/your-feature
 ## 📝 Coding Standards
 
 - **Follow the Google Java Style Guide** — formatting is enforced by
-  `google-java-format` (Spotless): run `mvn spotless:apply` before committing;
+  `google-java-format` (Spotify `fmt-maven-plugin`): run `mvn fmt:format` before committing;
   `mvn verify` fails on unformatted code (2-space indent, 4-space continuation
   indent, 100-column limit) and on Checkstyle `google_checks.xml` violations
   (import order, whitespace, naming, Javadoc on public members)

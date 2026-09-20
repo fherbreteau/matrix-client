@@ -1,32 +1,33 @@
 package io.github.fherbreteau.matrix.json;
 
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+
+import org.junit.jupiter.api.Test;
 
 class JsonValueTest {
 
     @Test
     void nullValuePredicates() {
         JsonValue value = JsonNull.INSTANCE;
-        assertThat(value.isNull()).isTrue();
-        assertThat(value.isObject()).isFalse();
-        assertThat(value.isArray()).isFalse();
-        assertThat(value.isString()).isFalse();
-        assertThat(value.isNumber()).isFalse();
-        assertThat(value.isBoolean()).isFalse();
+        assertThat(value).extracting(JsonValue::isNull, BOOLEAN).isTrue();
+        assertThat(value).extracting(JsonValue::isObject, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isArray, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isString, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isNumber, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isBoolean, BOOLEAN).isFalse();
     }
 
     @Test
     void nonNullValuePredicates() {
         JsonValue value = JsonBoolean.of(true);
-        assertThat(value.isBoolean()).isTrue();
-        assertThat(value.isObject()).isFalse();
-        assertThat(value.isArray()).isFalse();
-        assertThat(value.isString()).isFalse();
-        assertThat(value.isNumber()).isFalse();
-        assertThat(value.isNull()).isFalse();
+        assertThat(value).extracting(JsonValue::isBoolean, BOOLEAN).isTrue();
+        assertThat(value).extracting(JsonValue::isObject, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isArray, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isString, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isNumber, BOOLEAN).isFalse();
+        assertThat(value).extracting(JsonValue::isNull, BOOLEAN).isFalse();
     }
 
     @Test

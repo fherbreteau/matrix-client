@@ -174,6 +174,13 @@ mvn test -Dtest=JsonParserTest
 ### Writing Tests
 
 - **Use JUnit 5** with **AssertJ** for fluent assertions
+- **Prefer idiomatic AssertJ** over chained getter assertions:
+  - `assertThat(x).extracting(X::getter)` instead of `assertThat(x.getter())`
+  - `asInstanceOf(type(...))` or `InstanceOfAssertFactories` instead of manual casts
+  - `hasMessage` / `hasCause` on exceptions instead of `getMessage()` / `getCause()`
+  - typed factories (`BOOLEAN`, `STRING`, `list`, `map`, `optional`, `collection`) when extracting
+  - `singleElement()` on single-item collections, `hasValue()` on `AtomicReference`s
+  - never use `org.junit.jupiter.api.Assertions`
 - **Never hit the network**: inject a stub `HttpTransport` via
   `MatrixClient.builder(...).transport(...)` instead
 - **Test edge cases**: malformed JSON, HTTP errors, empty responses

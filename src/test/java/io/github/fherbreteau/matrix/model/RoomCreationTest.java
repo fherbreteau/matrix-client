@@ -40,8 +40,7 @@ class RoomCreationTest {
         .contains("\"is_direct\":true")
         .contains("\"initial_state\":")
         .contains("\"creation_content\":{\"m.federate\":false}")
-        .contains("\"power_level_content_override\":{\"ban\":50}");
-    assertThat(body)
+        .contains("\"power_level_content_override\":{\"ban\":50}")
         .contains("\"user_id\":\"@bob:matrix.org\"")
         .contains("\"user_id\":\"@carol:matrix.org\"");
   }

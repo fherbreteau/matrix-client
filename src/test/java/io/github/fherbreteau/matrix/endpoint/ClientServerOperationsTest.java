@@ -333,8 +333,10 @@ class ClientServerOperationsTest {
                     new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Not allowed\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var roomId = RoomId.of("!a:b");
+    var userId = UserId.of("@bob:matrix.org");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.kick(RoomId.of("!a:b"), UserId.of("@bob:matrix.org"), null))
+        .isThrownBy(() -> client.kick(roomId, userId, null))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");

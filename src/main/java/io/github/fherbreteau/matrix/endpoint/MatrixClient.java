@@ -13,6 +13,7 @@ import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
+import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.Session;
@@ -289,8 +290,20 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public RoomId createRoom() {
+    return createRoom(RoomCreation.builder().build());
+  }
+
+  /**
+   * Creates a room with the given parameters and returns its identifier.
+   *
+   * @param creation the room creation parameters
+   * @return the identifier of the created room
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomId createRoom(RoomCreation creation) {
     return RoomId.of(
-        authenticated("POST", "_matrix/client/v3/createRoom", "{}")
+        authenticated("POST", "_matrix/client/v3/createRoom", creation.toJson().toJson())
             .asObject()
             .get(ROOM_ID_FIELD)
             .asString());

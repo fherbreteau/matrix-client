@@ -52,7 +52,13 @@ public final class MatrixClient {
 
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
   private static final String USER_ID_FIELD = "user_id";
+  private static final String DEVICE_ID_FIELD = "device_id";
+  private static final String REASON_FIELD = "reason";
+  private static final String EVENT_ID_FIELD = "event_id";
+  private static final String CHUNK_FIELD = "chunk";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
+  private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String ROOM_ID_FIELD = "room_id";
 
   private final HttpTransport transport;
@@ -345,7 +351,7 @@ public final class MatrixClient {
     authenticated(
         "POST",
         ROOMS_PATH + encode(roomId.value()) + "/invite",
-        new JsonObject().put("user_id", userId.value()).toJson());
+        new JsonObject().put(USER_ID_FIELD, userId.value()).toJson());
   }
 
   /**
@@ -411,8 +417,7 @@ public final class MatrixClient {
    * @return the room identifier and candidate servers
    */
   public RoomAliasResolution resolveRoomAlias(RoomAlias roomAlias) {
-    return RoomAliasResolution.from(
-        get("_matrix/client/v3/directory/room/" + encode(roomAlias.value())));
+    return RoomAliasResolution.from(get(DIRECTORY_PATH + encode(roomAlias.value())));
   }
 
   /**
@@ -427,7 +432,7 @@ public final class MatrixClient {
   public void kick(RoomId roomId, UserId userId, String reason) {
     var body = new JsonObject().put(USER_ID_FIELD, userId.value());
     if (reason != null) {
-      body.put("reason", reason);
+      body.put(REASON_FIELD, reason);
     }
     authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/kick", body.toJson());
   }
@@ -444,7 +449,7 @@ public final class MatrixClient {
   public void ban(RoomId roomId, UserId userId, String reason) {
     var body = new JsonObject().put(USER_ID_FIELD, userId.value());
     if (reason != null) {
-      body.put("reason", reason);
+      body.put(REASON_FIELD, reason);
     }
     authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/ban", body.toJson());
   }
@@ -487,8 +492,9 @@ public final class MatrixClient {
     JsonValue response =
         authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/members", null);
     var members = new ArrayList<RoomEvent>();
-    if (response.asObject().get("chunk") != null && response.asObject().get("chunk").isArray()) {
-      var chunk = response.asObject().get("chunk").asArray();
+    JsonValue chunkValue = response.asObject().get(CHUNK_FIELD);
+    if (chunkValue != null && chunkValue.isArray()) {
+      var chunk = chunkValue.asArray();
       for (int i = 0; i < chunk.size(); i++) {
         members.add(RoomEvent.from(chunk.get(i)));
       }
@@ -554,7 +560,7 @@ public final class MatrixClient {
                     + encode(transactionId),
                 content.toJson())
             .asObject()
-            .get("event_id")
+            .get(EVENT_ID_FIELD)
             .asString();
     return EventId.of(eventId);
   }
@@ -597,7 +603,7 @@ public final class MatrixClient {
                     + encode(stateKey),
                 content.toJson())
             .asObject()
-            .get("event_id")
+            .get(EVENT_ID_FIELD)
             .asString();
     return EventId.of(eventId);
   }
@@ -615,7 +621,7 @@ public final class MatrixClient {
   public EventId redact(RoomId roomId, EventId eventId, String reason) {
     var body = new JsonObject();
     if (reason != null) {
-      body.put("reason", reason);
+      body.put(REASON_FIELD, reason);
     }
     return EventId.of(
         authenticated(
@@ -628,7 +634,7 @@ public final class MatrixClient {
                     + UUID.randomUUID(),
                 body.toJson())
             .asObject()
-            .get("event_id")
+            .get(EVENT_ID_FIELD)
             .asString());
   }
 
@@ -639,7 +645,7 @@ public final class MatrixClient {
    * @return the user profile
    */
   public UserProfile getProfile(UserId userId) {
-    return UserProfile.from(get("_matrix/client/v3/profile/" + encode(userId.value())));
+    return UserProfile.from(get(PROFILE_PATH + encode(userId.value())));
   }
 
   /**
@@ -653,7 +659,7 @@ public final class MatrixClient {
   public void setDisplayName(UserId userId, String displayName) {
     authenticated(
         "PUT",
-        "_matrix/client/v3/profile/" + encode(userId.value()) + "/displayname",
+        PROFILE_PATH + encode(userId.value()) + "/displayname",
         new JsonObject().put("displayname", displayName).toJson());
   }
 
@@ -668,7 +674,7 @@ public final class MatrixClient {
   public void setAvatarUrl(UserId userId, String avatarUrl) {
     authenticated(
         "PUT",
-        "_matrix/client/v3/profile/" + encode(userId.value()) + "/avatar_url",
+        PROFILE_PATH + encode(userId.value()) + "/avatar_url",
         new JsonObject().put("avatar_url", avatarUrl).toJson());
   }
 
@@ -683,7 +689,7 @@ public final class MatrixClient {
   public void createRoomAlias(RoomAlias roomAlias, RoomId roomId) {
     authenticated(
         "PUT",
-        "_matrix/client/v3/directory/room/" + encode(roomAlias.value()),
+        DIRECTORY_PATH + encode(roomAlias.value()),
         new JsonObject().put(ROOM_ID_FIELD, roomId.value()).toJson());
   }
 
@@ -695,7 +701,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public void deleteRoomAlias(RoomAlias roomAlias) {
-    authenticated("DELETE", "_matrix/client/v3/directory/room/" + encode(roomAlias.value()), null);
+    authenticated("DELETE", DIRECTORY_PATH + encode(roomAlias.value()), null);
   }
 
   /**
@@ -741,12 +747,12 @@ public final class MatrixClient {
     JsonValue body = authenticated("GET", "_matrix/client/v3/account/whoami", null);
     JsonObject obj = body.asObject();
     return new Session(
-        obj.get("user_id").asString(),
+        obj.get(USER_ID_FIELD).asString(),
         null,
         null,
         null,
-        obj.get("device_id") != null && obj.get("device_id").isString()
-            ? obj.get("device_id").asString()
+        obj.get(DEVICE_ID_FIELD) != null && obj.get(DEVICE_ID_FIELD).isString()
+            ? obj.get(DEVICE_ID_FIELD).asString()
             : null,
         null,
         body);

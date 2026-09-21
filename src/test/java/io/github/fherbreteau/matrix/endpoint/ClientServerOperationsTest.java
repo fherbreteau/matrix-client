@@ -317,8 +317,10 @@ class ClientServerOperationsTest {
             .transport(stub -> new Response(200, "{}"))
             .build();
     assertThatThrownBy(client::whoami).isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(client::getJoinedRooms).isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(client::createRoom).isInstanceOf(AuthenticationException.class);
+    var roomId = RoomId.of("!a:b");
+    assertThatThrownBy(() -> client.getRoomState(roomId))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.leaveRoom(roomId)).isInstanceOf(AuthenticationException.class);
   }
 
   @Test

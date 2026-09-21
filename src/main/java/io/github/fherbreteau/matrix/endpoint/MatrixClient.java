@@ -7,8 +7,10 @@ import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.Credentials;
+import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
+import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomEvent;
@@ -16,6 +18,7 @@ import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
 import io.github.fherbreteau.matrix.model.UserId;
+import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import java.net.URLEncoder;
@@ -24,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Entry point for talking to a Matrix homeserver.
@@ -47,8 +51,9 @@ import java.util.Optional;
 public final class MatrixClient {
 
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
-  private static final String ROOM_ID_FIELD = "room_id";
+  private static final String USER_ID_FIELD = "user_id";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String ROOM_ID_FIELD = "room_id";
 
   private final HttpTransport transport;
   private final String homeserverUrl;
@@ -408,6 +413,343 @@ public final class MatrixClient {
   public RoomAliasResolution resolveRoomAlias(RoomAlias roomAlias) {
     return RoomAliasResolution.from(
         get("_matrix/client/v3/directory/room/" + encode(roomAlias.value())));
+  }
+
+  /**
+   * Removes a user from a room; the user must not be invited by themselves.
+   *
+   * @param roomId the room to remove the user from
+   * @param userId the user to remove
+   * @param reason the optional reason for the removal
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void kick(RoomId roomId, UserId userId, String reason) {
+    var body = new JsonObject().put(USER_ID_FIELD, userId.value());
+    if (reason != null) {
+      body.put("reason", reason);
+    }
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/kick", body.toJson());
+  }
+
+  /**
+   * Bans a user from a room, preventing them from joining it.
+   *
+   * @param roomId the room to ban the user from
+   * @param userId the user to ban
+   * @param reason the optional reason for the ban
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void ban(RoomId roomId, UserId userId, String reason) {
+    var body = new JsonObject().put(USER_ID_FIELD, userId.value());
+    if (reason != null) {
+      body.put("reason", reason);
+    }
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/ban", body.toJson());
+  }
+
+  /**
+   * Removes a previous ban on a user so they can join the room again.
+   *
+   * @param roomId the room to unban the user from
+   * @param userId the user to unban
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void unban(RoomId roomId, UserId userId) {
+    authenticated(
+        "POST",
+        ROOMS_PATH + encode(roomId.value()) + "/unban",
+        new JsonObject().put(USER_ID_FIELD, userId.value()).toJson());
+  }
+
+  /**
+   * Forgets a room the user has left; the room is removed from the room list.
+   *
+   * @param roomId the room to forget
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void forget(RoomId roomId) {
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/forget", "{}");
+  }
+
+  /**
+   * Retrieves the membership events of a room.
+   *
+   * @param roomId the room whose members to retrieve
+   * @return the membership events of the room
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public List<RoomEvent> getMembers(RoomId roomId) {
+    JsonValue response =
+        authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/members", null);
+    var members = new ArrayList<RoomEvent>();
+    if (response.asObject().get("chunk") != null && response.asObject().get("chunk").isArray()) {
+      var chunk = response.asObject().get("chunk").asArray();
+      for (int i = 0; i < chunk.size(); i++) {
+        members.add(RoomEvent.from(chunk.get(i)));
+      }
+    }
+    return members;
+  }
+
+  /**
+   * Retrieves the identifiers of all rooms the current user is joined to.
+   *
+   * @return the joined room identifiers
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public List<RoomId> getJoinedRooms() {
+    JsonValue response = authenticated("GET", "_matrix/client/v3/joined_rooms", null);
+    var rooms = new ArrayList<RoomId>();
+    JsonValue joined = response.asObject().get("joined_rooms");
+    if (joined != null && joined.isArray()) {
+      var joinedArray = joined.asArray();
+      for (int i = 0; i < joinedArray.size(); i++) {
+        rooms.add(RoomId.of(joinedArray.get(i).asString()));
+      }
+    }
+    return rooms;
+  }
+
+  /**
+   * Sends a message event to a room with a generated transaction identifier.
+   *
+   * @param roomId the room to send the event to
+   * @param eventType the event type
+   * @param content the event content
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId sendMessageEvent(RoomId roomId, String eventType, JsonValue content) {
+    return sendEvent(roomId, eventType, content, UUID.randomUUID().toString());
+  }
+
+  /**
+   * Sends a message event to a room with an explicit transaction identifier for idempotent retries.
+   *
+   * @param roomId the room to send the event to
+   * @param eventType the event type
+   * @param content the event content
+   * @param transactionId the idempotent transaction identifier
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId sendEvent(
+      RoomId roomId, String eventType, JsonValue content, String transactionId) {
+    String eventId =
+        authenticated(
+                "PUT",
+                ROOMS_PATH
+                    + encode(roomId.value())
+                    + "/send/"
+                    + encode(eventType)
+                    + "/"
+                    + encode(transactionId),
+                content.toJson())
+            .asObject()
+            .get("event_id")
+            .asString();
+    return EventId.of(eventId);
+  }
+
+  /**
+   * Sends a state event to a room with an empty state key.
+   *
+   * @param roomId the room to send the event to
+   * @param eventType the event type
+   * @param content the event content
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId sendStateEvent(RoomId roomId, String eventType, JsonValue content) {
+    return sendStateEvent(roomId, eventType, "", content);
+  }
+
+  /**
+   * Sends a state event to a room with an explicit state key.
+   *
+   * @param roomId the room to send the event to
+   * @param eventType the event type
+   * @param stateKey the state key
+   * @param content the event content
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId sendStateEvent(
+      RoomId roomId, String eventType, String stateKey, JsonValue content) {
+    String eventId =
+        authenticated(
+                "PUT",
+                ROOMS_PATH
+                    + encode(roomId.value())
+                    + "/state/"
+                    + encode(eventType)
+                    + "/"
+                    + encode(stateKey),
+                content.toJson())
+            .asObject()
+            .get("event_id")
+            .asString();
+    return EventId.of(eventId);
+  }
+
+  /**
+   * Redacts an event in a room, optionally with a reason.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the event to redact
+   * @param reason the optional reason for the redaction
+   * @return the redaction event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId redact(RoomId roomId, EventId eventId, String reason) {
+    var body = new JsonObject();
+    if (reason != null) {
+      body.put("reason", reason);
+    }
+    return EventId.of(
+        authenticated(
+                "PUT",
+                ROOMS_PATH
+                    + encode(roomId.value())
+                    + "/redact/"
+                    + encode(eventId.value())
+                    + "/"
+                    + UUID.randomUUID(),
+                body.toJson())
+            .asObject()
+            .get("event_id")
+            .asString());
+  }
+
+  /**
+   * Retrieves the profile of a user.
+   *
+   * @param userId the user whose profile to retrieve
+   * @return the user profile
+   */
+  public UserProfile getProfile(UserId userId) {
+    return UserProfile.from(get("_matrix/client/v3/profile/" + encode(userId.value())));
+  }
+
+  /**
+   * Sets the display name of a user.
+   *
+   * @param userId the user to update
+   * @param displayName the display name to set
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setDisplayName(UserId userId, String displayName) {
+    authenticated(
+        "PUT",
+        "_matrix/client/v3/profile/" + encode(userId.value()) + "/displayname",
+        new JsonObject().put("displayname", displayName).toJson());
+  }
+
+  /**
+   * Sets the avatar URL of a user.
+   *
+   * @param userId the user to update
+   * @param avatarUrl the avatar URL to set
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setAvatarUrl(UserId userId, String avatarUrl) {
+    authenticated(
+        "PUT",
+        "_matrix/client/v3/profile/" + encode(userId.value()) + "/avatar_url",
+        new JsonObject().put("avatar_url", avatarUrl).toJson());
+  }
+
+  /**
+   * Creates a room alias pointing to a room in the room directory.
+   *
+   * @param roomAlias the alias to create
+   * @param roomId the room the alias points to
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void createRoomAlias(RoomAlias roomAlias, RoomId roomId) {
+    authenticated(
+        "PUT",
+        "_matrix/client/v3/directory/room/" + encode(roomAlias.value()),
+        new JsonObject().put(ROOM_ID_FIELD, roomId.value()).toJson());
+  }
+
+  /**
+   * Deletes a room alias from the room directory.
+   *
+   * @param roomAlias the alias to delete
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void deleteRoomAlias(RoomAlias roomAlias) {
+    authenticated("DELETE", "_matrix/client/v3/directory/room/" + encode(roomAlias.value()), null);
+  }
+
+  /**
+   * Retrieves the public room directory.
+   *
+   * @return the public rooms
+   */
+  public PublicRoomsResponse getPublicRooms() {
+    return PublicRoomsResponse.from(get("_matrix/client/v3/publicRooms"));
+  }
+
+  /**
+   * Retrieves a page of the public room directory, filtered by a server-specific generic search
+   * filter.
+   *
+   * @param limit the maximum number of rooms to return
+   * @param filter the generic search term
+   * @param since the pagination token of the previous page
+   * @return the public rooms page
+   */
+  public PublicRoomsResponse getPublicRooms(long limit, String filter, String since) {
+    var body = new JsonObject();
+    if (limit > 0) {
+      body.put("limit", limit);
+    }
+    if (filter != null) {
+      body.put("filter", new JsonObject().put("generic_search_term", filter));
+    }
+    if (since != null) {
+      body.put("since", since);
+    }
+    return PublicRoomsResponse.from(post("_matrix/client/v3/publicRooms", body));
+  }
+
+  /**
+   * Retrieves the identity of the user the current access token belongs to.
+   *
+   * @return the session of the token owner
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public Session whoami() {
+    JsonValue body = authenticated("GET", "_matrix/client/v3/account/whoami", null);
+    JsonObject obj = body.asObject();
+    return new Session(
+        obj.get("user_id").asString(),
+        null,
+        null,
+        null,
+        obj.get("device_id") != null && obj.get("device_id").isString()
+            ? obj.get("device_id").asString()
+            : null,
+        null,
+        body);
   }
 
   private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {

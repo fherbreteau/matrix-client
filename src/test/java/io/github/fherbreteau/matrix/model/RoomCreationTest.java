@@ -22,11 +22,12 @@ class RoomCreationTest {
             .name("The Room")
             .topic("About everything")
             .invites(List.of(UserId.of("@bob:matrix.org"), UserId.of("@carol:matrix.org")))
+            .invites3pid(List.of(Invite3pid.of("id.example.org", "tok", "email", "a@b.c")))
             .roomVersion("11")
             .preset("public_chat")
             .direct(true)
-            .initialState(JsonParser.parse("[{\"type\":\"m.room.history_visibility\"}]"))
-            .creationContent(JsonParser.parse("{\"m.federate\":false}"))
+            .initialState(List.of(JsonParser.parse("{\"type\":\"m.room.history_visibility\"}")))
+            .creationContent(CreationContent.builder().federate(false).build())
             .powerLevelContentOverride(JsonParser.parse("{\"ban\":50}"))
             .build();
     String body = creation.toJson().toJson();
@@ -42,7 +43,9 @@ class RoomCreationTest {
         .contains("\"creation_content\":{\"m.federate\":false}")
         .contains("\"power_level_content_override\":{\"ban\":50}")
         .contains("\"user_id\":\"@bob:matrix.org\"")
-        .contains("\"user_id\":\"@carol:matrix.org\"");
+        .contains("\"user_id\":\"@carol:matrix.org\"")
+        .contains(
+            "\"invite_3pid\":[{\"id_server\":\"id.example.org\",\"id_access_token\":\"tok\",\"medium\":\"email\",\"address\":\"a@b.c\"}]");
   }
 
   @Test

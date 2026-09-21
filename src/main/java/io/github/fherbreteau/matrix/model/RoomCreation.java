@@ -18,11 +18,12 @@ public final class RoomCreation {
   private final String name;
   private final String topic;
   private final List<UserId> invites;
+  private final List<Invite3pid> invites3pid;
   private final String roomVersion;
   private final String preset;
   private final boolean direct;
-  private final JsonValue initialState;
-  private final JsonValue creationContent;
+  private final List<JsonValue> initialState;
+  private final CreationContent creationContent;
   private final JsonValue powerLevelContentOverride;
 
   private RoomCreation(Builder builder) {
@@ -31,10 +32,11 @@ public final class RoomCreation {
     this.name = builder.name;
     this.topic = builder.topic;
     this.invites = List.copyOf(builder.invites);
+    this.invites3pid = List.copyOf(builder.invites3pid);
     this.roomVersion = builder.roomVersion;
     this.preset = builder.preset;
     this.direct = builder.direct;
-    this.initialState = builder.initialState;
+    this.initialState = List.copyOf(builder.initialState);
     this.creationContent = builder.creationContent;
     this.powerLevelContentOverride = builder.powerLevelContentOverride;
   }
@@ -55,10 +57,16 @@ public final class RoomCreation {
    */
   public JsonValue toJson() {
     JsonObject body = new JsonObject();
-    putIfPresent(body, "visibility", visibility);
-    putIfPresent(body, "room_alias_name", roomAliasName);
-    putIfPresent(body, "name", name);
-    putIfPresent(body, "topic", topic);
+    if (creationContent != null) {
+      body.put("creation_content", creationContent.toJson());
+    }
+    if (!initialState.isEmpty()) {
+      JsonArray initialStateArray = new JsonArray();
+      for (JsonValue state : initialState) {
+        initialStateArray.add(state);
+      }
+      body.put("initial_state", initialStateArray);
+    }
     if (!invites.isEmpty()) {
       JsonArray inviteArray = new JsonArray();
       for (UserId invite : invites) {
@@ -66,20 +74,25 @@ public final class RoomCreation {
       }
       body.put("invite", inviteArray);
     }
-    putIfPresent(body, "room_version", roomVersion);
-    putIfPresent(body, "preset", preset);
+    if (!invites3pid.isEmpty()) {
+      JsonArray invite3PidArray = new JsonArray();
+      for (Invite3pid invite3pid : invites3pid) {
+        invite3PidArray.add(invite3pid.toJson());
+      }
+      body.put("invite_3pid", invite3PidArray);
+    }
     if (direct) {
       body.put("is_direct", true);
     }
-    if (initialState != null) {
-      body.put("initial_state", initialState);
-    }
-    if (creationContent != null) {
-      body.put("creation_content", creationContent);
-    }
+    putIfPresent(body, "name", name);
     if (powerLevelContentOverride != null) {
       body.put("power_level_content_override", powerLevelContentOverride);
     }
+    putIfPresent(body, "preset", preset);
+    putIfPresent(body, "room_alias_name", roomAliasName);
+    putIfPresent(body, "room_version", roomVersion);
+    putIfPresent(body, "topic", topic);
+    putIfPresent(body, "visibility", visibility);
     return body;
   }
 
@@ -97,11 +110,12 @@ public final class RoomCreation {
     private String name;
     private String topic;
     private List<UserId> invites = new ArrayList<>();
+    private List<Invite3pid> invites3pid = new ArrayList<>();
     private String roomVersion;
     private String preset;
     private boolean direct;
-    private JsonValue initialState;
-    private JsonValue creationContent;
+    private List<JsonValue> initialState = new ArrayList<>();
+    private CreationContent creationContent;
     private JsonValue powerLevelContentOverride;
 
     private Builder() {}
@@ -162,6 +176,18 @@ public final class RoomCreation {
     }
 
     /**
+     * Sets the third-party identities to invite to the room at creation time, as resolved through
+     * an identity server.
+     *
+     * @param invites3pid the third-party invites
+     * @return this builder for chaining
+     */
+    public Builder invites3pid(List<Invite3pid> invites3pid) {
+      this.invites3pid = invites3pid;
+      return this;
+    }
+
+    /**
      * Sets the desired Matrix room version.
      *
      * @param roomVersion the desired room version
@@ -196,24 +222,25 @@ public final class RoomCreation {
     }
 
     /**
-     * Sets the {@code initial_state} events sent with the room creation.
+     * Sets the {@code initial_state} events sent with the room creation, letting the client
+     * override the default state event content.
      *
      * @param initialState the initial state events
      * @return this builder for chaining
      */
-    public Builder initialState(JsonValue initialState) {
+    public Builder initialState(List<JsonValue> initialState) {
       this.initialState = initialState;
       return this;
     }
 
     /**
-     * Sets the {@code creation_content} to override default keys of the {@code m.room.create}
-     * event.
+     * Sets the {@code creation_content} overriding default keys of the {@code m.room.create} event,
+     * such as the creator, additional creators, federation and room type.
      *
-     * @param creationContent the creation content override
+     * @param creationContent the creation content
      * @return this builder for chaining
      */
-    public Builder creationContent(JsonValue creationContent) {
+    public Builder creationContent(CreationContent creationContent) {
       this.creationContent = creationContent;
       return this;
     }

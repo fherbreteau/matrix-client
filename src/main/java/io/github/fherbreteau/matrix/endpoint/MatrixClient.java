@@ -7,15 +7,18 @@ import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.Credentials;
+import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
+import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
 import io.github.fherbreteau.matrix.model.UserId;
@@ -533,6 +536,83 @@ public final class MatrixClient {
       }
     }
     return rooms;
+  }
+
+  /**
+   * Sends a plain-text message to a room with a generated transaction identifier.
+   *
+   * @param roomId the room to send the message to
+   * @param text the plain-text body of the message
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId sendText(RoomId roomId, String text) {
+    return sendMessageEvent(roomId, "m.room.message", MessageBody.text(text).toJson());
+  }
+
+  /**
+   * Sends a message built from the given body, with a generated transaction identifier.
+   *
+   * @param roomId the room to send the message to
+   * @param message the message body
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public EventId sendMessage(RoomId roomId, MessageBody message) {
+    return sendMessageEvent(roomId, "m.room.message", message.toJson());
+  }
+
+  /**
+   * Retrieves a page of room history starting from the given pagination token. The chunk order is
+   * homeserver-defined; use the returned tokens to continue paginating.
+   *
+   * @param roomId the room whose history to retrieve
+   * @param from the token to start from, as returned in a previous page
+   * @param direction the direction to walk, towards older or newer events
+   * @param limit the maximum number of events per page, or a non-positive value to let the
+   *     homeserver decide
+   * @return the requested page of history
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomMessagesPage getRoomMessages(
+      RoomId roomId, String from, Direction direction, long limit) {
+    var query =
+        new StringBuilder("_matrix/client/v3/rooms/")
+            .append(encode(roomId.value()))
+            .append("/messages?from=")
+            .append(encode(from))
+            .append("&dir=")
+            .append(direction.value());
+    if (limit > 0) {
+      query.append("&limit=").append(limit);
+    }
+    return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
+  }
+
+  /**
+   * Retrieves the latest page of room history, walking backwards from the room start. Use {@link
+   * #getRoomMessages(RoomId, String, Direction, long)} with the returned {@code end} token to page
+   * further.
+   *
+   * @param roomId the room whose history to retrieve
+   * @param limit the maximum number of events per page, or a non-positive value to let the
+   *     homeserver decide
+   * @return the requested page of history
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomMessagesPage getLatestRoomMessages(RoomId roomId, long limit) {
+    var query =
+        new StringBuilder("_matrix/client/v3/rooms/")
+            .append(encode(roomId.value()))
+            .append("/messages?dir=b");
+    if (limit > 0) {
+      query.append("&limit=").append(limit);
+    }
+    return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
   }
 
   /**

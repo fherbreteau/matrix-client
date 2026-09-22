@@ -81,7 +81,8 @@ class EventRetrievalTest {
                         200, "{\"aliases\":[\"#general:matrix.org\",\"#dev:matrix.org\"]}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    assertThat(client.getRoomAliases(RoomId.of("!a:b")))
+    var roomId = RoomId.of("!a:b");
+    assertThat(client.getRoomAliases(roomId))
         .containsExactly(RoomAlias.of("#general:matrix.org"), RoomAlias.of("#dev:matrix.org"));
   }
 

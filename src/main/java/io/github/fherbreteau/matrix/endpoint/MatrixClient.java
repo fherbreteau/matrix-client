@@ -61,6 +61,9 @@ public final class MatrixClient {
   private static final String EVENT_ID_FIELD = "event_id";
   private static final String CHUNK_FIELD = "chunk";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String DIR_QUERY_PARAM = "&dir=";
+  private static final String LIMIT_QUERY_PARAM = "&limit=";
+  private static final String ORIGIN_SERVER_TS_FIELD = "origin_server_ts";
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String ROOM_ID_FIELD = "room_id";
@@ -584,10 +587,10 @@ public final class MatrixClient {
             .append(encode(roomId.value()))
             .append("/messages?from=")
             .append(encode(from))
-            .append("&dir=")
+            .append(DIR_QUERY_PARAM)
             .append(direction.value());
     if (limit > 0) {
-      query.append("&limit=").append(limit);
+      query.append(LIMIT_QUERY_PARAM).append(limit);
     }
     return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
   }
@@ -614,13 +617,13 @@ public final class MatrixClient {
             .append(encode(roomId.value()))
             .append("/messages?from=")
             .append(encode(from))
-            .append("&dir=")
+            .append(DIR_QUERY_PARAM)
             .append(direction.value());
     if (to != null) {
       query.append("&to=").append(encode(to));
     }
     if (limit > 0) {
-      query.append("&limit=").append(limit);
+      query.append(LIMIT_QUERY_PARAM).append(limit);
     }
     if (filter != null) {
       query.append("&filter=").append(encode(filter.toJson()));
@@ -673,8 +676,8 @@ public final class MatrixClient {
         null,
         null,
         null,
-        obj.get("origin_server_ts") != null && obj.get("origin_server_ts").isNumber()
-            ? obj.get("origin_server_ts").asLong()
+        obj.get(ORIGIN_SERVER_TS_FIELD) != null && obj.get(ORIGIN_SERVER_TS_FIELD).isNumber()
+            ? obj.get(ORIGIN_SERVER_TS_FIELD).asLong()
             : null,
         roomId.value(),
         new JsonObject(),
@@ -719,7 +722,7 @@ public final class MatrixClient {
     var query =
         new StringBuilder(ROOMS_PATH).append(encode(roomId.value())).append("/messages?dir=b");
     if (limit > 0) {
-      query.append("&limit=").append(limit);
+      query.append(LIMIT_QUERY_PARAM).append(limit);
     }
     return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
   }

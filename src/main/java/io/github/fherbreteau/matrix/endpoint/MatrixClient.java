@@ -593,6 +593,117 @@ public final class MatrixClient {
   }
 
   /**
+   * Retrieves a page of room history with an optional stop token and event filter. The chunk order
+   * is homeserver-defined; use the returned tokens to continue paginating.
+   *
+   * @param roomId the room whose history to retrieve
+   * @param from the token to start from, as returned in a previous page or by {@code /sync}
+   * @param to the token to stop at, or {@code null} for none
+   * @param direction the direction to walk, towards older or newer events
+   * @param limit the maximum number of events per page, or a non-positive value to let the
+   *     homeserver decide
+   * @param filter the room event filter, or {@code null} for none
+   * @return the requested page of history
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomMessagesPage getRoomMessages(
+      RoomId roomId, String from, String to, Direction direction, long limit, JsonValue filter) {
+    var query =
+        new StringBuilder(ROOMS_PATH)
+            .append(encode(roomId.value()))
+            .append("/messages?from=")
+            .append(encode(from))
+            .append("&dir=")
+            .append(direction.value());
+    if (to != null) {
+      query.append("&to=").append(encode(to));
+    }
+    if (limit > 0) {
+      query.append("&limit=").append(limit);
+    }
+    if (filter != null) {
+      query.append("&filter=").append(encode(filter.toJson()));
+    }
+    return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
+  }
+
+  /**
+   * Retrieves a single event of a room by its identifier.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the event to retrieve
+   * @return the event
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomEvent getRoomEvent(RoomId roomId, EventId eventId) {
+    return RoomEvent.from(
+        authenticated(
+            "GET",
+            ROOMS_PATH + encode(roomId.value()) + "/event/" + encode(eventId.value()),
+            null));
+  }
+
+  /**
+   * Retrieves the identifier of the event closest to the given timestamp, per the {@code
+   * timestamp_to_event} endpoint. The homeserver may be rate-limiting this call.
+   *
+   * @param roomId the room to search
+   * @param timestamp the timestamp to look up, in milliseconds since the Unix epoch
+   * @param direction the direction to search towards from the timestamp
+   * @return the closest event identifier and its server timestamp
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public RoomEvent getEventForTimestamp(RoomId roomId, long timestamp, Direction direction) {
+    JsonValue response =
+        authenticated(
+            "GET",
+            "_matrix/client/v1/rooms/"
+                + encode(roomId.value())
+                + "/timestamp_to_event?ts="
+                + timestamp
+                + "&dir="
+                + direction.value(),
+            null);
+    JsonObject obj = response.asObject();
+    return new RoomEvent(
+        obj.get(EVENT_ID_FIELD).asString(),
+        null,
+        null,
+        null,
+        obj.get("origin_server_ts") != null && obj.get("origin_server_ts").isNumber()
+            ? obj.get("origin_server_ts").asLong()
+            : null,
+        roomId.value(),
+        new JsonObject(),
+        null);
+  }
+
+  /**
+   * Retrieves the local aliases of a room declared in the room directory.
+   *
+   * @param roomId the room whose aliases to retrieve
+   * @return the aliases of the room, possibly empty
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public List<RoomAlias> getRoomAliases(RoomId roomId) {
+    JsonValue response =
+        authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/aliases", null);
+    var aliases = new ArrayList<RoomAlias>();
+    JsonValue aliasValue = response.asObject().get("aliases");
+    if (aliasValue != null && aliasValue.isArray()) {
+      var aliasArray = aliasValue.asArray();
+      for (int i = 0; i < aliasArray.size(); i++) {
+        aliases.add(RoomAlias.of(aliasArray.get(i).asString()));
+      }
+    }
+    return aliases;
+  }
+
+  /**
    * Retrieves the latest page of room history, walking backwards from the room start. Use {@link
    * #getRoomMessages(RoomId, String, Direction, long)} with the returned {@code end} token to page
    * further.

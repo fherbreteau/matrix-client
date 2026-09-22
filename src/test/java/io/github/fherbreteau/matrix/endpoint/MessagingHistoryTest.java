@@ -181,6 +181,30 @@ class MessagingHistoryTest {
   }
 
   @Test
+  void extendedPaginationCarriesTheStopTokenAndFilter() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"start\":\"t0\",\"end\":\"t1\",\"chunk\":[]}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var filter =
+        io.github.fherbreteau.matrix.json.JsonParser.parse("{\"types\":[\"m.room.message\"]}");
+    RoomMessagesPage page =
+        client.getRoomMessages(RoomId.of("!a:b"), "t0", "t5", Direction.BACKWARD, 5, filter);
+    Request last = requests.getLast();
+    assertThat(last.url())
+        .contains("from=t0&dir=b&to=t5&limit=5&filter=")
+        .contains("%7B%22types%22%3A%5B%22m.room.message%22%5D%7D");
+    assertThat(page.start()).isEqualTo("t0");
+    assertThat(page.end()).isEqualTo("t1");
+  }
+
+  @Test
   void latestHistoryOmitsTheFromToken() {
     var requests = new ArrayList<Request>();
     MatrixClient client =

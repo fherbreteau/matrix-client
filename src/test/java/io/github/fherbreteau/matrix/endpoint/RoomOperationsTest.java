@@ -32,9 +32,9 @@ class RoomOperationsTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(
                 recording(
+                    requests,
                     new Response(200, LOGIN_OK),
-                    new Response(200, "{\"room_id\":\"!new:b\"}"),
-                    requests))
+                    new Response(200, "{\"room_id\":\"!new:b\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     RoomId roomId = client.createRoom();
@@ -45,15 +45,41 @@ class RoomOperationsTest {
   }
 
   @Test
+  void createRoomSendsTheGivenParameters() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"room_id\":\"!new:b\"}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RoomId roomId =
+        client.createRoom(
+            io.github.fherbreteau.matrix.model.RoomCreation.builder()
+                .name("The Room")
+                .topic("Everything")
+                .visibility("public")
+                .build());
+    assertThat(roomId).isEqualTo(RoomId.of("!new:b"));
+    assertThat(requests.getLast().body())
+        .contains("\"name\":\"The Room\"")
+        .contains("\"topic\":\"Everything\"")
+        .contains("\"visibility\":\"public\"");
+  }
+
+  @Test
   void joinRoomByIdSendsTheEncodedIdentifier() {
     var requests = new ArrayList<Request>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(
                 recording(
+                    requests,
                     new Response(200, LOGIN_OK),
-                    new Response(200, "{\"room_id\":\"!a:b\"}"),
-                    requests))
+                    new Response(200, "{\"room_id\":\"!a:b\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(client.joinRoom(RoomId.of("!a:b"))).isEqualTo(RoomId.of("!a:b"));
@@ -67,9 +93,9 @@ class RoomOperationsTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(
                 recording(
+                    requests,
                     new Response(200, LOGIN_OK),
-                    new Response(200, "{\"room_id\":\"!a:b\"}"),
-                    requests))
+                    new Response(200, "{\"room_id\":\"!a:b\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(client.joinRoom(RoomAlias.of("#general:matrix.org"))).isEqualTo(RoomId.of("!a:b"));
@@ -82,7 +108,7 @@ class RoomOperationsTest {
     var requests = new ArrayList<Request>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
-            .transport(recording(new Response(200, LOGIN_OK), new Response(200, "{}"), requests))
+            .transport(recording(requests, new Response(200, LOGIN_OK), new Response(200, "{}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     client.leaveRoom(RoomId.of("!a:b"));
@@ -94,7 +120,7 @@ class RoomOperationsTest {
     var requests = new ArrayList<Request>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
-            .transport(recording(new Response(200, LOGIN_OK), new Response(200, "{}"), requests))
+            .transport(recording(requests, new Response(200, LOGIN_OK), new Response(200, "{}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     client.invite(RoomId.of("!a:b"), UserId.of("@bob:matrix.org"));
@@ -214,10 +240,10 @@ class RoomOperationsTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(
                 recording(
+                    requests,
                     new Response(200, LOGIN_OK),
                     new Response(
-                        200, "{\"room_id\":\"!a:b\",\"servers\":[\"matrix.org\",\"b.org\"]}"),
-                    requests))
+                        200, "{\"room_id\":\"!a:b\",\"servers\":[\"matrix.org\",\"b.org\"]}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     RoomAliasResolution resolution = client.resolveRoomAlias(RoomAlias.of("#general:matrix.org"));
@@ -239,11 +265,11 @@ class RoomOperationsTest {
     assertThatThrownBy(() -> client.leaveRoom(roomId)).isInstanceOf(AuthenticationException.class);
   }
 
-  private static HttpTransportStub recording(
-      Response first, Response second, List<Request> requests) {
+  private static HttpTransportStub recording(List<Request> requests, Response... responses) {
     var stub = new HttpTransportStub();
-    stub.enqueue(first);
-    stub.enqueue(second);
+    for (Response response : responses) {
+      stub.enqueue(response);
+    }
     stub.recordInto(requests);
     return stub;
   }

@@ -26,7 +26,11 @@ class RoomCreationTest {
             .roomVersion("11")
             .preset("public_chat")
             .direct(true)
-            .initialState(List.of(JsonParser.parse("{\"type\":\"m.room.history_visibility\"}")))
+            .initialState(
+                List.of(
+                    StateEvent.of(
+                        "m.room.history_visibility",
+                        JsonParser.parse("{\"history_visibility\":\"world_readable\"}"))))
             .creationContent(CreationContent.builder().federate(false).build())
             .powerLevelContentOverride(JsonParser.parse("{\"ban\":50}"))
             .build();

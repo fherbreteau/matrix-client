@@ -22,7 +22,7 @@ public final class RoomCreation {
   private final String roomVersion;
   private final String preset;
   private final boolean direct;
-  private final List<JsonValue> initialState;
+  private final List<StateEvent> initialState;
   private final CreationContent creationContent;
   private final JsonValue powerLevelContentOverride;
 
@@ -62,8 +62,8 @@ public final class RoomCreation {
     }
     if (!initialState.isEmpty()) {
       JsonArray initialStateArray = new JsonArray();
-      for (JsonValue state : initialState) {
-        initialStateArray.add(state);
+      for (StateEvent state : initialState) {
+        initialStateArray.add(state.toJson());
       }
       body.put("initial_state", initialStateArray);
     }
@@ -114,7 +114,7 @@ public final class RoomCreation {
     private String roomVersion;
     private String preset;
     private boolean direct;
-    private List<JsonValue> initialState = new ArrayList<>();
+    private List<StateEvent> initialState = new ArrayList<>();
     private CreationContent creationContent;
     private JsonValue powerLevelContentOverride;
 
@@ -225,10 +225,10 @@ public final class RoomCreation {
      * Sets the {@code initial_state} events sent with the room creation, letting the client
      * override the default state event content.
      *
-     * @param initialState the initial state events
+     * @param initialState the state events configuring the room
      * @return this builder for chaining
      */
-    public Builder initialState(List<JsonValue> initialState) {
+    public Builder initialState(List<StateEvent> initialState) {
       this.initialState = initialState;
       return this;
     }

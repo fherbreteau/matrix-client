@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Authentication, Session, and Logout APIs**: Implemented issue #5 — password login (`m.login.password` via `MatrixClient.login(Credentials, ...)`), a sealed `Credentials` hierarchy (`PasswordCredentials` first, extensible with OAuth 2.0 later without breaking callers), login responses modeled as `Session` (user ID, access token, device ID, homeserver metadata, raw response with unknown fields preserved; `toString()` redacts secrets as do credentials), logout and logout-all with `Bearer` authorization, an injectable `SessionStore` (in-memory default, custom implementations supported) that keeps sessions deterministic (create, reuse, clear), and a typed `AuthenticationException` for invalid credentials, unknown tokens and missing sessions — credentials and tokens never appear in logs or exception messages; refreshable tokens are supported (`login(..., refreshable)` overloads (with or without device display name) request `refresh_token: true`, `Session` carries `refreshToken`/`expiresInMs`/`isRefreshable()`, and `refresh()` rotates the tokens via `/_matrix/client/v3/refresh`) (#20)
 
+### 🚀 Features
+
+- **Room and Membership Operations**: Implemented issue #6 — typed room APIs on `MatrixClient` (create room, join by identifier or alias, leave, invite, full room state, joined members, room name and canonical alias, alias resolution) with fully validated identifier types (`RoomId`, `RoomAlias`, `UserId`, `EventId`, `DeviceId`), percent-encoded identifiers in request paths, room state preserving unknown event types and fields (via a `RoomEvent` content now modeled as raw `JsonValue`), and parsed `JoinedMembers`/`RoomAliasResolution` responses; success and Matrix error paths are covered by tests (157 total) (#22)
+
 ## 🤝 Contributing to Changelog
 
 When making changes, please:

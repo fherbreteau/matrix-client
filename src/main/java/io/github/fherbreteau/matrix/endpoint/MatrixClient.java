@@ -667,7 +667,7 @@ public final class MatrixClient {
                 + encode(roomId.value())
                 + "/timestamp_to_event?ts="
                 + timestamp
-                + "&dir="
+                + DIR_QUERY_PARAM
                 + direction.value(),
             null);
     JsonObject obj = response.asObject();

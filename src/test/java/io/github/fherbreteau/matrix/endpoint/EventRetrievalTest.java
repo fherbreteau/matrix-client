@@ -103,7 +103,8 @@ class EventRetrievalTest {
             .transport(stub -> new Response(200, "{}"))
             .build();
     var roomId = RoomId.of("!a:b");
-    assertThatThrownBy(() -> client.getRoomEvent(roomId, EventId.of("$e1")))
+    var eventId = EventId.of("$e1");
+    assertThatThrownBy(() -> client.getRoomEvent(roomId, eventId))
         .isInstanceOf(AuthenticationException.class);
   }
 
@@ -117,8 +118,10 @@ class EventRetrievalTest {
                     new Response(404, "{\"errcode\":\"M_NOT_FOUND\",\"error\":\"Not found\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var roomId = RoomId.of("!a:b");
+    var eventId = EventId.of("$missing");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.getRoomEvent(RoomId.of("!a:b"), EventId.of("$missing")))
+        .isThrownBy(() -> client.getRoomEvent(roomId, eventId))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_NOT_FOUND");

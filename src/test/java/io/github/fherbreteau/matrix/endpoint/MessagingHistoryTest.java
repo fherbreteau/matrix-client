@@ -240,8 +240,9 @@ class MessagingHistoryTest {
                     new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Not in room\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var roomId = RoomId.of("!a:b");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.getLatestRoomMessages(RoomId.of("!a:b"), 10))
+        .isThrownBy(() -> client.getLatestRoomMessages(roomId, 10))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");
@@ -253,8 +254,8 @@ class MessagingHistoryTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{}"))
             .build();
-    org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> client.getLatestRoomMessages(RoomId.of("!a:b"), 10))
+    var roomId = RoomId.of("!a:b");
+    assertThatThrownBy(() -> client.getLatestRoomMessages(roomId, 10))
         .isInstanceOf(AuthenticationException.class);
   }
 

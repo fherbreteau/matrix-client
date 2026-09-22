@@ -580,7 +580,7 @@ public final class MatrixClient {
   public RoomMessagesPage getRoomMessages(
       RoomId roomId, String from, Direction direction, long limit) {
     var query =
-        new StringBuilder("_matrix/client/v3/rooms/")
+        new StringBuilder(ROOMS_PATH)
             .append(encode(roomId.value()))
             .append("/messages?from=")
             .append(encode(from))
@@ -606,9 +606,7 @@ public final class MatrixClient {
    */
   public RoomMessagesPage getLatestRoomMessages(RoomId roomId, long limit) {
     var query =
-        new StringBuilder("_matrix/client/v3/rooms/")
-            .append(encode(roomId.value()))
-            .append("/messages?dir=b");
+        new StringBuilder(ROOMS_PATH).append(encode(roomId.value())).append("/messages?dir=b");
     if (limit > 0) {
       query.append("&limit=").append(limit);
     }

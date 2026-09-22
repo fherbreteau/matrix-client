@@ -202,7 +202,7 @@ public final class MatrixClient {
    */
   public Session login(
       Credentials credentials, String deviceDisplayName, boolean requestRefreshToken) {
-    var body = (JsonObject) credentials.toJson();
+    var body = credentials.toJson().asObject();
     if (deviceDisplayName != null) {
       body.put("initial_device_display_name", deviceDisplayName);
     }
@@ -303,7 +303,7 @@ public final class MatrixClient {
    */
   public RoomId createRoom(RoomCreation creation) {
     return RoomId.of(
-        authenticated("POST", "_matrix/client/v3/createRoom", creation.toJson().toJson())
+        authenticated("POST", "_matrix/client/v3/createRoom", creation.toJson())
             .asObject()
             .get(ROOM_ID_FIELD)
             .asString());
@@ -318,11 +318,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public RoomId joinRoom(RoomId roomId) {
-    return RoomId.of(
-        authenticated("POST", "_matrix/client/v3/join/" + encode(roomId.value()), "{}")
-            .asObject()
-            .get(ROOM_ID_FIELD)
-            .asString());
+    return joinRoom(roomId.value());
   }
 
   /**
@@ -334,8 +330,12 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public RoomId joinRoom(RoomAlias roomAlias) {
+    return joinRoom(roomAlias.value());
+  }
+
+  private RoomId joinRoom(String roomAliasOrId) {
     return RoomId.of(
-        authenticated("POST", "_matrix/client/v3/join/" + encode(roomAlias.value()), "{}")
+        authenticated("POST", "_matrix/client/v3/join/" + encode(roomAliasOrId), new JsonObject())
             .asObject()
             .get(ROOM_ID_FIELD)
             .asString());
@@ -349,7 +349,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public void leaveRoom(RoomId roomId) {
-    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/leave", "{}");
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/leave", new JsonObject());
   }
 
   /**
@@ -364,7 +364,7 @@ public final class MatrixClient {
     authenticated(
         "POST",
         ROOMS_PATH + encode(roomId.value()) + "/invite",
-        new JsonObject().put(USER_ID_FIELD, userId.value()).toJson());
+        new JsonObject().put(USER_ID_FIELD, userId.value()));
   }
 
   /**
@@ -447,7 +447,7 @@ public final class MatrixClient {
     if (reason != null) {
       body.put(REASON_FIELD, reason);
     }
-    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/kick", body.toJson());
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/kick", body);
   }
 
   /**
@@ -464,7 +464,7 @@ public final class MatrixClient {
     if (reason != null) {
       body.put(REASON_FIELD, reason);
     }
-    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/ban", body.toJson());
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/ban", body);
   }
 
   /**
@@ -479,7 +479,7 @@ public final class MatrixClient {
     authenticated(
         "POST",
         ROOMS_PATH + encode(roomId.value()) + "/unban",
-        new JsonObject().put(USER_ID_FIELD, userId.value()).toJson());
+        new JsonObject().put(USER_ID_FIELD, userId.value()));
   }
 
   /**
@@ -490,7 +490,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public void forget(RoomId roomId) {
-    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/forget", "{}");
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/forget", new JsonObject());
   }
 
   /**
@@ -571,7 +571,7 @@ public final class MatrixClient {
                     + encode(eventType)
                     + "/"
                     + encode(transactionId),
-                content.toJson())
+                content)
             .asObject()
             .get(EVENT_ID_FIELD)
             .asString();
@@ -614,7 +614,7 @@ public final class MatrixClient {
                     + encode(eventType)
                     + "/"
                     + encode(stateKey),
-                content.toJson())
+                content)
             .asObject()
             .get(EVENT_ID_FIELD)
             .asString();
@@ -645,7 +645,7 @@ public final class MatrixClient {
                     + encode(eventId.value())
                     + "/"
                     + UUID.randomUUID(),
-                body.toJson())
+                body)
             .asObject()
             .get(EVENT_ID_FIELD)
             .asString());
@@ -673,7 +673,7 @@ public final class MatrixClient {
     authenticated(
         "PUT",
         PROFILE_PATH + encode(userId.value()) + "/displayname",
-        new JsonObject().put("displayname", displayName).toJson());
+        new JsonObject().put("displayname", displayName));
   }
 
   /**
@@ -688,7 +688,7 @@ public final class MatrixClient {
     authenticated(
         "PUT",
         PROFILE_PATH + encode(userId.value()) + "/avatar_url",
-        new JsonObject().put("avatar_url", avatarUrl).toJson());
+        new JsonObject().put("avatar_url", avatarUrl));
   }
 
   /**
@@ -703,7 +703,7 @@ public final class MatrixClient {
     authenticated(
         "PUT",
         DIRECTORY_PATH + encode(roomAlias.value()),
-        new JsonObject().put(ROOM_ID_FIELD, roomId.value()).toJson());
+        new JsonObject().put(ROOM_ID_FIELD, roomId.value()));
   }
 
   /**
@@ -807,7 +807,7 @@ public final class MatrixClient {
    * @return the parsed JSON response
    */
   public JsonValue post(String path, JsonValue body) {
-    return request("POST", path, body == null ? null : body.toJson());
+    return request("POST", path, body);
   }
 
   /**
@@ -818,12 +818,14 @@ public final class MatrixClient {
    * @param body the JSON request body, or {@code null} for none
    * @return the parsed JSON response
    */
-  public JsonValue request(String method, String path, String body) {
+  public JsonValue request(String method, String path, JsonValue body) {
     return request(method, path, body, Map.of());
   }
 
-  private JsonValue request(String method, String path, String body, Map<String, String> headers) {
-    Request request = new Request(method, homeserverUrl + "/" + path, headers, body);
+  private JsonValue request(
+      String method, String path, JsonValue body, Map<String, String> headers) {
+    String requestBody = body == null ? null : body.toJson();
+    Request request = new Request(method, homeserverUrl + "/" + path, headers, requestBody);
     HttpTransport.Response response = transport.send(request);
     if (response.statusCode() < 200 || response.statusCode() >= 300) {
       throw MatrixServerException.fromResponse(
@@ -835,7 +837,7 @@ public final class MatrixClient {
     return JsonParser.parse(response.body());
   }
 
-  private JsonValue authenticated(String method, String path, String body) {
+  private JsonValue authenticated(String method, String path, JsonValue body) {
     Session session =
         sessionStore
             .current()

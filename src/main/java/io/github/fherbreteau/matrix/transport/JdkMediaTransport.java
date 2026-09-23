@@ -78,7 +78,6 @@ public final class JdkMediaTransport implements MediaTransport {
             ? HttpRequest.BodyPublishers.noBody()
             : HttpRequest.BodyPublishers.ofByteArray(request.body()));
     try {
-      Duration requestTimeout = config.requestTimeout();
       HttpResponse<byte[]> response =
           client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
       Long retryAfterMs =

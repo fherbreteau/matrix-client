@@ -26,9 +26,9 @@ class MediaTest {
 
   @Test
   void mxcUrisParseAndValidate() {
-    assertThat(MxcUri.parse("mxc://matrix.org/abc-123_X").toString())
-        .isEqualTo("mxc://matrix.org/abc-123_X");
-    assertThat(MxcUri.of("matrix.org", "abc").toString()).isEqualTo("mxc://matrix.org/abc");
+    assertThat(MxcUri.parse("mxc://matrix.org/abc-123_X"))
+        .hasToString("mxc://matrix.org/abc-123_X");
+    assertThat(MxcUri.of("matrix.org", "abc")).hasToString("mxc://matrix.org/abc");
   }
 
   @Test
@@ -66,7 +66,7 @@ class MediaTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     MxcUri uri =
         client.uploadMedia("hello".getBytes(StandardCharsets.UTF_8), "text/plain", "hello.txt");
-    assertThat(uri.toString()).isEqualTo("mxc://matrix.org/abc123");
+    assertThat(uri).hasToString("mxc://matrix.org/abc123");
     BinaryRequest request = requests.getFirst();
     assertThat(request.method()).isEqualTo("POST");
     assertThat(request.url())
@@ -125,7 +125,8 @@ class MediaTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{}"))
             .build();
-    assertThatThrownBy(() -> client.uploadMedia(new byte[1], "text/plain", null))
+    var content = new byte[1];
+    assertThatThrownBy(() -> client.uploadMedia(content, "text/plain", null))
         .isInstanceOf(AuthenticationException.class);
   }
 
@@ -195,11 +196,34 @@ class MediaTest {
                         null))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var uri = MxcUri.parse("mxc://m/abc");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.downloadMedia(MxcUri.parse("mxc://m/abc"), 10))
+        .isThrownBy(() -> client.downloadMedia(uri, 10))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_TOO_LARGE");
+  }
+
+  @Test
+  void downloadServerErrorsAreMapped() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, LOGIN_OK))
+            .mediaTransport(
+                binary ->
+                    new BinaryResponse(
+                        404,
+                        java.util.Map.of("content-type", "application/json"),
+                        "{\"errcode\":\"M_NOT_FOUND\",\"error\":\"gone\"}"
+                            .getBytes(StandardCharsets.UTF_8),
+                        null))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    assertThatExceptionOfType(MatrixServerException.class)
+        .isThrownBy(() -> client.downloadMedia(MxcUri.parse("mxc://m/abc"), 1024))
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getErrcode)
+        .isEqualTo("M_NOT_FOUND");
   }
 
   @Test
@@ -246,7 +270,6 @@ class MediaTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(client.getMediaConfig()).contains(52428800L);
-    assertThat(client.getMediaConfig()).isEmpty();
   }
 
   @Test

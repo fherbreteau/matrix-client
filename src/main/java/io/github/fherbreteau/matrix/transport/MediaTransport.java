@@ -27,12 +27,71 @@ public interface MediaTransport {
    * A binary HTTP request: raw body bytes with an explicit content type. The {@code toString()}
    * representation never includes the body.
    */
-  record BinaryRequest(
-      String method, String url, Map<String, String> headers, byte[] body, String contentType) {
+  final class BinaryRequest {
 
-    public BinaryRequest {
-      headers = headers == null ? Map.of() : Map.copyOf(headers);
-      body = body == null ? new byte[0] : body;
+    private final String method;
+    private final String url;
+    private final Map<String, String> headers;
+    private final byte[] body;
+    private final String contentType;
+
+    /**
+     * Creates a binary request.
+     *
+     * @param method the HTTP method
+     * @param url the target URL
+     * @param headers the extra headers
+     * @param body the raw body bytes
+     * @param contentType the MIME type of the body
+     */
+    public BinaryRequest(
+        String method, String url, Map<String, String> headers, byte[] body, String contentType) {
+      this.method = method;
+      this.url = url;
+      this.headers = headers == null ? Map.of() : Map.copyOf(headers);
+      this.body = body == null ? new byte[0] : body.clone();
+      this.contentType = contentType;
+    }
+
+    public String method() {
+      return method;
+    }
+
+    public String url() {
+      return url;
+    }
+
+    public Map<String, String> headers() {
+      return headers;
+    }
+
+    public byte[] body() {
+      return body.clone();
+    }
+
+    public String contentType() {
+      return contentType;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof BinaryRequest other)) {
+        return false;
+      }
+      return method.equals(other.method)
+          && url.equals(other.url)
+          && headers.equals(other.headers)
+          && java.util.Arrays.equals(body, other.body)
+          && contentType.equals(other.contentType);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(
+          method, url, headers, java.util.Arrays.hashCode(body), contentType);
     }
 
     @Override

@@ -73,6 +73,8 @@ public final class MatrixClient {
   private static final String REASON_FIELD = "reason";
   private static final String EVENT_ID_FIELD = "event_id";
   private static final String CHUNK_FIELD = "chunk";
+  private static final String CONTENT_TYPE_HEADER = "content-type";
+  private static final String CONTENT_DISPOSITION_HEADER = "content-disposition";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
   private static final String DIR_QUERY_PARAM = "&dir=";
   private static final String LIMIT_QUERY_PARAM = "&limit=";
@@ -1330,11 +1332,7 @@ public final class MatrixClient {
         mediaTransport.send(
             new BinaryRequest(
                 "POST", homeserverUrl + "/" + path, authHeaders(), content, contentType));
-    throwIfError(
-        response.statusCode(),
-        response.header("content-type"),
-        asString(response),
-        response.retryAfterMs());
+    throwIfError(response.statusCode(), asString(response));
     JsonObject body = JsonParser.parse(asString(response)).asObject();
     JsonValue uri = body.get("content_uri");
     if (uri == null || !uri.isString()) {
@@ -1389,18 +1387,14 @@ public final class MatrixClient {
                 authHeaders(),
                 null,
                 "application/octet-stream"));
-    throwIfError(
-        response.statusCode(),
-        response.header("content-type"),
-        asString(response),
-        response.retryAfterMs());
+    throwIfError(response.statusCode(), asString(response));
     if (maxBytes > 0 && response.contentLength() > maxBytes) {
       throw new MatrixServerException(
           response.statusCode(), "M_TOO_LARGE", "Media exceeds the configured maximum size");
     }
     return new MediaDownload(
-        response.header("content-type"),
-        response.header("content-disposition"),
+        response.header(CONTENT_TYPE_HEADER),
+        response.header(CONTENT_DISPOSITION_HEADER),
         response.bodyStream());
   }
 
@@ -1445,18 +1439,14 @@ public final class MatrixClient {
                 authHeaders(),
                 null,
                 "application/octet-stream"));
-    throwIfError(
-        response.statusCode(),
-        response.header("content-type"),
-        asString(response),
-        response.retryAfterMs());
+    throwIfError(response.statusCode(), asString(response));
     if (maxBytes > 0 && response.contentLength() > maxBytes) {
       throw new MatrixServerException(
           response.statusCode(), "M_TOO_LARGE", "Thumbnail exceeds the configured maximum size");
     }
     return new MediaDownload(
-        response.header("content-type"),
-        response.header("content-disposition"),
+        response.header(CONTENT_TYPE_HEADER),
+        response.header(CONTENT_DISPOSITION_HEADER),
         response.bodyStream());
   }
 
@@ -1484,13 +1474,11 @@ public final class MatrixClient {
     return Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken());
   }
 
-  private void throwIfError(int statusCode, String contentType, String body, Long retryAfterMs) {
+  private void throwIfError(int statusCode, String body) {
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    JsonValue parsed = parseOrNull(body);
-    MatrixServerException exception = MatrixServerException.fromResponse(statusCode, parsed, null);
-    throw exception;
+    throw MatrixServerException.fromResponse(statusCode, parseOrNull(body), null);
   }
 
   private static String asString(

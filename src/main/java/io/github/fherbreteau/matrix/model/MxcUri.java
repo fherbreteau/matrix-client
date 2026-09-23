@@ -10,6 +10,8 @@ import io.github.fherbreteau.matrix.error.DiscoveryException;
  */
 public record MxcUri(String serverName, String mediaId) {
 
+  private static final String SCHEME = "mxc://";
+
   /**
    * Creates and validates a Matrix content URI.
    *
@@ -35,10 +37,10 @@ public record MxcUri(String serverName, String mediaId) {
    * @throws DiscoveryException if the URI is not a valid {@code mxc://} URI
    */
   public static MxcUri parse(String uri) {
-    if (uri == null || !uri.startsWith("mxc://")) {
+    if (uri == null || !uri.startsWith(SCHEME)) {
       throw new DiscoveryException("Not a mxc:// URI: " + uri);
     }
-    String withoutScheme = uri.substring("mxc://".length());
+    String withoutScheme = uri.substring(SCHEME.length());
     int slash = withoutScheme.indexOf('/');
     if (slash <= 0 || slash == withoutScheme.length() - 1) {
       throw new DiscoveryException("mxc:// URI must be mxc://<server>/<mediaId>: " + uri);
@@ -63,6 +65,6 @@ public record MxcUri(String serverName, String mediaId) {
 
   @Override
   public String toString() {
-    return "mxc://" + serverName + "/" + mediaId;
+    return SCHEME + serverName + "/" + mediaId;
   }
 }

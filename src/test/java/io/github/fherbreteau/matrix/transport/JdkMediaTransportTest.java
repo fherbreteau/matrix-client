@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.transport;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class JdkMediaTransportTest {
 
   @Test
-  void sendsRawBytesAndParsesTheResponse() throws Exception {
+  void sendsRawBytesAndParsesTheResponse() {
     HttpClient client =
         new HttpClient() {
           @Override
@@ -100,7 +101,11 @@ class JdkMediaTransportTest {
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.header("content-type")).isEqualTo("image/png");
     assertThat(response.contentLength()).isEqualTo(3);
-    assertThat(response.bodyStream().readAllBytes()).isEqualTo(new byte[] {1, 2, 3});
+    try (var stream = response.bodyStream()) {
+      assertThat(stream.readAllBytes()).isEqualTo(new byte[] {1, 2, 3});
+    } catch (IOException e) {
+      throw new AssertionError(e);
+    }
   }
 
   @Test
@@ -231,6 +236,29 @@ class JdkMediaTransportTest {
   }
 
   @Test
+  void binaryRequestComparesBodyContent() {
+    var first =
+        new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1, 2}, "t");
+    var second =
+        new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1, 2}, "t");
+    var different =
+        new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1}, "t");
+    assertThat(first).isEqualTo(second).hasSameHashCodeAs(second);
+    assertThat(first).isNotEqualTo(different);
+    assertThat(first).isNotEqualTo(null);
+  }
+
+  @Test
+  void binaryRequestBodyIsDefensive() {
+    var body = new byte[] {1, 2};
+    var request = new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), body, "t");
+    body[0] = 9;
+    assertThat(request.body()).containsExactly(1, 2);
+    request.body()[1] = 5;
+    assertThat(request.body()).containsExactly(1, 2);
+  }
+
+  @Test
   void rawBodyNeverAppearsInToString() {
     var request =
         new MediaTransport.BinaryRequest(
@@ -244,13 +272,11 @@ class JdkMediaTransportTest {
   }
 
   @Test
-  void configConstructorBuildsAWorkingTransport() throws Exception {
+  void configConstructorBuildsAWorkingTransport() {
     var transport = new JdkMediaTransport(HttpTransportConfig.builder().build());
-    assertThatThrownBy(
-            () ->
-                transport.send(
-                    new MediaTransport.BinaryRequest(
-                        "GET", "http://localhost:1/x", Map.of(), null, "a/b")))
+    var request =
+        new MediaTransport.BinaryRequest("GET", "http://localhost:1/x", Map.of(), null, "a/b");
+    assertThatThrownBy(() -> transport.send(request))
         .isInstanceOf(UncheckedTransportException.class);
   }
 

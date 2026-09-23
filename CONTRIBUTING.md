@@ -117,6 +117,10 @@ git push origin feature/your-feature
   endpoint — verify request/response field names, required fields,
   deprecations, rate-limiting and error codes, and record intentional
   deviations in the Javadoc
+- **Link to the specification in Javadoc**: every new endpoint method on
+  `MatrixClient` and every new model class must carry
+  `@see <a href="https://spec.matrix.org/latest/client-server-api/<section>">Matrix specification</a>`
+  pointing at the section it implements or models
 
 - **Follow the Google Java Style Guide** — formatting is enforced by
   `google-java-format` (Spotify `fmt-maven-plugin`): run `mvn fmt:format` before committing;

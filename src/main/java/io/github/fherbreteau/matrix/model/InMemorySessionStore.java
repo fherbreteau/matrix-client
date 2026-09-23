@@ -3,7 +3,11 @@ package io.github.fherbreteau.matrix.model;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Thread-safe in-memory {@link SessionStore} keeping at most one session. */
+/**
+ * Thread-safe in-memory {@link SessionStore} keeping at most one session.
+ *
+ * @see SessionStore
+ */
 public final class InMemorySessionStore implements SessionStore {
 
   private final AtomicReference<Session> session = new AtomicReference<>();

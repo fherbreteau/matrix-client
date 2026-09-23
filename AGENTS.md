@@ -55,6 +55,14 @@ deprecations, rate-limiting and error codes against it.
   pre-v1.16 `/profile/{userId}/displayname` paths).
 - After implementing, re-read the spec section and diff it against the
   code; record any intentional deviation in the Javadoc.
+- **Specification links in Javadoc are mandatory**: every endpoint method
+  on `MatrixClient` and every model class must carry
+  `@see <a href="https://spec.matrix.org/latest/client-server-api/<section>">Matrix specification</a>`
+  pointing at the exact spec section it implements or models (e.g.
+  `login`, `put-roomsroomidsendeventtypetxnid`, `get-roomsroomidmessages`).
+  Add the link when creating the method or class — never leave a new
+  public member without it. Generic accessors reference the closest
+  relevant section (API standards, login, server discovery).
 - This check applies to new features, bug fixes and refactors alike.
 
 ## CI Requirements

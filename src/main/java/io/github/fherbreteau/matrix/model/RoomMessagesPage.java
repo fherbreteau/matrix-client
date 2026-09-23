@@ -11,6 +11,10 @@ import java.util.List;
  * events whose order is defined by the homeserver; callers must not assume any specific ordering
  * and should use the {@code start}/{@code end} tokens to navigate. Unknown event types and fields
  * are preserved in the parsed events.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidmessages">Matrix
+ *     specification</a>
  */
 public record RoomMessagesPage(
     List<RoomEvent> chunk, String start, String end, List<RoomEvent> state) {

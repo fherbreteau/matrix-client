@@ -12,6 +12,8 @@ public record UserId(String value) {
    * Creates a user identifier from its string representation.
    *
    * @throws IllegalArgumentException if the value is not a valid user identifier
+   * @see <a href="https://spec.matrix.org/latest/appendices/#user-identifiers">Matrix
+   *     specification</a>
    */
   public static UserId of(String value) {
     return new UserId(value);

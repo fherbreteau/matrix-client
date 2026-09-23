@@ -5,5 +5,5 @@ module io.github.fherbreteau.matrix {
   exports io.github.fherbreteau.matrix.model;
   exports io.github.fherbreteau.matrix.endpoint;
 
-  requires java.net.http;
+  requires transitive java.net.http;
 }

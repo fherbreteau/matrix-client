@@ -3,6 +3,10 @@ package io.github.fherbreteau.matrix.model;
 /**
  * The direction to walk when paginating room history: {@code b} (backwards, older events) or {@code
  * f} (forwards, newer events).
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidmessages">Matrix
+ *     specification</a>
  */
 public enum Direction {
 

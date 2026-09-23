@@ -6,6 +6,10 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 /**
  * A public room as returned by the room directory. Known fields are exposed as accessors and the
  * raw chunk entry is preserved so unknown fields stay available for forward compatibility.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3publicrooms">Matrix
+ *     specification</a>
  */
 public record PublicRoom(
     RoomId roomId,

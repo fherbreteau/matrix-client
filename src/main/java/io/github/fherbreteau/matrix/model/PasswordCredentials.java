@@ -6,6 +6,9 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 /**
  * Password-based credentials for the {@code m.login.password} flow. The password never appears in
  * {@link #toString()}.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#password-based">Matrix
+ *     specification</a>
  */
 public record PasswordCredentials(String identifier, String password) implements Credentials {
 

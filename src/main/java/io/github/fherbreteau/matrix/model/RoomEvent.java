@@ -12,6 +12,9 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  *
  * <p>To author state events (for {@code initial_state} or {@code sendStateEvent}), use {@link
  * StateEvent}, which carries only the fields a client may send.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#room-event-format">Matrix
+ *     specification</a>
  */
 public record RoomEvent(
     String eventId,

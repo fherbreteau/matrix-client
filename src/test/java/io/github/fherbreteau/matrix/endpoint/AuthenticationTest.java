@@ -201,8 +201,7 @@ class AuthenticationTest {
                     new Response(
                         200, "{\"access_token\":\"new-token\",\"expires_in_ms\":7200000}")))
             .build();
-    Session session =
-        client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
     Session refreshed = client.refresh();
     assertThat(refreshed.accessToken()).isEqualTo("new-token");
     assertThat(refreshed.refreshToken()).isEqualTo("refresh-it");

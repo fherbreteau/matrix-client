@@ -57,14 +57,12 @@ public final class MatrixClient {
 
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
   private static final String USER_ID_FIELD = "user_id";
-  private static final String DEVICE_ID_FIELD = "device_id";
   private static final String REASON_FIELD = "reason";
   private static final String EVENT_ID_FIELD = "event_id";
   private static final String CHUNK_FIELD = "chunk";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
   private static final String DIR_QUERY_PARAM = "&dir=";
   private static final String LIMIT_QUERY_PARAM = "&limit=";
-  private static final String ORIGIN_SERVER_TS_FIELD = "origin_server_ts";
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String ROOM_ID_FIELD = "room_id";
@@ -643,17 +641,7 @@ public final class MatrixClient {
    */
   public RoomMessagesPage getRoomMessages(
       RoomId roomId, String from, Direction direction, long limit) {
-    var query =
-        new StringBuilder(ROOMS_PATH)
-            .append(encode(roomId.value()))
-            .append("/messages?from=")
-            .append(encode(from))
-            .append(DIR_QUERY_PARAM)
-            .append(direction.value());
-    if (limit > 0) {
-      query.append(LIMIT_QUERY_PARAM).append(limit);
-    }
-    return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
+    return getRoomMessages(roomId, from, null, direction, limit, null);
   }
 
   /**
@@ -739,18 +727,7 @@ public final class MatrixClient {
                 + DIR_QUERY_PARAM
                 + direction.value(),
             null);
-    JsonObject obj = response.asObject();
-    return new RoomEvent(
-        obj.get(EVENT_ID_FIELD).asString(),
-        null,
-        null,
-        null,
-        obj.get(ORIGIN_SERVER_TS_FIELD) != null && obj.get(ORIGIN_SERVER_TS_FIELD).isNumber()
-            ? obj.get(ORIGIN_SERVER_TS_FIELD).asLong()
-            : null,
-        roomId.value(),
-        new JsonObject(),
-        null);
+    return RoomEvent.from(response);
   }
 
   /**

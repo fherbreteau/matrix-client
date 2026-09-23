@@ -61,10 +61,7 @@ public final class MatrixClient {
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
   private static final String NO_SESSION_MESSAGE = "No authenticated session";
   private static final String USER_PATH = "_matrix/client/v3/user/";
-
-  @SuppressWarnings("java:S1075")
-  private static final String ACCOUNT_DATA_PATH = "/account_data/";
-
+  private static final String ACCOUNT_DATA_PATH = "/account_data/"; // NOSONAR
   private static final String USER_ID_FIELD = "user_id";
   private static final String REASON_FIELD = "reason";
   private static final String EVENT_ID_FIELD = "event_id";

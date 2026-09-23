@@ -12,7 +12,8 @@ import java.util.List;
  * and should use the {@code start}/{@code end} tokens to navigate. Unknown event types and fields
  * are preserved in the parsed events.
  *
- * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidmessages">Matrix
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidmessages">Matrix
  *     specification</a>
  */
 public record RoomMessagesPage(

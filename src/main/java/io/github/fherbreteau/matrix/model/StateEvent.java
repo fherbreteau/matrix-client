@@ -10,7 +10,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * JsonValue)} for events with an explicit state key.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidstateeventtypestatekey">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidstateeventtypestatekey">Matrix
  *     specification</a>
  */
 public record StateEvent(String type, String stateKey, JsonValue content) {

@@ -9,7 +9,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * and homeserver metadata, plus the raw login response so unknown fields are preserved. The access
  * token never appears in {@link #toString()}.
  *
- * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#login">Matrix specification</a>
  */
 public record Session(
     String userId,

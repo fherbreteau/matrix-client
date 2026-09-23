@@ -9,7 +9,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * request body when unset. Use the {@link Builder} via {@link #builder()}.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/post-matrixclientv3roomsroomidread-markers">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidread_markers">Matrix
  *     specification</a>
  */
 public final class ReadMarkers {

@@ -12,7 +12,9 @@ import java.util.List;
  * event, such as the creator, the additional creators (room version 11), the federation behavior
  * and the room type. Use the {@link Builder} via {@link #builder()}.
  *
- * @see <a href="https://spec.matrix.org/latest/client-server-api/creation">Matrix specification</a>
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3createroom">Matrix
+ *     specification</a>
  */
 public final class CreationContent {
 

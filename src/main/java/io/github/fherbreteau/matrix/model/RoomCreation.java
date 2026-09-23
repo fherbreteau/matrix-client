@@ -12,7 +12,9 @@ import java.util.List;
  * through the raw {@code creation_content}, and all optional fields are omitted from the request
  * body when unset. Use the {@link Builder} via {@link #builder()}.
  *
- * @see <a href="https://spec.matrix.org/latest/client-server-api/creation">Matrix specification</a>
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3createroom">Matrix
+ *     specification</a>
  */
 public final class RoomCreation {
 

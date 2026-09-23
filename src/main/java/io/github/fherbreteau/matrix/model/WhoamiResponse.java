@@ -9,7 +9,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * value.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3account-whoami">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3accountwhoami">Matrix
  *     specification</a>
  */
 public record WhoamiResponse(String userId, String deviceId, boolean guest, JsonValue raw) {

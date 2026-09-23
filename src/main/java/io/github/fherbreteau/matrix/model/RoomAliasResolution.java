@@ -11,7 +11,7 @@ import java.util.List;
  * be empty.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3directoryroomroomalias">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3directoryroomroomalias">Matrix
  *     specification</a>
  */
 public record RoomAliasResolution(RoomId roomId, List<String> servers) {

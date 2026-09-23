@@ -20,7 +20,7 @@ public record EventId(String value) {
    * Creates an event identifier from its string representation.
    *
    * @throws IllegalArgumentException if the value is not a valid event identifier
-   * @see <a href="https://spec.matrix.org/latest/client-server-api/room-event-format">Matrix
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#room-event-format">Matrix
    *     specification</a>
    */
   public static EventId of(String value) {

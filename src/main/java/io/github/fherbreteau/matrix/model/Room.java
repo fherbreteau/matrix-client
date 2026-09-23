@@ -13,7 +13,7 @@ public final class Room {
    * Creates a room with the given identifier and no events.
    *
    * @param roomId the room identifier
-   * @see <a href="https://spec.matrix.org/latest/client-server-api/room-event-format">Matrix
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#room-event-format">Matrix
    *     specification</a>
    */
   public Room(String roomId) {

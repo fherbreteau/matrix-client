@@ -10,7 +10,7 @@ import java.util.Map;
  * Unknown fields of the response are ignored; display names may be {@code null} when absent.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidjoined-members">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidjoined_members">Matrix
  *     specification</a>
  */
 public record JoinedMembers(Map<String, String> displayNames) {

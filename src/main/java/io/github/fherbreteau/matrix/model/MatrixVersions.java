@@ -14,7 +14,7 @@ import java.util.Map;
  * /_matrix/client/versions}. Unknown fields (for example {@code unstable_features}) are preserved
  * for forward compatibility.
  *
- * @see <a href="https://spec.matrix.org/latest/client-server-api/get-matrixclient-versions">Matrix
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientversions">Matrix
  *     specification</a>
  */
 public final class MatrixVersions {

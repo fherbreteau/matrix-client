@@ -8,7 +8,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * raw chunk entry is preserved so unknown fields stay available for forward compatibility.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3publicrooms">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3publicrooms">Matrix
  *     specification</a>
  */
 public record PublicRoom(

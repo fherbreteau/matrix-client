@@ -9,7 +9,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * raw value.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3presenceuseridstatus">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3presenceuseridstatus">Matrix
  *     specification</a>
  */
 public record PresenceStatus(

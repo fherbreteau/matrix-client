@@ -12,7 +12,7 @@ public record RoomAlias(String value) {
    * Creates a room alias from its string representation.
    *
    * @throws IllegalArgumentException if the value is not a valid room alias
-   * @see <a href="https://spec.matrix.org/latest/client-server-api/room-aliases">Matrix
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#room-aliases">Matrix
    *     specification</a>
    */
   public static RoomAlias of(String value) {

@@ -11,7 +11,7 @@ import java.util.List;
  * ignored.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3publicrooms">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3publicrooms">Matrix
  *     specification</a>
  */
 public record PublicRoomsResponse(

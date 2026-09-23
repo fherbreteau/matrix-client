@@ -8,7 +8,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * the raw value.
  *
  * @see <a
- *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3profileuserid">Matrix
+ *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3profileuserid">Matrix
  *     specification</a>
  */
 public record UserProfile(String displayName, String avatarUrl, JsonValue raw) {

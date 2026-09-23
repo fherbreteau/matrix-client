@@ -18,6 +18,8 @@ public record Session(
     String homeserver,
     JsonValue raw) {
 
+  private static final String REFRESH_TOKEN_FIELD = "refresh_token";
+
   /**
    * Returns whether the access token can be renewed with {@code POST /_matrix/client/v3/refresh},
    * i.e. the server issued a refresh token.
@@ -44,7 +46,7 @@ public record Session(
     return new Session(
         userId.asString(),
         token.asString(),
-        stringValue(obj, "refresh_token"),
+        stringValue(obj, REFRESH_TOKEN_FIELD),
         longValue(obj, "expires_in_ms"),
         stringValue(obj, "device_id"),
         stringValue(obj, "home_server"),
@@ -71,8 +73,8 @@ public record Session(
     return new Session(
         previous.userId(),
         token.asString(),
-        stringValue(obj, "refresh_token") != null
-            ? stringValue(obj, "refresh_token")
+        stringValue(obj, REFRESH_TOKEN_FIELD) != null
+            ? stringValue(obj, REFRESH_TOKEN_FIELD)
             : previous.refreshToken(),
         longValue(obj, "expires_in_ms"),
         previous.deviceId(),

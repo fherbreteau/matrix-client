@@ -8,10 +8,8 @@ import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
-import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ProfileWhoamiTest {
@@ -21,15 +19,6 @@ class ProfileWhoamiTest {
     for (Response response : responses) {
       stub.enqueue(response);
     }
-    return stub;
-  }
-
-  private static HttpTransportStub recording(List<Request> requests, Response... responses) {
-    var stub = new HttpTransportStub();
-    for (Response response : responses) {
-      stub.enqueue(response);
-    }
-    stub.recordInto(requests);
     return stub;
   }
 

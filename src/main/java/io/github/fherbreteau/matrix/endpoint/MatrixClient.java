@@ -11,7 +11,9 @@ import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
+import io.github.fherbreteau.matrix.model.MediaDownload;
 import io.github.fherbreteau.matrix.model.MessageBody;
+import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.Presence;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
@@ -24,14 +26,19 @@ import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
+import io.github.fherbreteau.matrix.model.ThumbnailMethod;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import io.github.fherbreteau.matrix.transport.MediaTransport;
+import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
+import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,9 +85,11 @@ public final class MatrixClient {
   private final MatrixVersions versions;
   private final DiscoveredHomeserver discovery;
   private final SessionStore sessionStore;
+  private final MediaTransport mediaTransport;
 
   private MatrixClient(Builder builder) {
     this.transport = builder.transport;
+    this.mediaTransport = builder.mediaTransport;
     this.sessionStore = builder.sessionStore;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
@@ -1300,6 +1309,199 @@ public final class MatrixClient {
         .userId();
   }
 
+  /**
+   * Uploads raw bytes to the content repository and returns their Matrix content URI.
+   *
+   * @param content the media bytes
+   * @param contentType the MIME type of the media, sent as the {@code Content-Type} header
+   * @param filename the optional filename presented to other users
+   * @return the {@code mxc://} URI of the uploaded media
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public MxcUri uploadMedia(byte[] content, String contentType, String filename) {
+    var path = new StringBuilder("_matrix/media/v3/upload");
+    if (filename != null) {
+      path.append("?filename=").append(encode(filename));
+    }
+    var headers = new HashMap<String, String>();
+    headers.put("Content-Type", contentType);
+    var response =
+        mediaTransport.send(
+            new BinaryRequest(
+                "POST", homeserverUrl + "/" + path, authHeaders(), content, contentType));
+    throwIfError(
+        response.statusCode(),
+        response.header("content-type"),
+        asString(response),
+        response.retryAfterMs());
+    JsonObject body = JsonParser.parse(asString(response)).asObject();
+    JsonValue uri = body.get("content_uri");
+    if (uri == null || !uri.isString()) {
+      throw new MatrixServerException(
+          response.statusCode(), "M_UNKNOWN", "Upload response must contain content_uri");
+    }
+    return MxcUri.parse(uri.asString());
+  }
+
+  /**
+   * Downloads media from the content repository using the authenticated v1.11 endpoint. The
+   * response body streams through {@link MediaTransport.BinaryResponse#bodyStream()}; callers must
+   * close it.
+   *
+   * @param uri the {@code mxc://} URI of the media
+   * @param maxBytes the maximum accepted media size in bytes; a larger response raises {@link
+   *     io.github.fherbreteau.matrix.error.MatrixServerException} with {@code M_TOO_LARGE}
+   * @return the downloaded media response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public MediaDownload downloadMedia(MxcUri uri, long maxBytes) {
+    return downloadMedia(uri, null, maxBytes);
+  }
+
+  /**
+   * Downloads media from the content repository with an explicit filename presented in the {@code
+   * Content-Disposition} header.
+   *
+   * @param uri the {@code mxc://} URI of the media
+   * @param fileName the filename to request in the response
+   * @param maxBytes the maximum accepted media size in bytes; a larger response raises {@link
+   *     io.github.fherbreteau.matrix.error.MatrixServerException} with {@code M_TOO_LARGE}
+   * @return the downloaded media response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public MediaDownload downloadMedia(MxcUri uri, String fileName, long maxBytes) {
+    var path =
+        new StringBuilder("_matrix/client/v1/media/download/")
+            .append(encode(uri.serverName()))
+            .append('/')
+            .append(encode(uri.mediaId()));
+    if (fileName != null) {
+      path.append('/').append(encode(fileName));
+    }
+    var response =
+        mediaTransport.send(
+            new BinaryRequest(
+                "GET",
+                homeserverUrl + "/" + path,
+                authHeaders(),
+                null,
+                "application/octet-stream"));
+    throwIfError(
+        response.statusCode(),
+        response.header("content-type"),
+        asString(response),
+        response.retryAfterMs());
+    if (maxBytes > 0 && response.contentLength() > maxBytes) {
+      throw new MatrixServerException(
+          response.statusCode(), "M_TOO_LARGE", "Media exceeds the configured maximum size");
+    }
+    return new MediaDownload(
+        response.header("content-type"),
+        response.header("content-disposition"),
+        response.bodyStream());
+  }
+
+  /**
+   * Retrieves a thumbnail of media from the content repository using the authenticated v1.11
+   * endpoint. Thumbnails are small by definition, so the response is bounded by the same {@code
+   * maxBytes} rule as downloads.
+   *
+   * @param uri the {@code mxc://} URI of the media
+   * @param width the desired minimum width in pixels
+   * @param height the desired minimum height in pixels
+   * @param method the resize method, or {@code null} to let the homeserver decide
+   * @param animated whether an animated thumbnail is preferred, or {@code null} to let the
+   *     homeserver decide
+   * @param maxBytes the maximum accepted thumbnail size in bytes
+   * @return the thumbnail response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public MediaDownload getThumbnail(
+      MxcUri uri, int width, int height, ThumbnailMethod method, Boolean animated, long maxBytes) {
+    var query =
+        new StringBuilder("_matrix/client/v1/media/thumbnail/")
+            .append(encode(uri.serverName()))
+            .append('/')
+            .append(encode(uri.mediaId()))
+            .append("?width=")
+            .append(width)
+            .append("&height=")
+            .append(height);
+    if (method != null) {
+      query.append("&method=").append(method.value());
+    }
+    if (animated != null) {
+      query.append("&animated=").append(animated);
+    }
+    var response =
+        mediaTransport.send(
+            new BinaryRequest(
+                "GET",
+                homeserverUrl + "/" + query,
+                authHeaders(),
+                null,
+                "application/octet-stream"));
+    throwIfError(
+        response.statusCode(),
+        response.header("content-type"),
+        asString(response),
+        response.retryAfterMs());
+    if (maxBytes > 0 && response.contentLength() > maxBytes) {
+      throw new MatrixServerException(
+          response.statusCode(), "M_TOO_LARGE", "Thumbnail exceeds the configured maximum size");
+    }
+    return new MediaDownload(
+        response.header("content-type"),
+        response.header("content-disposition"),
+        response.bodyStream());
+  }
+
+  /**
+   * Retrieves the upload size limits configured on the homeserver.
+   *
+   * @return the maximum upload size in bytes, or empty when the homeserver does not advertise one
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public Optional<Long> getMediaConfig() {
+    JsonValue response = authenticated("GET", "_matrix/client/v1/media/config", null);
+    JsonValue size = response.asObject().get("m.upload.size");
+    if (size != null && size.isNumber()) {
+      return Optional.of(size.asLong());
+    }
+    return Optional.empty();
+  }
+
+  private Map<String, String> authHeaders() {
+    Session session =
+        sessionStore
+            .current()
+            .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
+    return Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken());
+  }
+
+  private void throwIfError(int statusCode, String contentType, String body, Long retryAfterMs) {
+    if (statusCode >= 200 && statusCode < 300) {
+      return;
+    }
+    JsonValue parsed = parseOrNull(body);
+    MatrixServerException exception = MatrixServerException.fromResponse(statusCode, parsed, null);
+    throw exception;
+  }
+
+  private static String asString(
+      io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse response) {
+    try (var stream = response.bodyStream()) {
+      return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (java.io.IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
   private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {
     try {
       JsonValue content =
@@ -1429,6 +1631,7 @@ public final class MatrixClient {
     private final String homeserverUrl;
     private HttpTransport transport = HttpTransport.create();
     private SessionStore sessionStore = SessionStore.create();
+    private MediaTransport mediaTransport = MediaTransport.create();
     private boolean discover;
     private boolean validateVersions;
 
@@ -1473,6 +1676,20 @@ public final class MatrixClient {
      */
     public Builder validateVersions() {
       this.validateVersions = true;
+      return this;
+    }
+
+    /**
+     * Overrides the transport used for media transfers; defaults to a transport backed by {@code
+     * java.net.http.HttpClient}.
+     *
+     * @param mediaTransport the transport used for media transfers
+     * @return this builder for chaining
+     * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+     *     specification</a>
+     */
+    public Builder mediaTransport(MediaTransport mediaTransport) {
+      this.mediaTransport = mediaTransport;
       return this;
     }
 

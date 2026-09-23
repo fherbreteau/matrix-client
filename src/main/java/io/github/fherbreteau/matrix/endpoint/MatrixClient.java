@@ -12,7 +12,10 @@ import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.MessageBody;
+import io.github.fherbreteau.matrix.model.Presence;
+import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
+import io.github.fherbreteau.matrix.model.ReadMarkers;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
@@ -1072,6 +1075,181 @@ public final class MatrixClient {
    */
   public WhoamiResponse whoami() {
     return WhoamiResponse.from(authenticated("GET", "_matrix/client/v3/account/whoami", null));
+  }
+
+  /**
+   * Retrieves the presence status of a user.
+   *
+   * @param userId the user whose presence to retrieve
+   * @return the presence status of the user
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3presenceuseridstatus">Matrix
+   *     specification</a>
+   */
+  public PresenceStatus getPresence(UserId userId) {
+    return PresenceStatus.from(
+        authenticated(
+            "GET", "_matrix/client/v3/presence/" + encode(userId.value()) + "/status", null));
+  }
+
+  /**
+   * Sets the presence status of the current user. Presence updates are rate-limited by the
+   * homeserver.
+   *
+   * @param presence the presence to set
+   * @param statusMessage the optional status message
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setPresence(Presence presence, String statusMessage) {
+    var status = PresenceStatus.of(presence, statusMessage);
+    authenticated(
+        "PUT",
+        "_matrix/client/v3/presence/" + encode(currentUserId()) + "/status",
+        status.toUpdate());
+  }
+
+  /**
+   * Sends a read receipt for an event in a room.
+   *
+   * @param roomId the room containing the event
+   * @param receiptType the receipt type: {@code m.read} or {@code m.read.private}
+   * @param eventId the event the receipt acknowledges up to
+   * @param threadId the thread root the receipt belongs to, {@code main} for the main timeline, or
+   *     {@code null} for an unthreaded receipt
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void sendReceipt(RoomId roomId, String receiptType, EventId eventId, String threadId) {
+    var path =
+        "_matrix/client/v3/rooms/"
+            + encode(roomId.value())
+            + "/receipt/"
+            + encode(receiptType)
+            + "/"
+            + encode(eventId.value());
+    JsonValue body = threadId == null ? null : new JsonObject().put("thread_id", threadId);
+    authenticated("POST", path, body);
+  }
+
+  /**
+   * Sends read receipts and the fully-read marker of a room in a single call.
+   *
+   * @param roomId the room to mark
+   * @param markers the receipts and marker to set
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void sendReadMarkers(RoomId roomId, ReadMarkers markers) {
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/read_markers", markers.toJson());
+  }
+
+  /**
+   * Sets whether the current user is typing in a room. Typing notifications are ephemeral and
+   * rate-limited by the homeserver; clients typically re-send them every 20 to 30 seconds while
+   * typing.
+   *
+   * @param roomId the room in which the user is typing
+   * @param typing whether the user is typing
+   * @param timeout the typing duration in milliseconds, or a non-positive value to let the
+   *     homeserver decide
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setTyping(RoomId roomId, boolean typing, long timeout) {
+    var body = new JsonObject().put("typing", typing);
+    if (timeout > 0) {
+      body.put("timeout", timeout);
+    }
+    authenticated(
+        "PUT", ROOMS_PATH + encode(roomId.value()) + "/typing/" + encode(currentUserId()), body);
+  }
+
+  /**
+   * Retrieves a global account-data event of the current user.
+   *
+   * @param type the event type, namespaced for custom events
+   * @return the event content, or empty when no data exists for the type
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public Optional<JsonValue> getAccountData(String type) {
+    return accountData(
+        "_matrix/client/v3/user/" + encode(currentUserId()) + "/account_data/" + encode(type));
+  }
+
+  /**
+   * Writes a global account-data event of the given type for the current user. Server-managed types
+   * (such as {@code m.fully_read} or {@code m.push_rules}) are rejected by homeservers.
+   *
+   * @param type the event type, namespaced for custom events
+   * @param content the event content
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setAccountData(String type, JsonValue content) {
+    authenticated(
+        "PUT",
+        "_matrix/client/v3/user/" + encode(currentUserId()) + "/account_data/" + encode(type),
+        content);
+  }
+
+  /**
+   * Retrieves a room account-data event of the current user. Room account data does not inherit
+   * from global account data.
+   *
+   * @param roomId the room the data is scoped to
+   * @param type the event type, namespaced for custom events
+   * @return the event content, or empty when no data exists for the type
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public Optional<JsonValue> getRoomAccountData(RoomId roomId, String type) {
+    return accountData(
+        "_matrix/client/v3/user/"
+            + encode(currentUserId())
+            + "/rooms/"
+            + encode(roomId.value())
+            + "/account_data/"
+            + encode(type));
+  }
+
+  /**
+   * Writes a room account-data event of the given type for the current user.
+   *
+   * @param roomId the room the data is scoped to
+   * @param type the event type, namespaced for custom events
+   * @param content the event content
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setRoomAccountData(RoomId roomId, String type, JsonValue content) {
+    authenticated(
+        "PUT",
+        "_matrix/client/v3/user/"
+            + encode(currentUserId())
+            + "/rooms/"
+            + encode(roomId.value())
+            + "/account_data/"
+            + encode(type),
+        content);
+  }
+
+  private Optional<JsonValue> accountData(String path) {
+    try {
+      return Optional.of(authenticated("GET", path, null));
+    } catch (MatrixServerException e) {
+      if ("M_NOT_FOUND".equals(e.getErrcode())) {
+        return Optional.empty();
+      }
+      throw e;
+    }
+  }
+
+  private String currentUserId() {
+    return getSession()
+        .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"))
+        .userId();
   }
 
   private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {

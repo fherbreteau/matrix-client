@@ -22,6 +22,8 @@ public enum Presence {
    * Returns the wire value sent to the homeserver.
    *
    * @return {@code online}, {@code offline} or {@code unavailable}
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/presence">Matrix
+   *     specification</a>
    */
   public String value() {
     return value;

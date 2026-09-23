@@ -6,6 +6,10 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 /**
  * A user profile with display name and avatar URL. Unknown fields of the response are preserved in
  * the raw value.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3profileuserid">Matrix
+ *     specification</a>
  */
 public record UserProfile(String displayName, String avatarUrl, JsonValue raw) {
 

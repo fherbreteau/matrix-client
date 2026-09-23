@@ -18,6 +18,8 @@ public record DeviceId(String value) {
    * Creates a device identifier from its string representation.
    *
    * @throws IllegalArgumentException if the value is not a valid device identifier
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/appendix-indexing-events">Matrix
+   *     specification</a>
    */
   public static DeviceId of(String value) {
     return new DeviceId(value);

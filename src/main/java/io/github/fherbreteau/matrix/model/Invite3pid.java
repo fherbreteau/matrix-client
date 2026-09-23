@@ -6,6 +6,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 /**
  * A third-party identity to invite to a room at creation time, resolved through an identity server.
  * Each field is required by the {@code invite_3pid} entry of the room creation request.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/creation">Matrix specification</a>
  */
 public record Invite3pid(String idServer, String idAccessToken, String medium, String address) {
 

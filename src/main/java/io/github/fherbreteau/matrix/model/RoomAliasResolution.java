@@ -9,6 +9,10 @@ import java.util.List;
  * The resolution of a room alias to a room identifier, as returned by {@code
  * /_matrix/client/v3/directory/room/{roomAlias}}. Unknown fields are ignored; the server list may
  * be empty.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3directoryroomroomalias">Matrix
+ *     specification</a>
  */
 public record RoomAliasResolution(RoomId roomId, List<String> servers) {
 

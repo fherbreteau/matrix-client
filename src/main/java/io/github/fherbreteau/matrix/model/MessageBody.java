@@ -6,6 +6,9 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 /**
  * A plain-text or formatted message body for the {@code m.room.message} event. Unknown message
  * fields can be added through the raw content. Use the {@link Builder} via {@link #builder()}.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/m-room-message-msgtypes">Matrix
+ *     specification</a>
  */
 public final class MessageBody {
 

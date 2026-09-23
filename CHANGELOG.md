@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 📚 Documentation
 
 - **Project Documentation**: Added `README.md` (dependency policy, build commands, minimal example), `AGENTS.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, and `SECURITY.md` (#1, #16)
-- **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24)
+- **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24); all `MatrixClient` endpoint methods and all model classes now carry the specification link (#25)
 
 ### 🧪 Testing
 
@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 📚 Documentation
 
-- **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24)
+- **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24); all `MatrixClient` endpoint methods and all model classes now carry the specification link (#25)
 
 ## 🤝 Contributing to Changelog
 

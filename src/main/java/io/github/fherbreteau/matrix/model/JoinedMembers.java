@@ -8,6 +8,10 @@ import java.util.Map;
 /**
  * The members currently joined to a room, as returned by {@code /rooms/{roomId}/joined_members}.
  * Unknown fields of the response are ignored; display names may be {@code null} when absent.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidjoined-members">Matrix
+ *     specification</a>
  */
 public record JoinedMembers(Map<String, String> displayNames) {
 

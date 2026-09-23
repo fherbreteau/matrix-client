@@ -101,6 +101,7 @@ public final class MatrixClient {
    *
    * @param homeserverUrl the base URL of the homeserver
    * @return a builder for a client pointing at the homeserver
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
    */
   public static Builder builder(String homeserverUrl) {
     return new Builder(homeserverUrl);
@@ -110,11 +111,20 @@ public final class MatrixClient {
    * Returns the transport used to reach the homeserver.
    *
    * @return the transport used to reach the homeserver
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/api-standards">Matrix
+   *     specification</a>
    */
   public HttpTransport getTransport() {
     return transport;
   }
 
+  /**
+   * Returns the base URL of the homeserver this client talks to.
+   *
+   * @return the base URL of the homeserver
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/server-discovery">Matrix
+   *     specification</a>
+   */
   public String getHomeserverUrl() {
     return homeserverUrl;
   }
@@ -124,6 +134,8 @@ public final class MatrixClient {
    * not requested.
    *
    * @return the discovery result, or {@code null} when discovery was not requested
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/server-discovery">Matrix
+   *     specification</a>
    */
   public DiscoveredHomeserver getDiscovery() {
     return discovery;
@@ -134,6 +146,9 @@ public final class MatrixClient {
    * build time, or {@code null} otherwise.
    *
    * @return the validated capabilities, or {@code null} when not validated
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclient-versions">Matrix
+   *     specification</a>
    */
   public MatrixVersions getCapabilities() {
     return versions;
@@ -243,6 +258,7 @@ public final class MatrixClient {
    * Returns the current authenticated session, if any.
    *
    * @return the current authenticated session, if any
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
    */
   public Optional<Session> getSession() {
     return sessionStore.current();
@@ -1102,6 +1118,9 @@ public final class MatrixClient {
    * @param statusMessage the optional status message
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3presenceuseridstatus">Matrix
+   *     specification</a>
    */
   public void setPresence(Presence presence, String statusMessage) {
     var status = PresenceStatus.of(presence, statusMessage);
@@ -1121,6 +1140,9 @@ public final class MatrixClient {
    *     {@code null} for an unthreaded receipt
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/post-matrixclientv3roomsroomidreceiptreceipttypeeventid">Matrix
+   *     specification</a>
    */
   public void sendReceipt(RoomId roomId, String receiptType, EventId eventId, String threadId) {
     var path =
@@ -1141,6 +1163,9 @@ public final class MatrixClient {
    * @param markers the receipts and marker to set
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/post-matrixclientv3roomsroomidread-markers">Matrix
+   *     specification</a>
    */
   public void sendReadMarkers(RoomId roomId, ReadMarkers markers) {
     authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/read_markers", markers.toJson());
@@ -1157,6 +1182,9 @@ public final class MatrixClient {
    *     homeserver decide
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3roomsroomidtypinguserid">Matrix
+   *     specification</a>
    */
   public void setTyping(RoomId roomId, boolean typing, long timeout) {
     var body = new JsonObject().put("typing", typing);
@@ -1174,6 +1202,9 @@ public final class MatrixClient {
    * @return the event content, or empty when no data exists for the type
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3useruseridaccount-datatype">Matrix
+   *     specification</a>
    */
   public Optional<JsonValue> getAccountData(String type) {
     return accountData(userAccountDataPath(null, type));
@@ -1187,6 +1218,9 @@ public final class MatrixClient {
    * @param content the event content
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3useruseridaccount-datatype">Matrix
+   *     specification</a>
    */
   public void setAccountData(String type, JsonValue content) {
     authenticated("PUT", userAccountDataPath(null, type), content);
@@ -1201,6 +1235,9 @@ public final class MatrixClient {
    * @return the event content, or empty when no data exists for the type
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3useruseridroomsroomidaccount-datatype">Matrix
+   *     specification</a>
    */
   public Optional<JsonValue> getRoomAccountData(RoomId roomId, String type) {
     return accountData(userAccountDataPath(roomId, type));
@@ -1214,6 +1251,9 @@ public final class MatrixClient {
    * @param content the event content
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3useruseridroomsroomidaccount-datatype">Matrix
+   *     specification</a>
    */
   public void setRoomAccountData(RoomId roomId, String type, JsonValue content) {
     authenticated("PUT", userAccountDataPath(roomId, type), content);
@@ -1267,6 +1307,8 @@ public final class MatrixClient {
    *
    * @param path the endpoint path relative to the homeserver URL
    * @return the parsed JSON response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/api-standards">Matrix
+   *     specification</a>
    */
   public JsonValue get(String path) {
     return request("GET", path, null);
@@ -1278,6 +1320,8 @@ public final class MatrixClient {
    * @param path the endpoint path relative to the homeserver URL
    * @param body the JSON request body, or {@code null} for none
    * @return the parsed JSON response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/api-standards">Matrix
+   *     specification</a>
    */
   public JsonValue post(String path, JsonValue body) {
     return request("POST", path, body);
@@ -1290,6 +1334,8 @@ public final class MatrixClient {
    * @param path the endpoint path relative to the homeserver URL
    * @param body the JSON request body, or {@code null} for none
    * @return the parsed JSON response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/api-standards">Matrix
+   *     specification</a>
    */
   public JsonValue request(String method, String path, JsonValue body) {
     return request(method, path, body, Map.of());

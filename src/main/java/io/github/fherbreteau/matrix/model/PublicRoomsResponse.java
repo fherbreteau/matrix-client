@@ -9,6 +9,10 @@ import java.util.List;
 /**
  * The public room directory as returned by {@code /publicRooms}. Unknown fields of the response are
  * ignored.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3publicrooms">Matrix
+ *     specification</a>
  */
 public record PublicRoomsResponse(
     List<PublicRoom> chunk, Long totalRoomCountEstimate, String nextBatch, String prevBatch) {

@@ -12,6 +12,8 @@ public record RoomId(String value) {
    * Creates a room identifier from its string representation.
    *
    * @throws IllegalArgumentException if the value is not a valid room identifier
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/room-ids">Matrix
+   *     specification</a>
    */
   public static RoomId of(String value) {
     return new RoomId(value);

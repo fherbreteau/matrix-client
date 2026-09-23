@@ -4,7 +4,10 @@ import java.util.Optional;
 
 /**
  * Injectable store for the authenticated session, so callers decide how (and whether) sessions
- * persist. Implementations must not log access tokens.
+ * persist. Implementations must not log access tokens. Session storage is client-side only: the
+ * Matrix specification does not define a server-side session store.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#login">Matrix specification</a>
  */
 public interface SessionStore {
 

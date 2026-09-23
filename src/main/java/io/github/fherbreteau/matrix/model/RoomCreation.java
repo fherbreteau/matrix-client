@@ -11,6 +11,8 @@ import java.util.List;
  * The parameters of a room creation request. Unknown homeserver options can still be provided
  * through the raw {@code creation_content}, and all optional fields are omitted from the request
  * body when unset. Use the {@link Builder} via {@link #builder()}.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/creation">Matrix specification</a>
  */
 public final class RoomCreation {
 

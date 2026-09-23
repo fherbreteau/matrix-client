@@ -13,6 +13,9 @@ import java.util.Map;
  * The Matrix spec versions and features supported by a homeserver, as returned by {@code
  * /_matrix/client/versions}. Unknown fields (for example {@code unstable_features}) are preserved
  * for forward compatibility.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/get-matrixclient-versions">Matrix
+ *     specification</a>
  */
 public final class MatrixVersions {
 

@@ -7,6 +7,10 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * The presence status of a user as returned by {@code GET
  * /_matrix/client/v3/presence/{userId}/status}. Unknown fields of the response are preserved in the
  * raw value.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3presenceuseridstatus">Matrix
+ *     specification</a>
  */
 public record PresenceStatus(
     Presence presence,

@@ -7,6 +7,10 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * The receipts and fully-read marker to set on a room, as accepted by {@code POST
  * /_matrix/client/v3/rooms/{roomId}/read_markers}. All fields are optional and omitted from the
  * request body when unset. Use the {@link Builder} via {@link #builder()}.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/post-matrixclientv3roomsroomidread-markers">Matrix
+ *     specification</a>
  */
 public final class ReadMarkers {
 

@@ -8,6 +8,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * A Matrix session as returned by a successful login: the access token with the user ID, device ID
  * and homeserver metadata, plus the raw login response so unknown fields are preserved. The access
  * token never appears in {@link #toString()}.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
  */
 public record Session(
     String userId,

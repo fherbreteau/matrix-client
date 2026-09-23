@@ -8,6 +8,10 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * a type, a state key (empty for most room-level settings) and a content object. Use {@link
  * #of(String, JsonValue)} for events with an empty state key and {@link #of(String, String,
  * JsonValue)} for events with an explicit state key.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidstateeventtypestatekey">Matrix
+ *     specification</a>
  */
 public record StateEvent(String type, String stateKey, JsonValue content) {
 

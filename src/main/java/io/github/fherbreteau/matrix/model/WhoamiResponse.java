@@ -7,6 +7,10 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * The identity the current access token belongs to, as returned by {@code GET
  * /_matrix/client/v3/account/whoami}. Unknown fields of the response are preserved in the raw
  * value.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3account-whoami">Matrix
+ *     specification</a>
  */
 public record WhoamiResponse(String userId, String deviceId, boolean guest, JsonValue raw) {
 

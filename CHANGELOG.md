@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Spec Conformance Audit**: Audited every implemented feature against the Matrix specification (v1.19) and fixed the deviations found — `refresh()` now parses the refresh response correctly (it carries only new tokens: the user identity and device are carried over from the refreshed session and an omitted `refresh_token` keeps the previous one valid, per the rotation rules); `createRoom` serializes `invite` as an array of plain user-ID strings; `POST /publicRooms` is sent with authentication as the spec requires; the `state` field of `/messages` responses is parsed as an array of events (lazy-loading) instead of a string; profiles use the generic `GET/PUT/DELETE /profile/{userId}/{keyName}` endpoints (the pre-v1.16 `/displayname` and `/avatar_url` paths were removed from the spec) with null-safe field clearing; `whoami` exposes `is_guest` through a typed `WhoamiResponse`; rate-limit delays fall back to the deprecated `retry_after_ms` body field and parse HTTP-date `Retry-After` headers; the HTTP-server fixture tests pin an explicit no-proxy transport so local debugging proxies cannot intercept them (#24)
 
+### 📚 Documentation
+
+- **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24)
+
 ## 🤝 Contributing to Changelog
 
 When making changes, please:

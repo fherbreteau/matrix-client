@@ -39,6 +39,24 @@ mvn test -Dtest=JsonParserTest
 mvn javadoc:javadoc
 ```
 
+## Specification Conformance Rule
+
+The Matrix Client-Server API is a living specification
+(<https://spec.matrix.org/latest/client-server-api/>). **Always verify
+implementations against the latest published version of the
+specification** — fetch the relevant endpoint section from
+<https://spec.matrix.org/latest/> before implementing or changing an
+endpoint, and check request/response field names, required fields,
+deprecations, rate-limiting and error codes against it.
+
+- Every endpoint method must match the current spec for the endpoint it
+  wraps (path, parameters, body fields, response fields).
+- Removed/deprecated endpoints or fields must not be used (e.g. the
+  pre-v1.16 `/profile/{userId}/displayname` paths).
+- After implementing, re-read the spec section and diff it against the
+  code; record any intentional deviation in the Javadoc.
+- This check applies to new features, bug fixes and refactors alike.
+
 ## CI Requirements
 
 All of the following must pass before committing:

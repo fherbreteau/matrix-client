@@ -166,7 +166,7 @@ class PresenceReceiptsTypingAccountDataTest {
                     new Response(404, "{\"errcode\":\"M_NOT_FOUND\",\"error\":\"No data\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    assertThat(client.getAccountData("org.example.widgets").isPresent()).isTrue();
+    assertThat(client.getAccountData("org.example.widgets")).isPresent();
     client.setAccountData("org.example.widgets", JsonParser.parse("{\"widgets\":[\"a\",\"b\"]}"));
     assertThat(requests.get(2).url())
         .endsWith("/_matrix/client/v3/user/%40alice%3Amatrix.org/account_data/org.example.widgets");
@@ -188,7 +188,7 @@ class PresenceReceiptsTypingAccountDataTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     var roomId = RoomId.of("!a:b");
-    assertThat(client.getRoomAccountData(roomId, "org.example.color").isPresent()).isTrue();
+    assertThat(client.getRoomAccountData(roomId, "org.example.color")).isPresent();
     client.setRoomAccountData(roomId, "org.example.color", JsonParser.parse("{\"color\":\"red\"}"));
     assertThat(requests.get(2).url())
         .endsWith(
@@ -222,7 +222,8 @@ class PresenceReceiptsTypingAccountDataTest {
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> client.getAccountData("org.example.x"))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.setTyping(RoomId.of("!a:b"), true, 1000))
+    var roomId = RoomId.of("!a:b");
+    assertThatThrownBy(() -> client.setTyping(roomId, true, 1000))
         .isInstanceOf(AuthenticationException.class);
   }
 

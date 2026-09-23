@@ -59,6 +59,9 @@ import java.util.UUID;
 public final class MatrixClient {
 
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
+  private static final String NO_SESSION_MESSAGE = "No authenticated session";
+  private static final String USER_PATH = "_matrix/client/v3/user/";
+  private static final String ACCOUNT_DATA_PATH = "/account_data/";
   private static final String USER_ID_FIELD = "user_id";
   private static final String REASON_FIELD = "reason";
   private static final String EVENT_ID_FIELD = "event_id";
@@ -258,8 +261,7 @@ public final class MatrixClient {
     Session session =
         sessionStore
             .current()
-            .orElseThrow(
-                () -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"));
+            .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
     if (!session.isRefreshable()) {
       throw new AuthenticationException(M_MISSING_TOKEN, "Session is not refreshable");
     }
@@ -1122,7 +1124,7 @@ public final class MatrixClient {
    */
   public void sendReceipt(RoomId roomId, String receiptType, EventId eventId, String threadId) {
     var path =
-        "_matrix/client/v3/rooms/"
+        ROOMS_PATH
             + encode(roomId.value())
             + "/receipt/"
             + encode(receiptType)
@@ -1174,8 +1176,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public Optional<JsonValue> getAccountData(String type) {
-    return accountData(
-        "_matrix/client/v3/user/" + encode(currentUserId()) + "/account_data/" + encode(type));
+    return accountData(userAccountDataPath(null, type));
   }
 
   /**
@@ -1188,10 +1189,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public void setAccountData(String type, JsonValue content) {
-    authenticated(
-        "PUT",
-        "_matrix/client/v3/user/" + encode(currentUserId()) + "/account_data/" + encode(type),
-        content);
+    authenticated("PUT", userAccountDataPath(null, type), content);
   }
 
   /**
@@ -1205,13 +1203,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public Optional<JsonValue> getRoomAccountData(RoomId roomId, String type) {
-    return accountData(
-        "_matrix/client/v3/user/"
-            + encode(currentUserId())
-            + "/rooms/"
-            + encode(roomId.value())
-            + "/account_data/"
-            + encode(type));
+    return accountData(userAccountDataPath(roomId, type));
   }
 
   /**
@@ -1224,15 +1216,7 @@ public final class MatrixClient {
    *     the token is no longer valid
    */
   public void setRoomAccountData(RoomId roomId, String type, JsonValue content) {
-    authenticated(
-        "PUT",
-        "_matrix/client/v3/user/"
-            + encode(currentUserId())
-            + "/rooms/"
-            + encode(roomId.value())
-            + "/account_data/"
-            + encode(type),
-        content);
+    authenticated("PUT", userAccountDataPath(roomId, type), content);
   }
 
   private Optional<JsonValue> accountData(String path) {
@@ -1246,9 +1230,17 @@ public final class MatrixClient {
     }
   }
 
+  private String userAccountDataPath(RoomId roomId, String type) {
+    var path = new StringBuilder(USER_PATH).append(encode(currentUserId()));
+    if (roomId != null) {
+      path.append("/rooms/").append(encode(roomId.value()));
+    }
+    return path.append(ACCOUNT_DATA_PATH).append(encode(type)).toString();
+  }
+
   private String currentUserId() {
     return getSession()
-        .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"))
+        .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE))
         .userId();
   }
 
@@ -1322,8 +1314,7 @@ public final class MatrixClient {
     Session session =
         sessionStore
             .current()
-            .orElseThrow(
-                () -> new AuthenticationException(M_MISSING_TOKEN, "No authenticated session"));
+            .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
     try {
       return request(
           method,

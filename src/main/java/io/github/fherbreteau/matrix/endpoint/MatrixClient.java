@@ -7,19 +7,23 @@ import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.Credentials;
+import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
+import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
+import io.github.fherbreteau.matrix.model.WhoamiResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import java.net.URLEncoder;
@@ -53,11 +57,12 @@ public final class MatrixClient {
 
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
   private static final String USER_ID_FIELD = "user_id";
-  private static final String DEVICE_ID_FIELD = "device_id";
   private static final String REASON_FIELD = "reason";
   private static final String EVENT_ID_FIELD = "event_id";
   private static final String CHUNK_FIELD = "chunk";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String DIR_QUERY_PARAM = "&dir=";
+  private static final String LIMIT_QUERY_PARAM = "&limit=";
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String ROOM_ID_FIELD = "room_id";
@@ -132,6 +137,8 @@ public final class MatrixClient {
    * Retrieves the homeserver's supported Matrix spec versions.
    *
    * @return the parsed {@code /versions} response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/_matrix/client/versions">Matrix
+   *     specification</a>
    */
   public JsonValue getVersions() {
     return get("_matrix/client/versions");
@@ -143,6 +150,8 @@ public final class MatrixClient {
    *
    * @return the validated spec versions and features of the homeserver
    * @throws io.github.fherbreteau.matrix.error.DiscoveryException if the response is malformed
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/_matrix/client/versions">Matrix
+   *     specification</a>
    */
   public MatrixVersions getSupportedVersions() {
     return MatrixVersions.from(getVersions());
@@ -156,6 +165,7 @@ public final class MatrixClient {
    * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
    */
   public Session login(Credentials credentials) {
     return login(credentials, null);
@@ -170,6 +180,7 @@ public final class MatrixClient {
    * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
    */
   public Session login(Credentials credentials, boolean requestRefreshToken) {
     return login(credentials, null, requestRefreshToken);
@@ -184,6 +195,7 @@ public final class MatrixClient {
    * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
    */
   public Session login(Credentials credentials, String deviceDisplayName) {
     return login(credentials, deviceDisplayName, false);
@@ -199,6 +211,7 @@ public final class MatrixClient {
    * @return the authenticated session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if the credentials are
    *     invalid or the account cannot log in
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/login">Matrix specification</a>
    */
   public Session login(
       Credentials credentials, String deviceDisplayName, boolean requestRefreshToken) {
@@ -235,6 +248,8 @@ public final class MatrixClient {
    * @return the refreshed session
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session, the
    *     session is not refreshable, or the refresh token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/refreshing-access-tokens">Matrix
+   *     specification</a>
    */
   public Session refresh() {
     Session session =
@@ -247,7 +262,8 @@ public final class MatrixClient {
     }
     try {
       Session refreshed =
-          Session.from(
+          Session.fromRefresh(
+              session,
               post(
                   "_matrix/client/v3/refresh",
                   new JsonObject().put("refresh_token", session.refreshToken())));
@@ -265,6 +281,7 @@ public final class MatrixClient {
    *
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/logout">Matrix specification</a>
    */
   public void logout() {
     authenticated("POST", "_matrix/client/v3/logout", null);
@@ -276,6 +293,7 @@ public final class MatrixClient {
    *
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/logout">Matrix specification</a>
    */
   public void logoutAll() {
     authenticated("POST", "_matrix/client/v3/logout/all", null);
@@ -288,6 +306,8 @@ public final class MatrixClient {
    * @return the identifier of the created room
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/creation">Matrix
+   *     specification</a>
    */
   public RoomId createRoom() {
     return createRoom(RoomCreation.builder().build());
@@ -300,6 +320,8 @@ public final class MatrixClient {
    * @return the identifier of the created room
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/creation">Matrix
+   *     specification</a>
    */
   public RoomId createRoom(RoomCreation creation) {
     return RoomId.of(
@@ -316,6 +338,8 @@ public final class MatrixClient {
    * @return the joined room identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/joining-rooms">Matrix
+   *     specification</a>
    */
   public RoomId joinRoom(RoomId roomId) {
     return joinRoom(roomId.value());
@@ -328,6 +352,8 @@ public final class MatrixClient {
    * @return the joined room identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/joining-rooms">Matrix
+   *     specification</a>
    */
   public RoomId joinRoom(RoomAlias roomAlias) {
     return joinRoom(roomAlias.value());
@@ -347,6 +373,8 @@ public final class MatrixClient {
    * @param roomId the room to leave
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/leaving-rooms">Matrix
+   *     specification</a>
    */
   public void leaveRoom(RoomId roomId) {
     authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/leave", new JsonObject());
@@ -359,6 +387,8 @@ public final class MatrixClient {
    * @param userId the user to invite
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/post-roomsroomidinvite">Matrix
+   *     specification</a>
    */
   public void invite(RoomId roomId, UserId userId) {
     authenticated(
@@ -374,6 +404,8 @@ public final class MatrixClient {
    * @return the full room state, preserving unknown event types
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidstate">Matrix
+   *     specification</a>
    */
   public List<RoomEvent> getRoomState(RoomId roomId) {
     JsonValue response = authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/state", null);
@@ -393,6 +425,9 @@ public final class MatrixClient {
    * @return the joined members with their display names
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidjoined-members">Matrix
+   *     specification</a>
    */
   public JoinedMembers getJoinedMembers(RoomId roomId) {
     return JoinedMembers.from(
@@ -406,6 +441,9 @@ public final class MatrixClient {
    * @return the room name, or empty when unset
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidstateeventtypestatekey">Matrix
+   *     specification</a>
    */
   public Optional<String> getRoomName(RoomId roomId) {
     return getRoomStateField(roomId, "m.room.name", "name");
@@ -418,6 +456,9 @@ public final class MatrixClient {
    * @return the canonical alias, or empty when unset
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidstateeventtypestatekey">Matrix
+   *     specification</a>
    */
   public Optional<RoomAlias> getCanonicalAlias(RoomId roomId) {
     return getRoomStateField(roomId, "m.room.canonical_alias", "alias").map(RoomAlias::of);
@@ -428,6 +469,9 @@ public final class MatrixClient {
    *
    * @param roomAlias the alias to resolve
    * @return the room identifier and candidate servers
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3directoryroomroomalias">Matrix
+   *     specification</a>
    */
   public RoomAliasResolution resolveRoomAlias(RoomAlias roomAlias) {
     return RoomAliasResolution.from(get(DIRECTORY_PATH + encode(roomAlias.value())));
@@ -441,6 +485,8 @@ public final class MatrixClient {
    * @param reason the optional reason for the removal
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/post-roomsroomidkick">Matrix
+   *     specification</a>
    */
   public void kick(RoomId roomId, UserId userId, String reason) {
     var body = new JsonObject().put(USER_ID_FIELD, userId.value());
@@ -458,6 +504,8 @@ public final class MatrixClient {
    * @param reason the optional reason for the ban
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/post-roomsroomidban">Matrix
+   *     specification</a>
    */
   public void ban(RoomId roomId, UserId userId, String reason) {
     var body = new JsonObject().put(USER_ID_FIELD, userId.value());
@@ -474,6 +522,8 @@ public final class MatrixClient {
    * @param userId the user to unban
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/post-roomsroomidunban">Matrix
+   *     specification</a>
    */
   public void unban(RoomId roomId, UserId userId) {
     authenticated(
@@ -488,6 +538,8 @@ public final class MatrixClient {
    * @param roomId the room to forget
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/post-roomsroomidforget">Matrix
+   *     specification</a>
    */
   public void forget(RoomId roomId) {
     authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/forget", new JsonObject());
@@ -500,6 +552,8 @@ public final class MatrixClient {
    * @return the membership events of the room
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidmembers">Matrix
+   *     specification</a>
    */
   public List<RoomEvent> getMembers(RoomId roomId) {
     JsonValue response =
@@ -521,6 +575,9 @@ public final class MatrixClient {
    * @return the joined room identifiers
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3joined-rooms">Matrix
+   *     specification</a>
    */
   public List<RoomId> getJoinedRooms() {
     JsonValue response = authenticated("GET", "_matrix/client/v3/joined_rooms", null);
@@ -536,6 +593,191 @@ public final class MatrixClient {
   }
 
   /**
+   * Sends a plain-text message to a room with a generated transaction identifier.
+   *
+   * @param roomId the room to send the message to
+   * @param text the plain-text body of the message
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
+   */
+  public EventId sendText(RoomId roomId, String text) {
+    return sendMessageEvent(roomId, "m.room.message", MessageBody.text(text).toJson());
+  }
+
+  /**
+   * Sends a message built from the given body, with a generated transaction identifier.
+   *
+   * @param roomId the room to send the message to
+   * @param message the message body
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
+   */
+  public EventId sendMessage(RoomId roomId, MessageBody message) {
+    return sendMessageEvent(roomId, "m.room.message", message.toJson());
+  }
+
+  /**
+   * Retrieves a page of room history starting from the given pagination token. The chunk order is
+   * homeserver-defined; use the returned tokens to continue paginating.
+   *
+   * @param roomId the room whose history to retrieve
+   * @param from the token to start from, as returned in a previous page
+   * @param direction the direction to walk, towards older or newer events
+   * @param limit the maximum number of events per page, or a non-positive value to let the
+   *     homeserver decide
+   * @return the requested page of history
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidmessages">Matrix
+   *     specification</a>
+   */
+  public RoomMessagesPage getRoomMessages(
+      RoomId roomId, String from, Direction direction, long limit) {
+    return getRoomMessages(roomId, from, null, direction, limit, null);
+  }
+
+  /**
+   * Retrieves a page of room history with an optional stop token and event filter. The chunk order
+   * is homeserver-defined; use the returned tokens to continue paginating.
+   *
+   * @param roomId the room whose history to retrieve
+   * @param from the token to start from, as returned in a previous page or by {@code /sync}
+   * @param to the token to stop at, or {@code null} for none
+   * @param direction the direction to walk, towards older or newer events
+   * @param limit the maximum number of events per page, or a non-positive value to let the
+   *     homeserver decide
+   * @param filter the room event filter, or {@code null} for none
+   * @return the requested page of history
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidmessages">Matrix
+   *     specification</a>
+   */
+  public RoomMessagesPage getRoomMessages(
+      RoomId roomId, String from, String to, Direction direction, long limit, JsonValue filter) {
+    var query =
+        new StringBuilder(ROOMS_PATH)
+            .append(encode(roomId.value()))
+            .append("/messages?from=")
+            .append(encode(from))
+            .append(DIR_QUERY_PARAM)
+            .append(direction.value());
+    if (to != null) {
+      query.append("&to=").append(encode(to));
+    }
+    if (limit > 0) {
+      query.append(LIMIT_QUERY_PARAM).append(limit);
+    }
+    if (filter != null) {
+      query.append("&filter=").append(encode(filter.toJson()));
+    }
+    return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
+  }
+
+  /**
+   * Retrieves a single event of a room by its identifier.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the event to retrieve
+   * @return the event
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-roomsroomideventeventid">Matrix
+   *     specification</a>
+   */
+  public RoomEvent getRoomEvent(RoomId roomId, EventId eventId) {
+    return RoomEvent.from(
+        authenticated(
+            "GET",
+            ROOMS_PATH + encode(roomId.value()) + "/event/" + encode(eventId.value()),
+            null));
+  }
+
+  /**
+   * Retrieves the identifier of the event closest to the given timestamp, per the {@code
+   * timestamp_to_event} endpoint. The homeserver may be rate-limiting this call.
+   *
+   * @param roomId the room to search
+   * @param timestamp the timestamp to look up, in milliseconds since the Unix epoch
+   * @param direction the direction to search towards from the timestamp
+   * @return the closest event identifier and its server timestamp
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv1roomsroomidtimestamp-to-event">Matrix
+   *     specification</a>
+   */
+  public RoomEvent getEventForTimestamp(RoomId roomId, long timestamp, Direction direction) {
+    JsonValue response =
+        authenticated(
+            "GET",
+            "_matrix/client/v1/rooms/"
+                + encode(roomId.value())
+                + "/timestamp_to_event?ts="
+                + timestamp
+                + DIR_QUERY_PARAM
+                + direction.value(),
+            null);
+    return RoomEvent.from(response);
+  }
+
+  /**
+   * Retrieves the local aliases of a room declared in the room directory.
+   *
+   * @param roomId the room whose aliases to retrieve
+   * @return the aliases of the room, possibly empty
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidaliases">Matrix
+   *     specification</a>
+   */
+  public List<RoomAlias> getRoomAliases(RoomId roomId) {
+    JsonValue response =
+        authenticated("GET", ROOMS_PATH + encode(roomId.value()) + "/aliases", null);
+    var aliases = new ArrayList<RoomAlias>();
+    JsonValue aliasValue = response.asObject().get("aliases");
+    if (aliasValue != null && aliasValue.isArray()) {
+      var aliasArray = aliasValue.asArray();
+      for (int i = 0; i < aliasArray.size(); i++) {
+        aliases.add(RoomAlias.of(aliasArray.get(i).asString()));
+      }
+    }
+    return aliases;
+  }
+
+  /**
+   * Retrieves the latest page of room history, walking backwards from the room start. Use {@link
+   * #getRoomMessages(RoomId, String, Direction, long)} with the returned {@code end} token to page
+   * further.
+   *
+   * @param roomId the room whose history to retrieve
+   * @param limit the maximum number of events per page, or a non-positive value to let the
+   *     homeserver decide
+   * @return the requested page of history
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/get-roomsroomidmessages">Matrix
+   *     specification</a>
+   */
+  public RoomMessagesPage getLatestRoomMessages(RoomId roomId, long limit) {
+    var query =
+        new StringBuilder(ROOMS_PATH).append(encode(roomId.value())).append("/messages?dir=b");
+    if (limit > 0) {
+      query.append(LIMIT_QUERY_PARAM).append(limit);
+    }
+    return RoomMessagesPage.from(authenticated("GET", query.toString(), null));
+  }
+
+  /**
    * Sends a message event to a room with a generated transaction identifier.
    *
    * @param roomId the room to send the event to
@@ -544,6 +786,9 @@ public final class MatrixClient {
    * @return the created event identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
    */
   public EventId sendMessageEvent(RoomId roomId, String eventType, JsonValue content) {
     return sendEvent(roomId, eventType, content, UUID.randomUUID().toString());
@@ -559,6 +804,9 @@ public final class MatrixClient {
    * @return the created event identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
    */
   public EventId sendEvent(
       RoomId roomId, String eventType, JsonValue content, String transactionId) {
@@ -587,6 +835,9 @@ public final class MatrixClient {
    * @return the created event identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidstateeventtypestatekey">Matrix
+   *     specification</a>
    */
   public EventId sendStateEvent(RoomId roomId, String eventType, JsonValue content) {
     return sendStateEvent(roomId, eventType, "", content);
@@ -602,6 +853,9 @@ public final class MatrixClient {
    * @return the created event identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidstateeventtypestatekey">Matrix
+   *     specification</a>
    */
   public EventId sendStateEvent(
       RoomId roomId, String eventType, String stateKey, JsonValue content) {
@@ -630,6 +884,9 @@ public final class MatrixClient {
    * @return the redaction event identifier
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-roomsroomidredacteventidtxnid">Matrix
+   *     specification</a>
    */
   public EventId redact(RoomId roomId, EventId eventId, String reason) {
     var body = new JsonObject();
@@ -656,39 +913,81 @@ public final class MatrixClient {
    *
    * @param userId the user whose profile to retrieve
    * @return the user profile
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3profileuserid">Matrix
+   *     specification</a>
    */
   public UserProfile getProfile(UserId userId) {
     return UserProfile.from(get(PROFILE_PATH + encode(userId.value())));
   }
 
   /**
-   * Sets the display name of a user.
+   * Retrieves a single profile field of a user, such as {@code displayname} or {@code avatar_url}.
    *
-   * @param userId the user to update
-   * @param displayName the display name to set
-   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
-   *     the token is no longer valid
+   * @param userId the user whose profile field to retrieve
+   * @param keyName the profile field name
+   * @return the field value, or empty when unset
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3profileuseridkeyname">Matrix
+   *     specification</a>
    */
-  public void setDisplayName(UserId userId, String displayName) {
-    authenticated(
-        "PUT",
-        PROFILE_PATH + encode(userId.value()) + "/displayname",
-        new JsonObject().put("displayname", displayName));
+  public Optional<String> getProfileField(UserId userId, String keyName) {
+    JsonValue response = get(PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName));
+    JsonValue value = response.asObject().get(keyName);
+    return value != null && value.isString() ? Optional.of(value.asString()) : Optional.empty();
   }
 
   /**
-   * Sets the avatar URL of a user.
+   * Sets a single profile field of a user; a {@code null} value clears the field.
    *
    * @param userId the user to update
-   * @param avatarUrl the avatar URL to set
+   * @param keyName the profile field name
+   * @param value the value to set, or {@code null} to clear the field
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3profileuseridkeyname">Matrix
+   *     specification</a>
    */
-  public void setAvatarUrl(UserId userId, String avatarUrl) {
+  public void setProfileField(UserId userId, String keyName, String value) {
+    if (value == null) {
+      authenticated("DELETE", PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName), null);
+      return;
+    }
     authenticated(
         "PUT",
-        PROFILE_PATH + encode(userId.value()) + "/avatar_url",
-        new JsonObject().put("avatar_url", avatarUrl));
+        PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName),
+        new JsonObject().put(keyName, value));
+  }
+
+  /**
+   * Sets the display name of a user; a {@code null} display name clears it.
+   *
+   * @param userId the user to update
+   * @param displayName the display name to set, or {@code null} to clear
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3profileuseriddisplayname">Matrix
+   *     specification</a>
+   */
+  public void setDisplayName(UserId userId, String displayName) {
+    setProfileField(userId, "displayname", displayName);
+  }
+
+  /**
+   * Sets the avatar URL of a user; a {@code null} avatar URL clears it.
+   *
+   * @param userId the user to update
+   * @param avatarUrl the avatar URL to set, or {@code null} to clear
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3profileuseridavatar-url">Matrix
+   *     specification</a>
+   */
+  public void setAvatarUrl(UserId userId, String avatarUrl) {
+    setProfileField(userId, "avatar_url", avatarUrl);
   }
 
   /**
@@ -698,6 +997,9 @@ public final class MatrixClient {
    * @param roomId the room the alias points to
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/put-matrixclientv3directoryroomroomalias">Matrix
+   *     specification</a>
    */
   public void createRoomAlias(RoomAlias roomAlias, RoomId roomId) {
     authenticated(
@@ -712,6 +1014,9 @@ public final class MatrixClient {
    * @param roomAlias the alias to delete
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/delete-matrixclientv3directoryroomroomalias">Matrix
+   *     specification</a>
    */
   public void deleteRoomAlias(RoomAlias roomAlias) {
     authenticated("DELETE", DIRECTORY_PATH + encode(roomAlias.value()), null);
@@ -721,6 +1026,9 @@ public final class MatrixClient {
    * Retrieves the public room directory.
    *
    * @return the public rooms
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3publicrooms">Matrix
+   *     specification</a>
    */
   public PublicRoomsResponse getPublicRooms() {
     return PublicRoomsResponse.from(get("_matrix/client/v3/publicRooms"));
@@ -734,6 +1042,9 @@ public final class MatrixClient {
    * @param filter the generic search term
    * @param since the pagination token of the previous page
    * @return the public rooms page
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3publicrooms">Matrix
+   *     specification</a>
    */
   public PublicRoomsResponse getPublicRooms(long limit, String filter, String since) {
     var body = new JsonObject();
@@ -746,7 +1057,7 @@ public final class MatrixClient {
     if (since != null) {
       body.put("since", since);
     }
-    return PublicRoomsResponse.from(post("_matrix/client/v3/publicRooms", body));
+    return PublicRoomsResponse.from(authenticated("POST", "_matrix/client/v3/publicRooms", body));
   }
 
   /**
@@ -755,20 +1066,12 @@ public final class MatrixClient {
    * @return the session of the token owner
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/get-matrixclientv3account-whoami">Matrix
+   *     specification</a>
    */
-  public Session whoami() {
-    JsonValue body = authenticated("GET", "_matrix/client/v3/account/whoami", null);
-    JsonObject obj = body.asObject();
-    return new Session(
-        obj.get(USER_ID_FIELD).asString(),
-        null,
-        null,
-        null,
-        obj.get(DEVICE_ID_FIELD) != null && obj.get(DEVICE_ID_FIELD).isString()
-            ? obj.get(DEVICE_ID_FIELD).asString()
-            : null,
-        null,
-        body);
+  public WhoamiResponse whoami() {
+    return WhoamiResponse.from(authenticated("GET", "_matrix/client/v3/account/whoami", null));
   }
 
   private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {

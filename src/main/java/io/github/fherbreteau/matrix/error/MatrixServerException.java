@@ -2,7 +2,10 @@ package io.github.fherbreteau.matrix.error;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.time.DateTimeException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -96,8 +99,8 @@ public class MatrixServerException extends MatrixException {
       message = "HTTP " + statusCode;
     }
     if (statusCode == 429) {
-      Long retryAfterMs = extractRetryAfterMs(headers);
-      return new RateLimitedException(errcode, message, additional, retryAfterMs);
+      return new RateLimitedException(
+          errcode, message, additional, extractRetryAfterMs(headers, body));
     }
     return new MatrixServerException(
         statusCode, errcode, message, additional, isRetryableStatus(statusCode));
@@ -113,7 +116,22 @@ public class MatrixServerException extends MatrixException {
     return additional;
   }
 
-  private static Long extractRetryAfterMs(Map<String, String> headers) {
+  private static Long extractRetryAfterMs(Map<String, String> headers, JsonValue body) {
+    Long fromHeader = extractRetryAfterHeader(headers);
+    if (fromHeader != null) {
+      return fromHeader;
+    }
+    if (body == null || !body.isObject()) {
+      return null;
+    }
+    JsonValue retryAfterMs = body.asObject().get("retry_after_ms");
+    if (retryAfterMs != null && retryAfterMs.isNumber()) {
+      return retryAfterMs.asLong();
+    }
+    return null;
+  }
+
+  private static Long extractRetryAfterHeader(Map<String, String> headers) {
     if (headers == null) {
       return null;
     }
@@ -124,7 +142,16 @@ public class MatrixServerException extends MatrixException {
     try {
       return Duration.ofSeconds(Long.parseLong(value.strip())).toMillis();
     } catch (NumberFormatException _) {
-      return null;
+      try {
+        Instant parsed =
+            Instant.from(
+                DateTimeFormatter.RFC_1123_DATE_TIME
+                    .withZone(java.time.ZoneOffset.UTC)
+                    .parse(value.strip()));
+        return Duration.between(Instant.now(), parsed).toMillis();
+      } catch (DateTimeException | ArithmeticException _) {
+        return null;
+      }
     }
   }
 

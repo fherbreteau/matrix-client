@@ -20,7 +20,9 @@ class RoomTest {
 
   @Test
   void eventsConstructor() {
-    var event = new RoomEvent("$e", "@u:b", "m.room.message", null, JsonParser.parse("{}"));
+    var event =
+        new RoomEvent(
+            "$e", "@u:b", "m.room.message", null, null, null, JsonParser.parse("{}"), null);
     Room room = new Room("!a:b", List.of(event));
     assertThat(room).extracting(Room::getRoomId).isEqualTo("!a:b");
     assertThat(room)

@@ -25,6 +25,13 @@ class JdkHttpTransportHttpServerTest {
 
   private HttpServer server;
 
+  private static JdkHttpTransport noProxyTransport(HttpTransportConfig.Builder config) {
+    return new JdkHttpTransport(
+        java.net.ProxySelector.of(null) == null
+            ? config.build()
+            : config.proxy(java.net.ProxySelector.of(null)).build());
+  }
+
   @AfterEach
   void stopServer() {
     if (server != null) {
@@ -55,7 +62,7 @@ class JdkHttpTransportHttpServerTest {
               exchange.getResponseBody().write(bytes);
               exchange.close();
             });
-    var transport = new JdkHttpTransport();
+    var transport = noProxyTransport(HttpTransportConfig.builder());
     var response =
         transport.send(new HttpTransport.Request("GET", base + "/anywhere", Map.of(), null));
     assertThat(response).extracting(Response::statusCode).isEqualTo(200);
@@ -80,8 +87,7 @@ class JdkHttpTransportHttpServerTest {
               exchange.getResponseBody().write(bytes);
               exchange.close();
             });
-    var transport =
-        new JdkHttpTransport(JdkHttpTransport.config().accessToken("s3cret-token").build());
+    var transport = noProxyTransport(JdkHttpTransport.config().accessToken("s3cret-token"));
     var response =
         transport.send(
             new HttpTransport.Request(
@@ -102,7 +108,7 @@ class JdkHttpTransportHttpServerTest {
               exchange.getResponseBody().write(bytes);
               exchange.close();
             });
-    var transport = new JdkHttpTransport();
+    var transport = noProxyTransport(HttpTransportConfig.builder());
     assertThat(
             transport.send(new HttpTransport.Request("PUT", base + "/_matrix/1", Map.of(), "{}")))
         .extracting(Response::statusCode)
@@ -125,7 +131,7 @@ class JdkHttpTransportHttpServerTest {
               exchange.getResponseBody().write(bytes);
               exchange.close();
             });
-    var transport = new JdkHttpTransport();
+    var transport = noProxyTransport(HttpTransportConfig.builder());
     var response =
         transport.send(new HttpTransport.Request("GET", base + "/limited", Map.of(), null));
     assertThat(response).extracting(Response::statusCode).isEqualTo(429);
@@ -147,7 +153,7 @@ class JdkHttpTransportHttpServerTest {
               }
               exchange.close();
             });
-    var transport = new JdkHttpTransport(JdkHttpTransport.config().build());
+    var transport = noProxyTransport(JdkHttpTransport.config());
     var response =
         transport.send(new HttpTransport.Request("GET", base + "/redirect", Map.of(), null));
     assertThat(response).extracting(Response::body).isEqualTo("{\"ok\":true}");
@@ -162,7 +168,7 @@ class JdkHttpTransportHttpServerTest {
               exchange.sendResponseHeaders(302, -1);
               exchange.close();
             });
-    var transport = new JdkHttpTransport(JdkHttpTransport.config().followRedirects(false).build());
+    var transport = noProxyTransport(JdkHttpTransport.config().followRedirects(false));
     var response =
         transport.send(new HttpTransport.Request("GET", base + "/redirect", Map.of(), null));
     assertThat(response).extracting(Response::statusCode).isEqualTo(302);
@@ -183,8 +189,7 @@ class JdkHttpTransportHttpServerTest {
               exchange.close();
             });
     var transport =
-        new JdkHttpTransport(
-            JdkHttpTransport.config().requestTimeout(Duration.ofMillis(100)).build());
+        noProxyTransport(JdkHttpTransport.config().requestTimeout(Duration.ofMillis(100)));
     var request = new HttpTransport.Request("GET", base + "/slow", Map.of(), null);
     try {
       assertThatExceptionOfType(TransportTimeoutException.class)
@@ -196,7 +201,7 @@ class JdkHttpTransportHttpServerTest {
 
   @Test
   void refusesConnectionAsTransportException() {
-    var transport = new JdkHttpTransport();
+    var transport = noProxyTransport(HttpTransportConfig.builder());
     var request = new HttpTransport.Request("GET", "http://localhost:1/nowhere", Map.of(), null);
     assertThatThrownBy(() -> transport.send(request)).isInstanceOf(TransportException.class);
   }

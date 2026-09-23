@@ -192,6 +192,25 @@ class AuthenticationTest {
   }
 
   @Test
+  void refreshResponseWithoutRefreshTokenCarriesOverThePreviousOne() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                queued(
+                    new Response(200, LOGIN_REFRESHABLE),
+                    new Response(
+                        200, "{\"access_token\":\"new-token\",\"expires_in_ms\":7200000}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"), null, true);
+    Session refreshed = client.refresh();
+    assertThat(refreshed.accessToken()).isEqualTo("new-token");
+    assertThat(refreshed.refreshToken()).isEqualTo("refresh-it");
+    assertThat(refreshed.userId()).isEqualTo("@alice:matrix.org");
+    assertThat(refreshed.deviceId()).isEqualTo("DEV");
+    assertThat(client.getSession()).contains(refreshed);
+  }
+
+  @Test
   void injectableSessionStoreReceivesLifecycle() {
     var store = new RecordingSessionStore();
     MatrixClient client =

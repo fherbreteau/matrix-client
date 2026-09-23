@@ -112,6 +112,12 @@ git push origin feature/your-feature
 
 ## 📝 Coding Standards
 
+- **Follow the Matrix specification** (<https://spec.matrix.org/latest/client-server-api/>):
+  always check the latest published version before implementing or changing an
+  endpoint — verify request/response field names, required fields,
+  deprecations, rate-limiting and error codes, and record intentional
+  deviations in the Javadoc
+
 - **Follow the Google Java Style Guide** — formatting is enforced by
   `google-java-format` (Spotify `fmt-maven-plugin`): run `mvn fmt:format` before committing;
   `mvn verify` fails on unformatted code (2-space indent, 4-space continuation

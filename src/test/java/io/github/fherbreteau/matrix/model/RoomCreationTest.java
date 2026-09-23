@@ -46,8 +46,7 @@ class RoomCreationTest {
         .contains("\"initial_state\":")
         .contains("\"creation_content\":{\"m.federate\":false}")
         .contains("\"power_level_content_override\":{\"ban\":50}")
-        .contains("\"user_id\":\"@bob:matrix.org\"")
-        .contains("\"user_id\":\"@carol:matrix.org\"")
+        .contains("\"invite\":[\"@bob:matrix.org\",\"@carol:matrix.org\"]")
         .contains(
             "\"invite_3pid\":[{\"id_server\":\"id.example.org\",\"id_access_token\":\"tok\",\"medium\":\"email\",\"address\":\"a@b.c\"}]");
   }

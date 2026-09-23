@@ -16,7 +16,6 @@ import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
-import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
@@ -307,7 +306,9 @@ class ClientServerOperationsTest {
                     new Response(200, "{\"user_id\":\"@alice:matrix.org\",\"device_id\":\"DEV\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    assertThat(client.whoami()).extracting(Session::userId).isEqualTo("@alice:matrix.org");
+    assertThat(client.whoami())
+        .extracting(io.github.fherbreteau.matrix.model.WhoamiResponse::userId)
+        .isEqualTo("@alice:matrix.org");
   }
 
   @Test

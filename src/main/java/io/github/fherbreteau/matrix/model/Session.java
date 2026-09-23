@@ -51,6 +51,35 @@ public record Session(
         body);
   }
 
+  /**
+   * Parses a token-refresh response into a session. The refresh response only carries the new
+   * tokens, so the user identity and device of the refreshed session are carried over from the
+   * session being refreshed; when the response omits a refresh token, the previous one stays valid
+   * and is carried over per the specification.
+   *
+   * @throws DiscoveryException if the response is missing the access token
+   */
+  public static Session fromRefresh(Session previous, JsonValue body) {
+    if (body == null || !body.isObject()) {
+      throw new DiscoveryException("Refresh response must be a JSON object");
+    }
+    JsonObject obj = body.asObject();
+    JsonValue token = obj.get("access_token");
+    if (token == null || !token.isString()) {
+      throw new DiscoveryException("Refresh response must contain access_token");
+    }
+    return new Session(
+        previous.userId(),
+        token.asString(),
+        stringValue(obj, "refresh_token") != null
+            ? stringValue(obj, "refresh_token")
+            : previous.refreshToken(),
+        longValue(obj, "expires_in_ms"),
+        previous.deviceId(),
+        previous.homeserver(),
+        body);
+  }
+
   private static String stringValue(JsonObject obj, String name) {
     JsonValue value = obj.get(name);
     return value != null && value.isString() ? value.asString() : null;

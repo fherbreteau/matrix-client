@@ -234,6 +234,26 @@ class RoomOperationsTest {
   }
 
   @Test
+  void inviteSerializesPlainUserIdStrings() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"room_id\":\"!a:b\"}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    client.createRoom(
+        io.github.fherbreteau.matrix.model.RoomCreation.builder()
+            .invites(
+                java.util.List.of(io.github.fherbreteau.matrix.model.UserId.of("@bob:matrix.org")))
+            .build());
+    assertThat(requests.getLast().body()).isEqualTo("{\"invite\":[\"@bob:matrix.org\"]}");
+  }
+
+  @Test
   void resolveRoomAliasReturnsRoomIdAndServers() {
     var requests = new ArrayList<Request>();
     MatrixClient client =

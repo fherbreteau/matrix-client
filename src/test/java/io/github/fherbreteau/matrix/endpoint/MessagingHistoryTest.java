@@ -205,6 +205,27 @@ class MessagingHistoryTest {
   }
 
   @Test
+  void lazyLoadStateArrayIsParsedAsEvents() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                queued(
+                    new Response(200, LOGIN_OK),
+                    new Response(
+                        200,
+                        """
+                        {"start":"t0","chunk":[],
+                         "state":[{"type":"m.room.member","state_key":"@u:b",
+                                    "sender":"@u:b","content":{"membership":"join"}}]}\
+                        """)))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RoomMessagesPage page = client.getLatestRoomMessages(RoomId.of("!a:b"), 0);
+    assertThat(page).extracting(RoomMessagesPage::state, list(RoomEvent.class)).hasSize(1);
+    assertThat(page.state().getFirst().stateKey()).isEqualTo("@u:b");
+  }
+
+  @Test
   void latestHistoryOmitsTheFromToken() {
     var requests = new ArrayList<Request>();
     MatrixClient client =

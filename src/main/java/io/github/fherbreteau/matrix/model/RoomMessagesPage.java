@@ -12,7 +12,8 @@ import java.util.List;
  * and should use the {@code start}/{@code end} tokens to navigate. Unknown event types and fields
  * are preserved in the parsed events.
  */
-public record RoomMessagesPage(List<RoomEvent> chunk, String start, String end, String state) {
+public record RoomMessagesPage(
+    List<RoomEvent> chunk, String start, String end, List<RoomEvent> state) {
 
   /**
    * Parses a {@code /messages} response.
@@ -38,12 +39,19 @@ public record RoomMessagesPage(List<RoomEvent> chunk, String start, String end, 
       }
     }
     JsonValue end = obj.get("end");
-    JsonValue state = obj.get("state");
+    var state = new ArrayList<RoomEvent>();
+    JsonValue stateValue = obj.get("state");
+    if (stateValue != null && stateValue.isArray()) {
+      JsonArray stateArray = stateValue.asArray();
+      for (int i = 0; i < stateArray.size(); i++) {
+        state.add(RoomEvent.from(stateArray.get(i)));
+      }
+    }
     return new RoomMessagesPage(
         List.copyOf(chunk),
         start.asString(),
         end != null && end.isString() ? end.asString() : null,
-        state != null && state.isString() ? state.asString() : null);
+        state);
   }
 
   /** Returns whether another page can be requested from the returned {@code end} token. */

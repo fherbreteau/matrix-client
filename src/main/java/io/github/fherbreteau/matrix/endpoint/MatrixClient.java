@@ -23,6 +23,7 @@ import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
+import io.github.fherbreteau.matrix.model.WhoamiResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import java.net.URLEncoder;
@@ -253,7 +254,8 @@ public final class MatrixClient {
     }
     try {
       Session refreshed =
-          Session.from(
+          Session.fromRefresh(
+              session,
               post(
                   "_matrix/client/v3/refresh",
                   new JsonObject().put("refresh_token", session.refreshToken())));
@@ -854,33 +856,60 @@ public final class MatrixClient {
   }
 
   /**
-   * Sets the display name of a user.
+   * Retrieves a single profile field of a user, such as {@code displayname} or {@code avatar_url}.
+   *
+   * @param userId the user whose profile field to retrieve
+   * @param keyName the profile field name
+   * @return the field value, or empty when unset
+   */
+  public Optional<String> getProfileField(UserId userId, String keyName) {
+    JsonValue response = get(PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName));
+    JsonValue value = response.asObject().get(keyName);
+    return value != null && value.isString() ? Optional.of(value.asString()) : Optional.empty();
+  }
+
+  /**
+   * Sets a single profile field of a user; a {@code null} value clears the field.
    *
    * @param userId the user to update
-   * @param displayName the display name to set
+   * @param keyName the profile field name
+   * @param value the value to set, or {@code null} to clear the field
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   */
+  public void setProfileField(UserId userId, String keyName, String value) {
+    if (value == null) {
+      authenticated("DELETE", PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName), null);
+      return;
+    }
+    authenticated(
+        "PUT",
+        PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName),
+        new JsonObject().put(keyName, value));
+  }
+
+  /**
+   * Sets the display name of a user; a {@code null} display name clears it.
+   *
+   * @param userId the user to update
+   * @param displayName the display name to set, or {@code null} to clear
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
    */
   public void setDisplayName(UserId userId, String displayName) {
-    authenticated(
-        "PUT",
-        PROFILE_PATH + encode(userId.value()) + "/displayname",
-        new JsonObject().put("displayname", displayName));
+    setProfileField(userId, "displayname", displayName);
   }
 
   /**
-   * Sets the avatar URL of a user.
+   * Sets the avatar URL of a user; a {@code null} avatar URL clears it.
    *
    * @param userId the user to update
-   * @param avatarUrl the avatar URL to set
+   * @param avatarUrl the avatar URL to set, or {@code null} to clear
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
    */
   public void setAvatarUrl(UserId userId, String avatarUrl) {
-    authenticated(
-        "PUT",
-        PROFILE_PATH + encode(userId.value()) + "/avatar_url",
-        new JsonObject().put("avatar_url", avatarUrl));
+    setProfileField(userId, "avatar_url", avatarUrl);
   }
 
   /**
@@ -938,7 +967,7 @@ public final class MatrixClient {
     if (since != null) {
       body.put("since", since);
     }
-    return PublicRoomsResponse.from(post("_matrix/client/v3/publicRooms", body));
+    return PublicRoomsResponse.from(authenticated("POST", "_matrix/client/v3/publicRooms", body));
   }
 
   /**
@@ -948,19 +977,8 @@ public final class MatrixClient {
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
    */
-  public Session whoami() {
-    JsonValue body = authenticated("GET", "_matrix/client/v3/account/whoami", null);
-    JsonObject obj = body.asObject();
-    return new Session(
-        obj.get(USER_ID_FIELD).asString(),
-        null,
-        null,
-        null,
-        obj.get(DEVICE_ID_FIELD) != null && obj.get(DEVICE_ID_FIELD).isString()
-            ? obj.get(DEVICE_ID_FIELD).asString()
-            : null,
-        null,
-        body);
+  public WhoamiResponse whoami() {
+    return WhoamiResponse.from(authenticated("GET", "_matrix/client/v3/account/whoami", null));
   }
 
   private Optional<String> getRoomStateField(RoomId roomId, String type, String field) {

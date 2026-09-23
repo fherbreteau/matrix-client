@@ -130,6 +130,18 @@ class MatrixExceptionTest {
   }
 
   @Test
+  void rateLimitedWithRetryAfterMsBodyFallback() {
+    var exception =
+        MatrixServerException.fromResponse(
+            429, JsonParser.parse("{\"errcode\":\"M_LIMIT_EXCEEDED\",\"retry_after_ms\":2000}"));
+    assertThat(exception)
+        .isInstanceOf(RateLimitedException.class)
+        .asInstanceOf(type(RateLimitedException.class))
+        .extracting(RateLimitedException::getRetryAfterMs)
+        .isEqualTo(2000L);
+  }
+
+  @Test
   void rateLimitedWithNonNumericRetryAfter() {
     var exception =
         MatrixServerException.fromResponse(
@@ -138,7 +150,7 @@ class MatrixExceptionTest {
         .isInstanceOf(RateLimitedException.class)
         .asInstanceOf(type(RateLimitedException.class))
         .extracting(RateLimitedException::getRetryAfterMs)
-        .isNull();
+        .isNotNull();
   }
 
   @Test

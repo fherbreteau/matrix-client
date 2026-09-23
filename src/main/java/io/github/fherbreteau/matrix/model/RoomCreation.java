@@ -2,6 +2,7 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonArray;
 import io.github.fherbreteau.matrix.json.JsonObject;
+import io.github.fherbreteau.matrix.json.JsonString;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,7 +71,7 @@ public final class RoomCreation {
     if (!invites.isEmpty()) {
       JsonArray inviteArray = new JsonArray();
       for (UserId invite : invites) {
-        inviteArray.add(new JsonObject().put("user_id", invite.value()));
+        inviteArray.add(JsonString.of(invite.value()));
       }
       body.put("invite", inviteArray);
     }

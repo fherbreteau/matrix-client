@@ -224,8 +224,9 @@ class MediaTest {
                         null))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    var uri = MxcUri.parse("mxc://m/abc");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.downloadMedia(MxcUri.parse("mxc://m/abc"), 1024))
+        .isThrownBy(() -> client.downloadMedia(uri, 1024))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_NOT_FOUND");
@@ -295,9 +296,10 @@ class MediaTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{}"))
             .build();
-    assertThatThrownBy(() -> client.downloadMedia(MxcUri.parse("mxc://m/abc"), 100))
+    var uri = MxcUri.parse("mxc://m/abc");
+    assertThatThrownBy(() -> client.downloadMedia(uri, 100))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.getMediaConfig()).isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(client::getMediaConfig).isInstanceOf(AuthenticationException.class);
   }
 
   private static io.github.fherbreteau.matrix.transport.MediaTransport recording(

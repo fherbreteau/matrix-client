@@ -247,7 +247,7 @@ class JdkMediaTransportTest {
         .isEqualTo(second)
         .hasSameHashCodeAs(second)
         .isNotEqualTo(different)
-        .isNotEqualTo(null);
+        .isNotNull();
   }
 
   @Test

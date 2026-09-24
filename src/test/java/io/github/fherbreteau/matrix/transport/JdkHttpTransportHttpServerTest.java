@@ -13,6 +13,7 @@ import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.ProxySelector;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -27,9 +28,9 @@ class JdkHttpTransportHttpServerTest {
 
   private static JdkHttpTransport noProxyTransport(HttpTransportConfig.Builder config) {
     return new JdkHttpTransport(
-        java.net.ProxySelector.of(null) == null
+        ProxySelector.of(null) == null
             ? config.build()
-            : config.proxy(java.net.ProxySelector.of(null)).build());
+            : config.proxy(ProxySelector.of(null)).build());
   }
 
   @AfterEach

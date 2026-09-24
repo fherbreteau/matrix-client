@@ -5,6 +5,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -145,9 +146,7 @@ public class MatrixServerException extends MatrixException {
       try {
         Instant parsed =
             Instant.from(
-                DateTimeFormatter.RFC_1123_DATE_TIME
-                    .withZone(java.time.ZoneOffset.UTC)
-                    .parse(value.strip()));
+                DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC).parse(value.strip()));
         return Duration.between(Instant.now(), parsed).toMillis();
       } catch (DateTimeException | ArithmeticException _) {
         return null;

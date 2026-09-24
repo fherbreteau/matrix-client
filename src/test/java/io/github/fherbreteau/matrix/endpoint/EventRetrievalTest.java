@@ -13,6 +13,7 @@ import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,7 @@ class EventRetrievalTest {
 
   @Test
   void singleEventIsRetrievedByItsIdentifier() {
-    var requests = new ArrayList<io.github.fherbreteau.matrix.transport.HttpTransport.Request>();
+    var requests = new ArrayList<Request>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(
@@ -52,7 +53,7 @@ class EventRetrievalTest {
 
   @Test
   void timestampToEventReturnsTheClosestEvent() {
-    var requests = new ArrayList<io.github.fherbreteau.matrix.transport.HttpTransport.Request>();
+    var requests = new ArrayList<Request>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(
@@ -127,9 +128,7 @@ class EventRetrievalTest {
         .isEqualTo("M_NOT_FOUND");
   }
 
-  private static HttpTransportStub recording(
-      List<io.github.fherbreteau.matrix.transport.HttpTransport.Request> requests,
-      Response... responses) {
+  private static HttpTransportStub recording(List<Request> requests, Response... responses) {
     var stub = new HttpTransportStub();
     for (Response response : responses) {
       stub.enqueue(response);

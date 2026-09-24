@@ -40,7 +40,6 @@ import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1317,19 +1316,21 @@ public final class MatrixClient {
    * Uploads raw bytes to the content repository and returns their Matrix content URI.
    *
    * @param content the media bytes
-   * @param contentType the MIME type of the media, sent as the {@code Content-Type} header
+   * @param contentType the optional MIME type of the media; defaults to {@code
+   *     application/octet-stream}
    * @param filename the optional filename presented to other users
    * @return the {@code mxc://} URI of the uploaded media
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixmediav3upload">Matrix
+   *     specification</a>
    */
   public MxcUri uploadMedia(byte[] content, String contentType, String filename) {
     var path = new StringBuilder("_matrix/media/v3/upload");
     if (filename != null) {
       path.append("?filename=").append(encode(filename));
     }
-    var headers = new HashMap<String, String>();
-    headers.put("Content-Type", contentType);
     var response =
         mediaTransport.send(
             new BinaryRequest(

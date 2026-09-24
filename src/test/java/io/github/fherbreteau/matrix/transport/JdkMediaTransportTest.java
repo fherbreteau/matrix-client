@@ -241,13 +241,27 @@ class JdkMediaTransportTest {
         new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1, 2}, "t");
     var second =
         new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1, 2}, "t");
-    var different =
+    var differentBody =
         new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1}, "t");
+    var differentType =
+        new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1, 2}, "u");
+    var differentUrl =
+        new MediaTransport.BinaryRequest("POST", "https://m/y", Map.of(), new byte[] {1, 2}, "t");
+    var differentMethod =
+        new MediaTransport.BinaryRequest("GET", "https://m/x", Map.of(), new byte[] {1, 2}, "t");
+    var differentHeaders =
+        new MediaTransport.BinaryRequest(
+            "POST", "https://m/x", Map.of("h", "v"), new byte[] {1, 2}, "t");
     assertThat(first)
         .isEqualTo(second)
         .hasSameHashCodeAs(second)
-        .isNotEqualTo(different)
+        .isNotEqualTo(differentBody)
+        .isNotEqualTo(differentType)
+        .isNotEqualTo(differentUrl)
+        .isNotEqualTo(differentMethod)
+        .isNotEqualTo(differentHeaders)
         .isNotNull();
+    assertThat(first.equals("other")).isFalse();
   }
 
   @Test

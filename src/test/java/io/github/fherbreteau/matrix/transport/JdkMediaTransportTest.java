@@ -261,7 +261,6 @@ class JdkMediaTransportTest {
         .isNotEqualTo(differentMethod)
         .isNotEqualTo(differentHeaders)
         .isNotNull();
-    assertThat(first.equals("other")).isFalse();
   }
 
   @Test

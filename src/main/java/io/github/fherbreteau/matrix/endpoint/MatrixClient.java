@@ -34,6 +34,8 @@ import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
+import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -1481,11 +1483,10 @@ public final class MatrixClient {
     throw MatrixServerException.fromResponse(statusCode, parseOrNull(body), null);
   }
 
-  private static String asString(
-      io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse response) {
+  private static String asString(BinaryResponse response) {
     try (var stream = response.bodyStream()) {
       return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-    } catch (java.io.IOException e) {
+    } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
   }

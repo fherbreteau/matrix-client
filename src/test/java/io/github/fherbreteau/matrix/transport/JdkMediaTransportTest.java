@@ -4,13 +4,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
+import java.net.Authenticator;
+import java.net.CookieHandler;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 
 class JdkMediaTransportTest {
@@ -20,12 +30,12 @@ class JdkMediaTransportTest {
     HttpClient client =
         new HttpClient() {
           @Override
-          public java.util.Optional<java.net.CookieHandler> cookieHandler() {
+          public Optional<CookieHandler> cookieHandler() {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public java.util.Optional<Duration> connectTimeout() {
+          public Optional<Duration> connectTimeout() {
             throw new UnsupportedOperationException();
           }
 
@@ -35,22 +45,22 @@ class JdkMediaTransportTest {
           }
 
           @Override
-          public java.util.Optional<java.net.ProxySelector> proxy() {
+          public Optional<ProxySelector> proxy() {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public javax.net.ssl.SSLContext sslContext() {
+          public SSLContext sslContext() {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public javax.net.ssl.SSLParameters sslParameters() {
+          public SSLParameters sslParameters() {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public java.util.Optional<java.net.Authenticator> authenticator() {
+          public Optional<Authenticator> authenticator() {
             throw new UnsupportedOperationException();
           }
 
@@ -60,7 +70,7 @@ class JdkMediaTransportTest {
           }
 
           @Override
-          public java.util.Optional<java.util.concurrent.Executor> executor() {
+          public Optional<Executor> executor() {
             throw new UnsupportedOperationException();
           }
 
@@ -75,13 +85,13 @@ class JdkMediaTransportTest {
           }
 
           @Override
-          public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
+          public <T> CompletableFuture<HttpResponse<T>> sendAsync(
               HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
             throw new UnsupportedOperationException();
           }
 
           @Override
-          public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
+          public <T> CompletableFuture<HttpResponse<T>> sendAsync(
               HttpRequest request,
               HttpResponse.BodyHandler<T> responseBodyHandler,
               HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
@@ -110,7 +120,7 @@ class JdkMediaTransportTest {
 
   @Test
   void parsesRetryAfterHeader() {
-    HttpClient client =
+    try (JdkMediaTransportTestClient testClient =
         new JdkMediaTransportTestClient() {
           @Override
           public <T> HttpResponse<T> send(
@@ -119,22 +129,24 @@ class JdkMediaTransportTest {
             HttpResponse<T> response = (HttpResponse<T>) new StubRetryResponse();
             return response;
           }
-        }.asClient();
-    var transport = new JdkMediaTransport(client, HttpTransportConfig.builder().build());
-    var response =
-        transport.send(
-            new MediaTransport.BinaryRequest("GET", "https://m/x", Map.of(), null, "a/b"));
-    assertThat(response.retryAfterMs()).isEqualTo(7000L);
+        }) {
+      HttpClient client = testClient.asClient();
+      var transport = new JdkMediaTransport(client, HttpTransportConfig.builder().build());
+      var response =
+          transport.send(
+              new MediaTransport.BinaryRequest("GET", "https://m/x", Map.of(), null, "a/b"));
+      assertThat(response.retryAfterMs()).isEqualTo(7000L);
+    }
   }
 
   private abstract static class JdkMediaTransportTestClient extends HttpClient {
     @Override
-    public java.util.Optional<java.net.CookieHandler> cookieHandler() {
+    public Optional<CookieHandler> cookieHandler() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public java.util.Optional<Duration> connectTimeout() {
+    public Optional<Duration> connectTimeout() {
       throw new UnsupportedOperationException();
     }
 
@@ -144,22 +156,22 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public java.util.Optional<java.net.ProxySelector> proxy() {
+    public Optional<ProxySelector> proxy() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public javax.net.ssl.SSLContext sslContext() {
+    public SSLContext sslContext() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public javax.net.ssl.SSLParameters sslParameters() {
+    public SSLParameters sslParameters() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public java.util.Optional<java.net.Authenticator> authenticator() {
+    public Optional<Authenticator> authenticator() {
       throw new UnsupportedOperationException();
     }
 
@@ -169,25 +181,25 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public java.util.Optional<java.util.concurrent.Executor> executor() {
+    public Optional<Executor> executor() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
+    public <T> CompletableFuture<HttpResponse<T>> sendAsync(
         HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public <T> java.util.concurrent.CompletableFuture<HttpResponse<T>> sendAsync(
+    public <T> CompletableFuture<HttpResponse<T>> sendAsync(
         HttpRequest request,
         HttpResponse.BodyHandler<T> responseBodyHandler,
         HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
       throw new UnsupportedOperationException();
     }
 
-    java.net.http.HttpClient asClient() {
+    HttpClient asClient() {
       return this;
     }
   }
@@ -209,9 +221,8 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public java.net.http.HttpHeaders headers() {
-      return java.net.http.HttpHeaders.of(
-          Map.of("Retry-After", java.util.List.of("7")), (name, value) -> true);
+    public HttpHeaders headers() {
+      return HttpHeaders.of(Map.of("Retry-After", List.of("7")), (name, value) -> true);
     }
 
     @Override
@@ -230,7 +241,7 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public java.util.Optional<javax.net.ssl.SSLSession> sslSession() {
+    public Optional<SSLSession> sslSession() {
       throw new UnsupportedOperationException();
     }
   }
@@ -325,9 +336,8 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public java.net.http.HttpHeaders headers() {
-      return java.net.http.HttpHeaders.of(
-          Map.of("Content-Type", java.util.List.of("image/png")), (name, value) -> true);
+    public HttpHeaders headers() {
+      return HttpHeaders.of(Map.of("Content-Type", List.of("image/png")), (name, value) -> true);
     }
 
     @Override
@@ -346,7 +356,7 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public java.util.Optional<javax.net.ssl.SSLSession> sslSession() {
+    public Optional<SSLSession> sslSession() {
       throw new UnsupportedOperationException();
     }
   }

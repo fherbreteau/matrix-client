@@ -9,6 +9,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
+import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.MessageBody;
@@ -139,10 +140,7 @@ class MessagingHistoryTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(
             client.sendEvent(
-                RoomId.of("!a:b"),
-                "org.example.custom",
-                io.github.fherbreteau.matrix.json.JsonParser.parse("{\"x\":1}"),
-                "txn-1"))
+                RoomId.of("!a:b"), "org.example.custom", JsonParser.parse("{\"x\":1}"), "txn-1"))
         .isEqualTo(EventId.of("$c1"));
     assertThat(requests.getLast().url()).contains("/send/org.example.custom/txn-1");
   }
@@ -192,8 +190,7 @@ class MessagingHistoryTest {
                     new Response(200, "{\"start\":\"t0\",\"end\":\"t1\",\"chunk\":[]}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    var filter =
-        io.github.fherbreteau.matrix.json.JsonParser.parse("{\"types\":[\"m.room.message\"]}");
+    var filter = JsonParser.parse("{\"types\":[\"m.room.message\"]}");
     RoomMessagesPage page =
         client.getRoomMessages(RoomId.of("!a:b"), "t0", "t5", Direction.BACKWARD, 5, filter);
     Request last = requests.getLast();

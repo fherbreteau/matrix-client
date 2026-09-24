@@ -11,6 +11,7 @@ import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
+import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.UserId;
@@ -58,7 +59,7 @@ class RoomOperationsTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     RoomId roomId =
         client.createRoom(
-            io.github.fherbreteau.matrix.model.RoomCreation.builder()
+            RoomCreation.builder()
                 .name("The Room")
                 .topic("Everything")
                 .visibility("public")
@@ -246,10 +247,7 @@ class RoomOperationsTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     client.createRoom(
-        io.github.fherbreteau.matrix.model.RoomCreation.builder()
-            .invites(
-                java.util.List.of(io.github.fherbreteau.matrix.model.UserId.of("@bob:matrix.org")))
-            .build());
+        RoomCreation.builder().invites(List.of(UserId.of("@bob:matrix.org"))).build());
     assertThat(requests.getLast().body()).isEqualTo("{\"invite\":[\"@bob:matrix.org\"]}");
   }
 

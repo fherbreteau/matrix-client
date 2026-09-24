@@ -12,12 +12,16 @@ import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
+import io.github.fherbreteau.matrix.transport.MediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class MediaTest {
@@ -58,7 +62,7 @@ class MediaTest {
                   requests.add(binary);
                   return new BinaryResponse(
                       200,
-                      java.util.Map.of(),
+                      Map.of(),
                       "{\"content_uri\":\"mxc://matrix.org/abc123\"}"
                           .getBytes(StandardCharsets.UTF_8),
                       null);
@@ -87,7 +91,7 @@ class MediaTest {
                   requests.add(binary);
                   return new BinaryResponse(
                       200,
-                      java.util.Map.of(),
+                      Map.of(),
                       "{\"content_uri\":\"mxc://m/abc\"}".getBytes(StandardCharsets.UTF_8),
                       null);
                 })
@@ -107,7 +111,7 @@ class MediaTest {
                 binary ->
                     new BinaryResponse(
                         413,
-                        java.util.Map.of("content-type", "application/json"),
+                        Map.of("content-type", "application/json"),
                         "{\"errcode\":\"M_TOO_LARGE\",\"error\":\"too big\"}"
                             .getBytes(StandardCharsets.UTF_8),
                         null))
@@ -143,7 +147,7 @@ class MediaTest {
                   requests.add(binary);
                   return new BinaryResponse(
                       200,
-                      java.util.Map.of(
+                      Map.of(
                           "Content-Type", "image/png",
                           "Content-Disposition", "inline; filename=\"picture.png\""),
                       payload,
@@ -162,9 +166,7 @@ class MediaTest {
     assertThat(request.url())
         .isEqualTo("https://matrix.example.org/_matrix/client/v1/media/download/matrix.org/pic123");
     assertThat(request.headers())
-        .containsEntry(
-            io.github.fherbreteau.matrix.transport.HttpTransport.Request.AUTHORIZATION_HEADER,
-            "Bearer secret-token");
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
   }
 
   @Test
@@ -174,7 +176,7 @@ class MediaTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, LOGIN_OK))
             .mediaTransport(
-                recording(requests, new BinaryResponse(200, java.util.Map.of(), new byte[0], null)))
+                recording(requests, new BinaryResponse(200, Map.of(), new byte[0], null)))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     var uri = MxcUri.parse("mxc://m/abc");
@@ -196,7 +198,7 @@ class MediaTest {
                 binary ->
                     new BinaryResponse(
                         200,
-                        java.util.Map.of("content-type", "application/octet-stream"),
+                        Map.of("content-type", "application/octet-stream"),
                         new byte[100],
                         null))
             .build();
@@ -218,7 +220,7 @@ class MediaTest {
                 binary ->
                     new BinaryResponse(
                         404,
-                        java.util.Map.of("content-type", "application/json"),
+                        Map.of("content-type", "application/json"),
                         "{\"errcode\":\"M_NOT_FOUND\",\"error\":\"gone\"}"
                             .getBytes(StandardCharsets.UTF_8),
                         null))
@@ -242,7 +244,7 @@ class MediaTest {
                 binary -> {
                   requests.add(binary);
                   return new BinaryResponse(
-                      200, java.util.Map.of("content-type", "image/png"), new byte[10], null);
+                      200, Map.of("content-type", "image/png"), new byte[10], null);
                 })
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
@@ -283,8 +285,7 @@ class MediaTest {
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, LOGIN_OK))
-            .mediaTransport(
-                binary -> new BinaryResponse(200, java.util.Map.of(), new byte[0], 5000L))
+            .mediaTransport(binary -> new BinaryResponse(200, Map.of(), new byte[0], 5000L))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(client.getMediaConfig()).isEmpty();
@@ -302,9 +303,9 @@ class MediaTest {
     assertThatThrownBy(client::getMediaConfig).isInstanceOf(AuthenticationException.class);
   }
 
-  private static io.github.fherbreteau.matrix.transport.MediaTransport recording(
+  private static MediaTransport recording(
       List<BinaryRequest> requests, BinaryResponse... responses) {
-    var queue = new java.util.ArrayDeque<>(List.of(responses));
+    var queue = new ArrayDeque<>(List.of(responses));
     return binary -> {
       requests.add(binary);
       return queue.remove();

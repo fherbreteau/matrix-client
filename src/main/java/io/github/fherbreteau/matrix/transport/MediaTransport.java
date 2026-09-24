@@ -2,9 +2,11 @@ package io.github.fherbreteau.matrix.transport;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * A binary request/response exchange for media transfers: uploads stream a byte source with an
@@ -49,14 +51,13 @@ public interface MediaTransport {
       return method.equals(other.method)
           && url.equals(other.url)
           && headers.equals(other.headers)
-          && java.util.Arrays.equals(body, other.body)
+          && Arrays.equals(body, other.body)
           && contentType.equals(other.contentType);
     }
 
     @Override
     public int hashCode() {
-      return java.util.Objects.hash(
-          method, url, headers, java.util.Arrays.hashCode(body), contentType);
+      return Objects.hash(method, url, headers, Arrays.hashCode(body), contentType);
     }
 
     @Override
@@ -101,7 +102,7 @@ public interface MediaTransport {
       var normalized = new HashMap<String, String>();
       if (headers != null) {
         for (Map.Entry<String, String> header : headers.entrySet()) {
-          normalized.put(header.getKey().toLowerCase(java.util.Locale.ROOT), header.getValue());
+          normalized.put(header.getKey().toLowerCase(Locale.ROOT), header.getValue());
         }
       }
       this.headers = Map.copyOf(normalized);

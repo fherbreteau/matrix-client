@@ -8,6 +8,7 @@ import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ class ProfileWhoamiTest {
 
   @Test
   void profileFieldSetAndClearUseTheGenericEndpoint() {
-    var requests = new ArrayList<io.github.fherbreteau.matrix.transport.HttpTransport.Request>();
+    var requests = new ArrayList<Request>();
     var stub = new HttpTransportStub();
     stub.enqueue(new Response(200, LOGIN_OK));
     stub.enqueue(new Response(200, "{}"));

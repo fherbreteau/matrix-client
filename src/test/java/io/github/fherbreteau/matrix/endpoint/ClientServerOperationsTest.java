@@ -18,6 +18,7 @@ import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
+import io.github.fherbreteau.matrix.model.WhoamiResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
@@ -273,7 +274,7 @@ class ClientServerOperationsTest {
     assertThat(rooms).extracting(PublicRoomsResponse::totalRoomCountEstimate).isEqualTo(42L);
     assertThat(rooms).extracting(PublicRoomsResponse::nextBatch).isEqualTo("NEXT");
     assertThat(rooms).extracting(PublicRoomsResponse::chunk, list(PublicRoom.class)).hasSize(1);
-    io.github.fherbreteau.matrix.model.PublicRoom room = rooms.chunk().getFirst();
+    PublicRoom room = rooms.chunk().getFirst();
     assertThat(room.roomId()).isEqualTo(RoomId.of("!a:b"));
     assertThat(room.name()).isEqualTo("The Room");
     assertThat(room.guestCanJoin()).isFalse();
@@ -306,9 +307,7 @@ class ClientServerOperationsTest {
                     new Response(200, "{\"user_id\":\"@alice:matrix.org\",\"device_id\":\"DEV\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    assertThat(client.whoami())
-        .extracting(io.github.fherbreteau.matrix.model.WhoamiResponse::userId)
-        .isEqualTo("@alice:matrix.org");
+    assertThat(client.whoami()).extracting(WhoamiResponse::userId).isEqualTo("@alice:matrix.org");
   }
 
   @Test

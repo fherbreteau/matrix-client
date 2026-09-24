@@ -8,6 +8,8 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -110,10 +112,9 @@ public final class JdkMediaTransport implements MediaTransport {
 
   private static Map<String, String> lowerCaseHeaders(HttpResponse<byte[]> response) {
     var headers = new HashMap<String, String>();
-    for (Map.Entry<String, java.util.List<String>> header : response.headers().map().entrySet()) {
+    for (Map.Entry<String, List<String>> header : response.headers().map().entrySet()) {
       if (!header.getValue().isEmpty()) {
-        headers.put(
-            header.getKey().toLowerCase(java.util.Locale.ROOT), header.getValue().getFirst());
+        headers.put(header.getKey().toLowerCase(Locale.ROOT), header.getValue().getFirst());
       }
     }
     return headers;

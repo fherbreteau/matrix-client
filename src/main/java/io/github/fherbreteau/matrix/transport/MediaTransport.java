@@ -27,50 +27,15 @@ public interface MediaTransport {
    * A binary HTTP request: raw body bytes with an explicit content type. The {@code toString()}
    * representation never includes the body.
    */
-  final class BinaryRequest {
+  record BinaryRequest(
+      String method, String url, Map<String, String> headers, byte[] body, String contentType) {
 
-    private final String method;
-    private final String url;
-    private final Map<String, String> headers;
-    private final byte[] body;
-    private final String contentType;
+    /** Name of the HTTP header carrying the media content type. */
+    public static final String CONTENT_TYPE_HEADER = "Content-Type";
 
-    /**
-     * Creates a binary request.
-     *
-     * @param method the HTTP method
-     * @param url the target URL
-     * @param headers the extra headers
-     * @param body the raw body bytes
-     * @param contentType the MIME type of the body
-     */
-    public BinaryRequest(
-        String method, String url, Map<String, String> headers, byte[] body, String contentType) {
-      this.method = method;
-      this.url = url;
-      this.headers = headers == null ? Map.of() : Map.copyOf(headers);
-      this.body = body == null ? new byte[0] : body.clone();
-      this.contentType = contentType;
-    }
-
-    public String method() {
-      return method;
-    }
-
-    public String url() {
-      return url;
-    }
-
-    public Map<String, String> headers() {
-      return headers;
-    }
-
-    public byte[] body() {
-      return body.clone();
-    }
-
-    public String contentType() {
-      return contentType;
+    public BinaryRequest {
+      headers = headers == null ? Map.of() : Map.copyOf(headers);
+      body = body == null ? new byte[0] : body.clone();
     }
 
     @Override

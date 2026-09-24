@@ -17,6 +17,7 @@ import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class MediaTest {
@@ -168,18 +169,22 @@ class MediaTest {
 
   @Test
   void downloadWithFilenameIncludesItInThePath() {
+    var requests = new ArrayList<BinaryRequest>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, LOGIN_OK))
             .mediaTransport(
-                binary -> new BinaryResponse(200, java.util.Map.of(), new byte[0], null))
+                recording(requests, new BinaryResponse(200, java.util.Map.of(), new byte[0], null)))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
-    try (var unused = client.downloadMedia(MxcUri.parse("mxc://m/abc"), "report.pdf", 1024)) {
-      // closed immediately; the assertion below is what matters
+    var uri = MxcUri.parse("mxc://m/abc");
+    try (var download = client.downloadMedia(uri, "report.pdf", 1024)) {
+      assertThat(download.body().readAllBytes()).isEmpty();
     } catch (Exception e) {
       throw new AssertionError(e);
     }
+    assertThat(requests.getFirst().url())
+        .isEqualTo("https://matrix.example.org/_matrix/client/v1/media/download/m/abc/report.pdf");
   }
 
   @Test
@@ -274,15 +279,11 @@ class MediaTest {
 
   @Test
   void mediaConfigWithoutUploadLimitYieldsEmpty() {
-    var requests = new ArrayList<BinaryRequest>();
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, LOGIN_OK))
             .mediaTransport(
-                binary -> {
-                  requests.add(binary);
-                  return new BinaryResponse(200, java.util.Map.of(), new byte[0], 5000L);
-                })
+                binary -> new BinaryResponse(200, java.util.Map.of(), new byte[0], 5000L))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(client.getMediaConfig()).isEmpty();
@@ -297,6 +298,15 @@ class MediaTest {
     assertThatThrownBy(() -> client.downloadMedia(MxcUri.parse("mxc://m/abc"), 100))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> client.getMediaConfig()).isInstanceOf(AuthenticationException.class);
+  }
+
+  private static io.github.fherbreteau.matrix.transport.MediaTransport recording(
+      List<BinaryRequest> requests, BinaryResponse... responses) {
+    var queue = new java.util.ArrayDeque<>(List.of(responses));
+    return binary -> {
+      requests.add(binary);
+      return queue.remove();
+    };
   }
 
   private static HttpTransportStub queued(Response... responses) {

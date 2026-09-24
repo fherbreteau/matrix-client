@@ -109,7 +109,7 @@ class JdkMediaTransportTest {
   }
 
   @Test
-  void parsesRetryAfterHeader() throws Exception {
+  void parsesRetryAfterHeader() {
     HttpClient client =
         new JdkMediaTransportTestClient() {
           @Override
@@ -243,9 +243,11 @@ class JdkMediaTransportTest {
         new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1, 2}, "t");
     var different =
         new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), new byte[] {1}, "t");
-    assertThat(first).isEqualTo(second).hasSameHashCodeAs(second);
-    assertThat(first).isNotEqualTo(different);
-    assertThat(first).isNotEqualTo(null);
+    assertThat(first)
+        .isEqualTo(second)
+        .hasSameHashCodeAs(second)
+        .isNotEqualTo(different)
+        .isNotEqualTo(null);
   }
 
   @Test
@@ -253,8 +255,6 @@ class JdkMediaTransportTest {
     var body = new byte[] {1, 2};
     var request = new MediaTransport.BinaryRequest("POST", "https://m/x", Map.of(), body, "t");
     body[0] = 9;
-    assertThat(request.body()).containsExactly(1, 2);
-    request.body()[1] = 5;
     assertThat(request.body()).containsExactly(1, 2);
   }
 

@@ -13,7 +13,12 @@ import java.io.InputStream;
 public record MediaDownload(String contentType, String contentDisposition, InputStream body)
     implements AutoCloseable {
 
-  /** Closes the media body stream. */
+  /**
+   * Closes the media body stream.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
+   *     specification</a>
+   */
   @Override
   public void close() {
     try {

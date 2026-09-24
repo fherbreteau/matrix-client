@@ -1356,6 +1356,9 @@ public final class MatrixClient {
    * @return the downloaded media response
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mediadownloadservernamemediaid">Matrix
+   *     specification</a>
    */
   public MediaDownload downloadMedia(MxcUri uri, long maxBytes) {
     return downloadMedia(uri, null, maxBytes);
@@ -1372,6 +1375,9 @@ public final class MatrixClient {
    * @return the downloaded media response
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mediadownloadservernamemediaidfilename">Matrix
+   *     specification</a>
    */
   public MediaDownload downloadMedia(MxcUri uri, String fileName, long maxBytes) {
     var path =
@@ -1416,6 +1422,9 @@ public final class MatrixClient {
    * @return the thumbnail response
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mediathumbnailservernamemediaid">Matrix
+   *     specification</a>
    */
   public MediaDownload getThumbnail(
       MxcUri uri, int width, int height, ThumbnailMethod method, Boolean animated, long maxBytes) {
@@ -1459,6 +1468,9 @@ public final class MatrixClient {
    * @return the maximum upload size in bytes, or empty when the homeserver does not advertise one
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mediaconfig">Matrix
+   *     specification</a>
    */
   public Optional<Long> getMediaConfig() {
     JsonValue response = authenticated("GET", "_matrix/client/v1/media/config", null);

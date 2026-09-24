@@ -16,6 +16,9 @@ import java.util.Map;
  * Default {@link MediaTransport} built on the JDK's {@code java.net.http.HttpClient}. The response
  * body is fully read into memory but exposed as an {@link java.io.InputStream}, so callers stream
  * it without re-buffering; the maximum in-memory size is bounded by {@link HttpTransportConfig}.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+ *     specification</a>
  */
 public final class JdkMediaTransport implements MediaTransport {
 

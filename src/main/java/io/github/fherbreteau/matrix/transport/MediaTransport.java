@@ -13,6 +13,9 @@ import java.util.Objects;
  * explicit content type, downloads return the body as an {@link InputStream} so large media is
  * never fully buffered in memory. The default implementation relies only on {@code
  * java.net.http.HttpClient}.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+ *     specification</a>
  */
 public interface MediaTransport {
 
@@ -22,19 +25,42 @@ public interface MediaTransport {
    *
    * @param request the binary request to send
    * @return the binary response returned by the remote server
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
    */
   BinaryResponse send(BinaryRequest request);
 
   /**
    * A binary HTTP request: raw body bytes with an explicit content type. The {@code toString()}
    * representation never includes the body.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
    */
   record BinaryRequest(
       String method, String url, Map<String, String> headers, byte[] body, String contentType) {
 
-    /** Name of the HTTP header carrying the media content type. */
+    /**
+     * Name of the HTTP header carrying the media content type.
+     *
+     * @see <a
+     *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixmediav3upload">Matrix
+     *     specification</a>
+     */
     public static final String CONTENT_TYPE_HEADER = "Content-Type";
 
+    /**
+     * Creates a binary media request. The body bytes are defensively copied.
+     *
+     * @param method the HTTP method
+     * @param url the target URL
+     * @param headers additional request headers
+     * @param body raw media bytes
+     * @param contentType the media MIME type
+     * @see <a
+     *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixmediav3upload">Matrix
+     *     specification</a>
+     */
     public BinaryRequest {
       headers = headers == null ? Map.of() : Map.copyOf(headers);
       body = body == null ? new byte[0] : body.clone();
@@ -88,6 +114,9 @@ public interface MediaTransport {
   /**
    * A binary HTTP response: the raw body as an {@link InputStream} so callers can stream large
    * media instead of buffering it in memory. Callers must close the stream.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
    */
   final class BinaryResponse {
 
@@ -96,6 +125,16 @@ public interface MediaTransport {
     private final byte[] body;
     private final Long retryAfterMs;
 
+    /**
+     * Creates a binary response containing the media transfer result.
+     *
+     * @param statusCode the HTTP response status
+     * @param headers the response headers
+     * @param body the downloaded media bytes
+     * @param retryAfterMs the optional parsed rate-limit delay, in milliseconds
+     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
+     *     specification</a>
+     */
     public BinaryResponse(
         int statusCode, Map<String, String> headers, byte[] body, Long retryAfterMs) {
       this.statusCode = statusCode;
@@ -130,6 +169,8 @@ public interface MediaTransport {
      * Returns the body size in bytes.
      *
      * @return the body size in bytes
+     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
+     *     specification</a>
      */
     public long contentLength() {
       return body.length;
@@ -140,6 +181,8 @@ public interface MediaTransport {
      * the stream never blocks on the network.
      *
      * @return the body stream; must be closed by the caller
+     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
+     *     specification</a>
      */
     public InputStream bodyStream() {
       return new ByteArrayInputStream(body);

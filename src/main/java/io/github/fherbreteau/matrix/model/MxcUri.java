@@ -7,6 +7,9 @@ import io.github.fherbreteau.matrix.error.DiscoveryException;
  * repository. Media identifiers may only contain URL-safe characters ({@code [A-Za-z0-9_-]}); a URI
  * whose media ID contains other characters (such as {@code /} or {@code ..}) is rejected to prevent
  * path traversal.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#matrix-content-mxc-uris">Matrix
+ *     specification</a>
  */
 public record MxcUri(String serverName, String mediaId) {
 
@@ -35,6 +38,8 @@ public record MxcUri(String serverName, String mediaId) {
    * @param uri the URI to parse, in the {@code mxc://<server>/<mediaId>} form
    * @return the parsed content URI
    * @throws DiscoveryException if the URI is not a valid {@code mxc://} URI
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#matrix-content-mxc-uris">Matrix
+   *     specification</a>
    */
   public static MxcUri parse(String uri) {
     if (uri == null || !uri.startsWith(SCHEME)) {
@@ -58,6 +63,8 @@ public record MxcUri(String serverName, String mediaId) {
    * @param serverName the server name
    * @param mediaId the media identifier
    * @return the parsed content URI
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#matrix-content-mxc-uris">Matrix
+   *     specification</a>
    */
   public static MxcUri of(String serverName, String mediaId) {
     return new MxcUri(serverName, mediaId);

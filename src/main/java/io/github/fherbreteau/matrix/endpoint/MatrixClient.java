@@ -1700,6 +1700,8 @@ public final class MatrixClient {
      *
      * @param transport the transport used to reach the homeserver
      * @return this builder for chaining
+     * @see <a href="https://spec.matrix.org/latest/client-server-api/#api-standards">Matrix
+     *     specification</a>
      */
     public Builder transport(HttpTransport transport) {
       this.transport = transport;

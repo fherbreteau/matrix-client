@@ -25,7 +25,12 @@ public final class JdkMediaTransport implements MediaTransport {
   private final HttpClient client;
   private final HttpTransportConfig config;
 
-  /** Creates a media transport with a default {@code HttpClient} and configuration. */
+  /**
+   * Creates a media transport with a default {@code HttpClient} and configuration.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
+   */
   public JdkMediaTransport() {
     this(HttpClient.newHttpClient(), HttpTransportConfig.builder().build());
   }
@@ -34,6 +39,8 @@ public final class JdkMediaTransport implements MediaTransport {
    * Creates a media transport with a {@code HttpClient} built from the given configuration.
    *
    * @param config the transport configuration
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
    */
   public JdkMediaTransport(HttpTransportConfig config) {
     this(newClient(config), config);
@@ -44,6 +51,8 @@ public final class JdkMediaTransport implements MediaTransport {
    *
    * @param client the HTTP client used to transfer media
    * @param config the transport configuration
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
    */
   public JdkMediaTransport(HttpClient client, HttpTransportConfig config) {
     this.client = client;
@@ -64,6 +73,14 @@ public final class JdkMediaTransport implements MediaTransport {
     return builder.build();
   }
 
+  /**
+   * Sends a media request through the JDK HTTP client.
+   *
+   * @param request the media request
+   * @return the media response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
+   */
   @Override
   public BinaryResponse send(BinaryRequest request) {
     var builder = HttpRequest.newBuilder(URI.create(request.url()));

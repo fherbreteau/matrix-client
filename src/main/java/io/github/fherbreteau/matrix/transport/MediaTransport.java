@@ -190,9 +190,11 @@ public interface MediaTransport {
   }
 
   /**
-   * Returns a media transport backed by {@code java.net.http.HttpClient}.
+   * Returns the default media transport backed by the JDK HTTP client.
    *
-   * @return a media transport using the default HTTP client
+   * @return the default media transport
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
+   *     specification</a>
    */
   static MediaTransport create() {
     return new JdkMediaTransport();

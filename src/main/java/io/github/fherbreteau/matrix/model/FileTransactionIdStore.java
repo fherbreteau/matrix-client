@@ -8,6 +8,7 @@ import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,7 +75,7 @@ public final class FileTransactionIdStore implements TransactionIdStore {
         () -> {
           var mappings = AtomicJsonFile.objectOrEmpty(file.read());
           if (mappings.has(operationKey)) {
-            var remaining = new java.util.LinkedHashMap<String, JsonValue>();
+            var remaining = new LinkedHashMap<String, JsonValue>();
             mappings.entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(operationKey))
                 .forEach(entry -> remaining.put(entry.getKey(), entry.getValue()));

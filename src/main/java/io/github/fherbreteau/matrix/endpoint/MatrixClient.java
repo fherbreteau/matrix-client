@@ -860,6 +860,25 @@ public final class MatrixClient {
         roomId, eventType, content, UUID.randomUUID().toString());
   }
 
+  /**
+   * Sends a message event using an explicit transaction ID.
+   *
+   * @param roomId the room to receive the event
+   * @param eventType the event type
+   * @param content the event content
+   * @param transactionId the idempotent transaction identifier
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
+   */
+  public EventId sendEvent(
+      RoomId roomId, String eventType, JsonValue content, String transactionId) {
+    return sendMessageEventWithTransactionId(roomId, eventType, content, transactionId);
+  }
+
   private EventId sendMessageEventWithTransactionId(
       RoomId roomId, String eventType, JsonValue content, String transactionId) {
     String eventId =
@@ -903,25 +922,6 @@ public final class MatrixClient {
     EventId eventId = sendMessageEventWithTransactionId(roomId, eventType, content, transactionId);
     transactionIdStore.complete(operationKey);
     return eventId;
-  }
-
-  /**
-   * Sends a message event using an explicit transaction ID.
-   *
-   * @param roomId the room to receive the event
-   * @param eventType the event type
-   * @param content the event content
-   * @param transactionId the idempotent transaction identifier
-   * @return the created event identifier
-   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
-   *     the token is no longer valid
-   * @see <a
-   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid">Matrix
-   *     specification</a>
-   */
-  public EventId sendEvent(
-      RoomId roomId, String eventType, JsonValue content, String transactionId) {
-    return sendMessageEventWithTransactionId(roomId, eventType, content, transactionId);
   }
 
   /**

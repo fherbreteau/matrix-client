@@ -8,9 +8,11 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,10 +25,10 @@ class PersistenceStoreTest {
   void fileSessionStorePersistsAndClearsSession() throws Exception {
     Path path = tempDir.resolve("session.json");
     var firstStore = new FileSessionStore(path);
-    Session session =
-        Session.from(
-            JsonParser.parse(
-                "{\"user_id\":\"@a:b\",\"access_token\":\"access\",\"refresh_token\":\"refresh\",\"device_id\":\"D1\",\"home_server\":\"b\",\"expires_in_ms\":42}"));
+    String sessionData =
+        "{\"user_id\":\"@a:b\",\"access_token\":\"access\",\"refresh_token\""
+            + ":\"refresh\",\"device_id\":\"D1\",\"home_server\":\"b\",\"expires_in_ms\":42}";
+    Session session = Session.from(JsonParser.parse(sessionData));
     firstStore.save(session);
 
     if (Files.getFileAttributeView(path, PosixFileAttributeView.class) != null) {
@@ -138,7 +140,7 @@ class PersistenceStoreTest {
             new FileTransactionIdStore(path));
     try (var executor = Executors.newFixedThreadPool(stores.size())) {
       var start = new CountDownLatch(1);
-      var futures = new ArrayList<java.util.concurrent.Future<String>>();
+      var futures = new ArrayList<Future<String>>();
       for (var store : stores) {
         futures.add(
             executor.submit(
@@ -148,7 +150,7 @@ class PersistenceStoreTest {
                 }));
       }
       start.countDown();
-      var ids = new java.util.HashSet<String>();
+      var ids = new HashSet<String>();
       for (var future : futures) {
         ids.add(future.get(5, TimeUnit.SECONDS));
       }
@@ -161,7 +163,7 @@ class PersistenceStoreTest {
     var store = new FileTransactionIdStore(tempDir.resolve("concurrent-transactions.json"));
     try (var executor = Executors.newFixedThreadPool(8)) {
       var start = new CountDownLatch(1);
-      var futures = new ArrayList<java.util.concurrent.Future<String>>();
+      var futures = new ArrayList<Future<String>>();
       for (int i = 0; i < 32; i++) {
         futures.add(
             executor.submit(
@@ -171,7 +173,7 @@ class PersistenceStoreTest {
                 }));
       }
       start.countDown();
-      var ids = new java.util.HashSet<String>();
+      var ids = new HashSet<String>();
       for (var future : futures) {
         ids.add(future.get(5, TimeUnit.SECONDS));
       }
@@ -185,7 +187,7 @@ class PersistenceStoreTest {
     Session session =
         Session.from(JsonParser.parse("{\"user_id\":\"@a:b\",\"access_token\":\"t\"}"));
     try (var executor = Executors.newFixedThreadPool(4)) {
-      var futures = new ArrayList<java.util.concurrent.Future<?>>();
+      var futures = new ArrayList<Future<?>>();
       for (int i = 0; i < 12; i++) {
         futures.add(executor.submit(() -> store.save(session)));
       }

@@ -1,5 +1,6 @@
 package io.github.fherbreteau.matrix.model;
 
+import io.github.fherbreteau.matrix.json.JsonObject;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
@@ -22,6 +23,11 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class FileSessionStore implements SessionStore {
 
+  private static final String HOME_SERVER = "home_server";
+  private static final String DEVICE_ID = "device_id";
+  private static final String EXPIRES_IN_MS = "expires_in_ms";
+  private static final String REFRESH_TOKEN = "refresh_token";
+  private static final String USER_ID = "user_id";
   private static final String ACCESS_TOKEN = "access_token";
 
   private final AtomicJsonFile file;
@@ -40,13 +46,13 @@ public final class FileSessionStore implements SessionStore {
   public void save(Session session) {
     lock.lock();
     try {
-      var object = new io.github.fherbreteau.matrix.json.JsonObject();
-      object.put("user_id", session.userId());
+      var object = new JsonObject();
+      object.put(USER_ID, session.userId());
       object.put(ACCESS_TOKEN, session.accessToken());
-      AtomicJsonFile.putNullable(object, "refresh_token", session.refreshToken());
-      AtomicJsonFile.putNullable(object, "expires_in_ms", session.expiresInMs());
-      AtomicJsonFile.putNullable(object, "device_id", session.deviceId());
-      AtomicJsonFile.putNullable(object, "home_server", session.homeserver());
+      AtomicJsonFile.putNullable(object, REFRESH_TOKEN, session.refreshToken());
+      AtomicJsonFile.putNullable(object, EXPIRES_IN_MS, session.expiresInMs());
+      AtomicJsonFile.putNullable(object, DEVICE_ID, session.deviceId());
+      AtomicJsonFile.putNullable(object, HOME_SERVER, session.homeserver());
       file.write(object);
     } finally {
       lock.unlock();
@@ -63,12 +69,12 @@ public final class FileSessionStore implements SessionStore {
       }
       var session =
           new Session(
-              AtomicJsonFile.requiredString(object, "user_id"),
+              AtomicJsonFile.requiredString(object, USER_ID),
               AtomicJsonFile.requiredString(object, ACCESS_TOKEN),
-              AtomicJsonFile.string(object, "refresh_token"),
-              AtomicJsonFile.longValue(object, "expires_in_ms"),
-              AtomicJsonFile.string(object, "device_id"),
-              AtomicJsonFile.string(object, "home_server"),
+              AtomicJsonFile.string(object, REFRESH_TOKEN),
+              AtomicJsonFile.longValue(object, EXPIRES_IN_MS),
+              AtomicJsonFile.string(object, DEVICE_ID),
+              AtomicJsonFile.string(object, HOME_SERVER),
               object);
       return Optional.of(session);
     } finally {

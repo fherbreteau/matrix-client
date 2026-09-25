@@ -1,5 +1,6 @@
 package io.github.fherbreteau.matrix.model;
 
+import io.github.fherbreteau.matrix.json.JsonObject;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
@@ -14,6 +15,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see <a href="https://spec.matrix.org/latest/client-server-api/#syncing">Matrix specification</a>
  */
 public final class FileSyncTokenStore implements SyncTokenStore {
+
+  private static final String NEXT_BATCH = "next_batch";
 
   private final AtomicJsonFile file;
   private final ReentrantLock lock = new ReentrantLock();
@@ -32,7 +35,7 @@ public final class FileSyncTokenStore implements SyncTokenStore {
     lock.lock();
     try {
       var object = AtomicJsonFile.objectOrEmpty(file.read());
-      return Optional.ofNullable(AtomicJsonFile.string(object, "next_batch"));
+      return Optional.ofNullable(AtomicJsonFile.string(object, NEXT_BATCH));
     } finally {
       lock.unlock();
     }
@@ -45,8 +48,8 @@ public final class FileSyncTokenStore implements SyncTokenStore {
     }
     lock.lock();
     try {
-      var object = new io.github.fherbreteau.matrix.json.JsonObject();
-      object.put("next_batch", token);
+      var object = new JsonObject();
+      object.put(NEXT_BATCH, token);
       file.write(object);
     } finally {
       lock.unlock();

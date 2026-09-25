@@ -29,13 +29,13 @@ public record RoomEvent(
     JsonValue raw) {
 
   private static final String EVENT_ID = "event_id";
-  private static final String SENDER = "sender";
-  private static final String TYPE = "type";
+  private static final String SENDER_FIELD = "sender";
+  private static final String TYPE_FIELD = "type";
   private static final String STATE_KEY = "state_key";
   private static final String ORIGIN_SERVER_TS = "origin_server_ts";
   private static final String ROOM_ID = "room_id";
-  private static final String CONTENT = "content";
-  private static final String UNSIGNED = "unsigned";
+  private static final String CONTENT_FIELD = "content";
+  private static final String UNSIGNED_FIELD = "unsigned";
 
   /** Creates a room event without a raw envelope, for application-created events. */
   public RoomEvent(
@@ -63,13 +63,13 @@ public record RoomEvent(
     JsonValue ts = obj.get(ORIGIN_SERVER_TS);
     return new RoomEvent(
         stringValue(obj, EVENT_ID),
-        stringValue(obj, SENDER),
-        stringValue(obj, TYPE),
+        stringValue(obj, SENDER_FIELD),
+        stringValue(obj, TYPE_FIELD),
         stringValue(obj, STATE_KEY),
         ts != null && ts.isNumber() ? ts.asLong() : null,
         stringValue(obj, ROOM_ID),
-        obj.get(CONTENT),
-        obj.get(UNSIGNED),
+        obj.get(CONTENT_FIELD),
+        obj.get(UNSIGNED_FIELD),
         value);
   }
 

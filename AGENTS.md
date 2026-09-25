@@ -67,6 +67,10 @@ deprecations, rate-limiting and error codes against it.
 
 ## CI Requirements
 
+- **Optional sync API**: sync support stays opt-in. Use the injectable `SyncTokenStore` for `next_batch` persistence; never reinterpret sync tokens. Long-poll, cancellation and retry/backoff behavior must follow the latest Matrix sync/error guidance and remain configurable and tested.
+
+
+
 All of the following must pass before committing:
 
 1. **Java**: `mvn clean verify` — compiles with `--release 25`, runs Checkstyle (0 violations), the unit tests,

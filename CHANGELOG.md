@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24); all `MatrixClient` endpoint methods and all model classes carry the specification link (verified against the live specification site: anchor-style links to the actual section identifiers, with identifier-format appendices pointing to `/latest/appendices/`), and the Specification Conformance Rule requires every new endpoint method and model class to carry one (#25)
 
+### 🚀 Features
+
+- **Filters and Optional Client-Server Sync**: Implemented issue #10 — typed `EventFilter`, `RoomEventFilter`, `MatrixFilter`, `SyncOptions` and `SyncResponse`/`SyncRoom` models preserve unknown filter fields and events; `MatrixClient` adds filter create/retrieve and `/sync` calls with saved opaque `next_batch` persistence through an injectable `SyncTokenStore` (in-memory default), optional inline or saved filters, long-poll timeout, `full_state`, `set_presence`, and v1.16 `use_state_after`; sync is opt-in and `SyncLoop` provides cancellation, configurable exponential retry/backoff, honors `Retry-After`, retries timeout/rate-limit/transient server errors, and stops on non-retryable client errors (#27)
+
+### 🧪 Testing
+
+- **Sync Coverage**: Added tests for initial/incremental sync, opaque-token persistence and recovery, malformed payload handling, filters (including `state_after`), rate-limit/timeout retry, non-retryable errors, cancellation and configurable/default retry backoff (#27)
+
 ## 🤝 Contributing to Changelog
 
 When making changes, please:

@@ -8,7 +8,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  * the server-assigned identity ({@code event_id}, {@code sender}, {@code origin_server_ts}, {@code
  * room_id}), the {@code state_key} for state events, and the raw {@code unsigned} data. The content
  * and unsigned data are kept as raw {@link JsonValue}s so unknown event types and unknown fields
- * are preserved.
+ * are preserved. The complete envelope is available through {@link #raw()}, and callers can get a
+ * typed content view through {@link #withTypedContent(EventRegistry)}.
  *
  * <p>To author state events (for {@code initial_state} or {@code sendStateEvent}), use {@link
  * StateEvent}, which carries only the fields a client may send.
@@ -24,7 +25,30 @@ public record RoomEvent(
     Long originServerTs,
     String roomId,
     JsonValue content,
-    JsonValue unsigned) {
+    JsonValue unsigned,
+    JsonValue raw) {
+
+  private static final String EVENT_ID = "event_id";
+  private static final String SENDER = "sender";
+  private static final String TYPE = "type";
+  private static final String STATE_KEY = "state_key";
+  private static final String ORIGIN_SERVER_TS = "origin_server_ts";
+  private static final String ROOM_ID = "room_id";
+  private static final String CONTENT = "content";
+  private static final String UNSIGNED = "unsigned";
+
+  /** Creates a room event without a raw envelope, for application-created events. */
+  public RoomEvent(
+      String eventId,
+      String sender,
+      String type,
+      String stateKey,
+      Long originServerTs,
+      String roomId,
+      JsonValue content,
+      JsonValue unsigned) {
+    this(eventId, sender, type, stateKey, originServerTs, roomId, content, unsigned, null);
+  }
 
   /**
    * Parses a room event from its JSON representation.
@@ -36,21 +60,46 @@ public record RoomEvent(
       throw new IllegalArgumentException("event must be a JSON object");
     }
     JsonObject obj = value.asObject();
-    JsonValue ts = obj.get("origin_server_ts");
+    JsonValue ts = obj.get(ORIGIN_SERVER_TS);
     return new RoomEvent(
-        stringValue(obj, "event_id"),
-        stringValue(obj, "sender"),
-        stringValue(obj, "type"),
-        stringValue(obj, "state_key"),
+        stringValue(obj, EVENT_ID),
+        stringValue(obj, SENDER),
+        stringValue(obj, TYPE),
+        stringValue(obj, STATE_KEY),
         ts != null && ts.isNumber() ? ts.asLong() : null,
-        stringValue(obj, "room_id"),
-        obj.get("content"),
-        obj.get("unsigned"));
+        stringValue(obj, ROOM_ID),
+        obj.get(CONTENT),
+        obj.get(UNSIGNED),
+        value);
   }
 
-  /** Returns whether this event is a state event, i.e. carries a state key. */
+  /**
+   * Returns whether this event is a state event, i.e. carries a state key.
+   *
+   * @return whether this event is a state event
+   */
   public boolean isState() {
     return stateKey != null;
+  }
+
+  /**
+   * Returns the raw JSON value for the complete event envelope.
+   *
+   * @return original event JSON, or {@code null} for manually constructed envelopes
+   */
+  @Override
+  public JsonValue raw() {
+    return raw;
+  }
+
+  /**
+   * Returns this event paired with registered typed or fallback raw content.
+   *
+   * @param registry registry of built-in and application parsers
+   * @return this event with typed content
+   */
+  public RegisteredRoomEvent withTypedContent(EventRegistry registry) {
+    return new RegisteredRoomEvent(this, registry.parse(this));
   }
 
   private static String stringValue(JsonObject obj, String name) {

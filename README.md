@@ -44,6 +44,25 @@ mvn test
 mvn javadoc:javadoc
 ```
 
+## Typed event content
+
+`RoomEvent` preserves the full event envelope and raw JSON, including fields this library does not
+currently model. Use `EventRegistry` for typed views of common event content and application parsers;
+unknown event types, malformed content, and parser failures return `UnknownEventContent` with the raw
+content intact.
+
+```java
+import io.github.fherbreteau.matrix.model.EventRegistry;
+import io.github.fherbreteau.matrix.model.MessageEventContent;
+import io.github.fherbreteau.matrix.model.RoomEvent;
+
+RoomEvent event = RoomEvent.from(response);
+var typed = event.withTypedContent(new EventRegistry());
+if (typed.content() instanceof MessageEventContent message) {
+    System.out.println(message.body());
+}
+```
+
 ## Persistence
 
 Session and sync-token state remain in-memory by default. Applications can opt into file-backed

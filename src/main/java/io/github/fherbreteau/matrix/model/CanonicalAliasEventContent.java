@@ -1,5 +1,6 @@
 package io.github.fherbreteau.matrix.model;
 
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
 
 /**
@@ -13,6 +14,15 @@ public record CanonicalAliasEventContent(String alias, JsonValue altAliases, Jso
 
   /** Parses the canonical alias fields while retaining unknown fields. */
   public static CanonicalAliasEventContent from(JsonValue content) {
+    if (content == null || !content.isObject()) {
+      return null;
+    }
+    JsonObject object = content.asObject();
+    JsonValue alias = object.get("alias");
+    if ((alias != null && !alias.isNull() && !alias.isString())
+        || EventFields.hasWrongStringArray(object, "alt_aliases")) {
+      return null;
+    }
     return new CanonicalAliasEventContent(
         EventFields.string(content, "alias"), EventFields.field(content, "alt_aliases"), content);
   }

@@ -12,6 +12,13 @@ public record RoomNameEventContent(String name, JsonValue raw) implements EventC
 
   /** Parses the room name while retaining unknown fields. */
   public static RoomNameEventContent from(JsonValue content) {
-    return new RoomNameEventContent(EventFields.string(content, "name"), content);
+    if (content == null || !content.isObject()) {
+      return null;
+    }
+    String name = EventFields.string(content, "name");
+    if (name == null || EventFields.hasWrongType(content.asObject(), "name", "string")) {
+      return null;
+    }
+    return new RoomNameEventContent(name, content);
   }
 }

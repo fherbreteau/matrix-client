@@ -47,9 +47,11 @@ mvn javadoc:javadoc
 ## Typed event content
 
 `RoomEvent` preserves the full event envelope and raw JSON, including fields this library does not
-currently model. Use `EventRegistry` for typed views of common event content and application parsers;
-unknown event types, malformed content, and parser failures return `UnknownEventContent` with the raw
-content intact.
+currently model. The registry provides typed views for common message, membership, room name/topic,
+power-level and canonical-alias fields; each typed value also exposes its complete raw content for
+standard or future fields not represented as accessors. The registry is intentionally not exhaustive
+of Matrix event types. Unknown types and malformed known content return `UnknownEventContent` with
+the raw content intact, while registered application parsers are available for custom event types.
 
 ```java
 import io.github.fherbreteau.matrix.model.EventRegistry;

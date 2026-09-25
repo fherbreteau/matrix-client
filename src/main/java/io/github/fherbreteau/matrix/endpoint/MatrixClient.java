@@ -32,6 +32,7 @@ import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
 import io.github.fherbreteau.matrix.model.SyncTokenStore;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
+import io.github.fherbreteau.matrix.model.TransactionIdStore;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
@@ -95,12 +96,14 @@ public final class MatrixClient {
   private final SessionStore sessionStore;
   private final MediaTransport mediaTransport;
   private final SyncTokenStore syncTokenStore;
+  private final TransactionIdStore transactionIdStore;
 
   private MatrixClient(Builder builder) {
     this.transport = builder.transport;
     this.mediaTransport = builder.mediaTransport;
     this.sessionStore = builder.sessionStore;
     this.syncTokenStore = builder.syncTokenStore;
+    this.transactionIdStore = builder.transactionIdStore;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
       this.homeserverUrl = discovery.homeserverUrl();
@@ -853,13 +856,73 @@ public final class MatrixClient {
    *     specification</a>
    */
   public EventId sendMessageEvent(RoomId roomId, String eventType, JsonValue content) {
-    return sendEvent(roomId, eventType, content, UUID.randomUUID().toString());
+    return sendMessageEventWithTransactionId(
+        roomId, eventType, content, UUID.randomUUID().toString());
   }
 
   /**
-   * Sends a message event to a room with an explicit transaction identifier for idempotent retries.
+   * Sends a message event with an explicit transaction identifier for idempotent retries.
    *
-   * @param roomId the room to send the event to
+   * @param roomId the room to receive the event
+   * @param eventType the event type
+   * @param content the event content
+   * @param transactionId the idempotent transaction identifier
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
+   */
+  public EventId sendMessageEventWithTransactionId(
+      RoomId roomId, String eventType, JsonValue content, String transactionId) {
+    String eventId =
+        authenticated(
+                "PUT",
+                ROOMS_PATH
+                    + encode(roomId.value())
+                    + "/send/"
+                    + encode(eventType)
+                    + "/"
+                    + encode(transactionId),
+                content)
+            .asObject()
+            .get(EVENT_ID_FIELD)
+            .asString();
+    return EventId.of(eventId);
+  }
+
+  private static String redactionOperationKey(RoomId roomId, EventId eventId) {
+    return "redact\n" + roomId.value() + "\n" + eventId.value();
+  }
+
+  /**
+   * Sends a message event, reusing its persisted transaction ID when an operation is retried after
+   * process restart. The transaction mapping is removed only after the server accepts the event.
+   *
+   * @param roomId the room to receive the message
+   * @param eventType the event type
+   * @param content the event content
+   * @param operationKey stable key for this logical operation
+   * @return the created event identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid">Matrix
+   *     specification</a>
+   */
+  public EventId sendMessageEventWithKey(
+      RoomId roomId, String eventType, JsonValue content, String operationKey) {
+    String transactionId = transactionIdStore.getOrCreate(operationKey);
+    EventId eventId = sendMessageEventWithTransactionId(roomId, eventType, content, transactionId);
+    transactionIdStore.complete(operationKey);
+    return eventId;
+  }
+
+  /**
+   * Sends a message event using an explicit transaction ID.
+   *
+   * @param roomId the room to receive the event
    * @param eventType the event type
    * @param content the event content
    * @param transactionId the idempotent transaction identifier
@@ -951,23 +1014,28 @@ public final class MatrixClient {
    *     specification</a>
    */
   public EventId redact(RoomId roomId, EventId eventId, String reason) {
+    String operationKey = redactionOperationKey(roomId, eventId);
+    String transactionId = transactionIdStore.getOrCreate(operationKey);
     var body = new JsonObject();
     if (reason != null) {
       body.put(REASON_FIELD, reason);
     }
-    return EventId.of(
-        authenticated(
-                "PUT",
-                ROOMS_PATH
-                    + encode(roomId.value())
-                    + "/redact/"
-                    + encode(eventId.value())
-                    + "/"
-                    + UUID.randomUUID(),
-                body)
-            .asObject()
-            .get(EVENT_ID_FIELD)
-            .asString());
+    EventId redactionId =
+        EventId.of(
+            authenticated(
+                    "PUT",
+                    ROOMS_PATH
+                        + encode(roomId.value())
+                        + "/redact/"
+                        + encode(eventId.value())
+                        + "/"
+                        + encode(transactionId),
+                    body)
+                .asObject()
+                .get(EVENT_ID_FIELD)
+                .asString());
+    transactionIdStore.complete(operationKey);
+    return redactionId;
   }
 
   /**
@@ -1778,6 +1846,7 @@ public final class MatrixClient {
     private SessionStore sessionStore = SessionStore.create();
     private MediaTransport mediaTransport = MediaTransport.create();
     private SyncTokenStore syncTokenStore = SyncTokenStore.inMemory();
+    private TransactionIdStore transactionIdStore = TransactionIdStore.inMemory();
     private boolean discover;
     private boolean validateVersions;
 
@@ -1834,6 +1903,17 @@ public final class MatrixClient {
      */
     public Builder syncTokenStore(SyncTokenStore syncTokenStore) {
       this.syncTokenStore = syncTokenStore;
+      return this;
+    }
+
+    /**
+     * Supplies the store that maps logical operation keys to reusable Matrix transaction IDs.
+     *
+     * @param transactionIdStore the store for idempotent transaction IDs
+     * @return this builder for chaining
+     */
+    public Builder transactionIdStore(TransactionIdStore transactionIdStore) {
+      this.transactionIdStore = transactionIdStore;
       return this;
     }
 

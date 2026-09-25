@@ -46,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
+- **Pluggable Persistence and Transaction Safety**: Implemented issue #11 — introduced injectable `TransactionIdStore` and optional `MediaMetadataStore`, thread-safe in-memory defaults, and file-backed session, sync-token, transaction-ID and media-metadata stores. File persistence writes a same-directory temporary file and replaces it atomically when supported, restricts data files to owner read/write permissions on POSIX systems, and documents that power-loss durability is not guaranteed. Transaction mappings persist by application-supplied operation key for retry-safe message sends and redactions; file transactions coordinate threads and processes using file locks. No database/runtime dependency added
+
 - **Filters and Optional Client-Server Sync**: Implemented issue #10 — typed `EventFilter`, `RoomEventFilter`, `MatrixFilter`, `SyncOptions` and `SyncResponse`/`SyncRoom` models preserve unknown filter fields and events; `MatrixClient` adds filter create/retrieve and `/sync` calls with saved opaque `next_batch` persistence through an injectable `SyncTokenStore` (in-memory default), optional inline or saved filters, long-poll timeout, `full_state`, `set_presence`, and v1.16 `use_state_after`; sync is opt-in and `SyncLoop` provides cancellation, configurable exponential retry/backoff, honors `Retry-After`, retries timeout/rate-limit/transient server errors, and stops on non-retryable client errors (#27)
 
 ### 🧪 Testing

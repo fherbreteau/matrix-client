@@ -23,17 +23,17 @@ public record PowerLevelsEventContent(
     JsonValue raw)
     implements EventContent {
 
-  private static final String BAN = "ban";
-  private static final String EVENTS = "events";
-  private static final String EVENTS_DEFAULT = "events_default";
-  private static final String INVITE = "invite";
-  private static final String KICK = "kick";
-  private static final String NOTIFICATIONS = "notifications";
+  private static final String JSON_KEY_BAN = "ban";
+  private static final String JSON_KEY_EVENTS = "events";
+  private static final String JSON_KEY_EVENTS_DEFAULT = "events_default";
+  private static final String JSON_KEY_INVITE = "invite";
+  private static final String JSON_KEY_KICK = "kick";
+  private static final String JSON_KEY_NOTIFICATIONS = "notifications";
   private static final String ROOM = "room";
-  private static final String REDACT = "redact";
-  private static final String STATE_DEFAULT = "state_default";
-  private static final String USERS = "users";
-  private static final String USERS_DEFAULT = "users_default";
+  private static final String JSON_KEY_REDACT = "redact";
+  private static final String JSON_KEY_STATE_DEFAULT = "state_default";
+  private static final String JSON_KEY_USERS = "users";
+  private static final String JSON_KEY_USERS_DEFAULT = "users_default";
 
   /**
    * Parses standard power-level fields while retaining unknown and future fields.
@@ -46,46 +46,46 @@ public record PowerLevelsEventContent(
       return null;
     }
     JsonObject object = content.asObject();
-    Long ban = EventFields.longValue(object, BAN);
-    Long eventsDefault = EventFields.longValue(object, EVENTS_DEFAULT);
-    Long invite = EventFields.longValue(object, INVITE);
-    Long kick = EventFields.longValue(object, KICK);
-    Long redact = EventFields.longValue(object, REDACT);
-    Long stateDefault = EventFields.longValue(object, STATE_DEFAULT);
-    Long usersDefault = EventFields.longValue(object, USERS_DEFAULT);
+    Long ban = EventFields.longValue(object, JSON_KEY_BAN);
+    Long eventsDefault = EventFields.longValue(object, JSON_KEY_EVENTS_DEFAULT);
+    Long invite = EventFields.longValue(object, JSON_KEY_INVITE);
+    Long kick = EventFields.longValue(object, JSON_KEY_KICK);
+    Long redact = EventFields.longValue(object, JSON_KEY_REDACT);
+    Long stateDefault = EventFields.longValue(object, JSON_KEY_STATE_DEFAULT);
+    Long usersDefault = EventFields.longValue(object, JSON_KEY_USERS_DEFAULT);
     if (hasWrongKnownFields(object)) {
       return null;
     }
     return new PowerLevelsEventContent(
         ban,
-        object.get(EVENTS),
+        object.get(JSON_KEY_EVENTS),
         eventsDefault,
         invite,
         kick,
-        object.get(NOTIFICATIONS),
+        object.get(JSON_KEY_NOTIFICATIONS),
         redact,
         stateDefault,
-        object.get(USERS),
+        object.get(JSON_KEY_USERS),
         usersDefault,
         content);
   }
 
   private static boolean hasWrongKnownFields(JsonObject object) {
-    return EventFields.hasWrongType(object, BAN, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongIntegerMap(object, EVENTS)
-        || EventFields.hasWrongType(object, EVENTS_DEFAULT, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongType(object, INVITE, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongType(object, KICK, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongType(object, NOTIFICATIONS, EventFields.OBJECT_TYPE)
-        || EventFields.hasWrongType(object, REDACT, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongType(object, STATE_DEFAULT, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongIntegerMap(object, USERS)
-        || EventFields.hasWrongType(object, USERS_DEFAULT, EventFields.INTEGER_TYPE)
+    return EventFields.hasWrongType(object, JSON_KEY_BAN, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongIntegerMap(object, JSON_KEY_EVENTS)
+        || EventFields.hasWrongType(object, JSON_KEY_EVENTS_DEFAULT, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, JSON_KEY_INVITE, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, JSON_KEY_KICK, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, JSON_KEY_NOTIFICATIONS, EventFields.OBJECT_TYPE)
+        || EventFields.hasWrongType(object, JSON_KEY_REDACT, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, JSON_KEY_STATE_DEFAULT, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongIntegerMap(object, JSON_KEY_USERS)
+        || EventFields.hasWrongType(object, JSON_KEY_USERS_DEFAULT, EventFields.INTEGER_TYPE)
         || hasWrongNotificationLevels(object);
   }
 
   private static boolean hasWrongNotificationLevels(JsonObject object) {
-    JsonValue notifications = object.get(NOTIFICATIONS);
+    JsonValue notifications = object.get(JSON_KEY_NOTIFICATIONS);
     return notifications != null
         && notifications.isObject()
         && EventFields.hasWrongType(notifications.asObject(), ROOM, EventFields.INTEGER_TYPE);

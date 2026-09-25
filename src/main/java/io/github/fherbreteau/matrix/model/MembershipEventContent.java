@@ -1,5 +1,6 @@
 package io.github.fherbreteau.matrix.model;
 
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
 
 /**
@@ -24,7 +25,7 @@ public record MembershipEventContent(
   private static final String AVATAR_URL = "avatar_url";
   private static final String IS_DIRECT = "is_direct";
   private static final String JOIN_AUTHORISED_VIA = "join_authorised_via_users_server";
-  private static final String REASON = "reason";
+  private static final String JSON_KEY_REASON = "reason";
   private static final String THIRD_PARTY_INVITE = "third_party_invite";
 
   /**
@@ -48,20 +49,23 @@ public record MembershipEventContent(
         EventFields.string(content, AVATAR_URL),
         EventFields.booleanValue(content, IS_DIRECT),
         EventFields.string(content, JOIN_AUTHORISED_VIA),
-        EventFields.string(content, REASON),
+        EventFields.string(content, JSON_KEY_REASON),
         ThirdPartyInvite.from(EventFields.field(content, THIRD_PARTY_INVITE)),
         content);
   }
 
   private static boolean hasWrongOptionalFields(JsonValue content) {
     var object = content.asObject();
-    JsonValue displayName = object.get(DISPLAY_NAME);
-    JsonValue thirdPartyInvite = object.get(THIRD_PARTY_INVITE);
-    return (displayName != null && !displayName.isNull() && !displayName.isString())
+    return hasWrongDisplayName(object)
         || EventFields.hasWrongType(object, AVATAR_URL, EventFields.STRING_TYPE)
         || EventFields.hasWrongType(object, IS_DIRECT, EventFields.BOOLEAN_TYPE)
         || EventFields.hasWrongType(object, JOIN_AUTHORISED_VIA, EventFields.STRING_TYPE)
-        || EventFields.hasWrongType(object, REASON, EventFields.STRING_TYPE)
+        || EventFields.hasWrongType(object, JSON_KEY_REASON, EventFields.STRING_TYPE)
         || EventFields.hasWrongType(object, THIRD_PARTY_INVITE, EventFields.OBJECT_TYPE);
+  }
+
+  private static boolean hasWrongDisplayName(JsonObject object) {
+    JsonValue displayName = object.get(DISPLAY_NAME);
+    return displayName != null && !displayName.isNull() && !displayName.isString();
   }
 }

@@ -11,10 +11,13 @@ import io.github.fherbreteau.matrix.model.SyncTokenStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
 import io.github.fherbreteau.matrix.transport.TransportTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,7 +68,7 @@ class SyncLoopTest {
                   if (attempts.getAndIncrement() == 0) {
                     return new HttpTransport.Response(
                         429,
-                        java.util.Map.of("retry-after", "0"),
+                        Map.of("retry-after", "0"),
                         "{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"slow down\"}",
                         0L);
                   }
@@ -95,7 +98,7 @@ class SyncLoopTest {
                   if (attempts.getAndIncrement() == 0) {
                     return new HttpTransport.Response(
                         429,
-                        java.util.Map.of("retry-after", "0"),
+                        Map.of("retry-after", "0"),
                         "{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"slow down\"}",
                         0L);
                   }
@@ -124,7 +127,7 @@ class SyncLoopTest {
                   }
                   if (attempts.getAndIncrement() == 0) {
                     throw new TransportTimeoutException(
-                        "timeout", new java.net.http.HttpTimeoutException("timeout"));
+                        "timeout", new HttpTimeoutException("timeout"));
                   }
                   return new HttpTransport.Response(200, SYNC_RESPONSE);
                 })
@@ -297,8 +300,8 @@ class SyncLoopTest {
     }
 
     @Override
-    public java.util.Optional<String> current() {
-      return java.util.Optional.ofNullable(token.get());
+    public Optional<String> current() {
+      return Optional.ofNullable(token.get());
     }
 
     @Override

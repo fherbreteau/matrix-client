@@ -4,8 +4,9 @@ import java.util.Optional;
 
 /**
  * Injectable store for the authenticated session, so callers decide how (and whether) sessions
- * persist. Implementations must not log access tokens. Session storage is client-side only: the
- * Matrix specification does not define a server-side session store.
+ * persist. File-backed implementations synchronize access within one store instance; callers should
+ * share an instance between threads. Implementations must not log access tokens. Session storage is
+ * client-side only: the Matrix specification does not define a server-side session store.
  *
  * @see <a href="https://spec.matrix.org/latest/client-server-api/#login">Matrix specification</a>
  */

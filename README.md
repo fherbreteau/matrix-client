@@ -44,6 +44,34 @@ mvn test
 mvn javadoc:javadoc
 ```
 
+## Persistence
+
+Session and sync-token state remain in-memory by default. Applications can opt into file-backed
+stores without adding a database dependency:
+
+```java
+import io.github.fherbreteau.matrix.endpoint.MatrixClient;
+import io.github.fherbreteau.matrix.model.FileSessionStore;
+import io.github.fherbreteau.matrix.model.FileSyncTokenStore;
+import io.github.fherbreteau.matrix.model.FileTransactionIdStore;
+import java.nio.file.Path;
+
+MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+    .sessionStore(new FileSessionStore(Path.of("state/session.json")))
+    .syncTokenStore(new FileSyncTokenStore(Path.of("state/sync.json")))
+    .transactionIdStore(new FileTransactionIdStore(Path.of("state/transactions.json")))
+    .build();
+```
+
+File stores atomically replace data files when supported by the filesystem and restrict POSIX data
+files to owner read/write permissions. Atomic moves do not guarantee durability through sudden power
+loss. Session files contain bearer and refresh tokens in plaintext. Session and sync stores
+synchronize access per store instance; share an instance between threads. Transaction-ID stores also
+coordinate processes targeting the same path with a lock file. `sendMessageEventWithKey` reuses a
+persisted transaction ID for the same caller-provided logical operation key; use a distinct stable
+key for each operation. Media metadata is optional and application-defined through
+`MediaMetadataStore`; it does not cache media bytes.
+
 ## Minimal example
 
 ```java

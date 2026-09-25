@@ -150,7 +150,9 @@ class ClientServerOperationsTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThat(client.sendMessageEvent(RoomId.of("!a:b"), "m.room.message", JsonParser.parse("{}")))
         .isEqualTo(EventId.of("$e1"));
-    assertThat(requests.getLast().url()).contains("/send/m.room.message/");
+    assertThat(requests.getLast().url())
+        .contains("/send/m.room.message/")
+        .containsPattern("/send/m\\.room\\.message/[^/]+$");
   }
 
   @Test

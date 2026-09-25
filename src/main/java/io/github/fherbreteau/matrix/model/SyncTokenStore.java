@@ -5,6 +5,8 @@ import java.util.Optional;
 /**
  * An injectable store for an opaque `/sync` `next_batch` token. The token is persisted as an atomic
  * value so a process can resume from the last fully received sync response after restarting.
+ * File-backed implementations synchronize access within one store instance; callers should share an
+ * instance between threads. Multiple processes using the same token file are not coordinated.
  */
 public interface SyncTokenStore {
 

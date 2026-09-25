@@ -18,6 +18,7 @@ import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class SyncClientTest {
@@ -323,8 +324,8 @@ class SyncClientTest {
     private String token;
 
     @Override
-    public java.util.Optional<String> current() {
-      return java.util.Optional.ofNullable(token);
+    public Optional<String> current() {
+      return Optional.ofNullable(token);
     }
 
     @Override
@@ -360,8 +361,8 @@ class SyncClientTest {
     private String token;
 
     @Override
-    public java.util.Optional<String> current() {
-      return java.util.Optional.ofNullable(token);
+    public Optional<String> current() {
+      return Optional.ofNullable(token);
     }
 
     @Override

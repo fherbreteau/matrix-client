@@ -22,13 +22,13 @@ public record SyncRoom(
     JsonValue raw) {
 
   private static final String EVENTS = "events";
-  private static final String TIMELINE = "timeline";
-  private static final String STATE = "state";
-  private static final String STATE_AFTER = "state_after";
-  private static final String EPHEMERAL = "ephemeral";
-  private static final String ACCOUNT_DATA = "account_data";
-  private static final String INVITE_STATE = "invite_state";
-  private static final String KNOCK_STATE = "knock_state";
+  private static final String TIMELINE_FIELD = "timeline";
+  private static final String STATE_FIELD = "state";
+  private static final String STATE_AFTER_FIELD = "state_after";
+  private static final String EPHEMERAL_FIELD = "ephemeral";
+  private static final String ACCOUNT_DATA_FIELD = "account_data";
+  private static final String INVITE_STATE_FIELD = "invite_state";
+  private static final String KNOCK_STATE_FIELD = "knock_state";
 
   /**
    * Parses a room sync section.
@@ -41,13 +41,13 @@ public record SyncRoom(
     }
     JsonObject obj = value.asObject();
     return new SyncRoom(
-        events(obj.get(TIMELINE)),
-        events(obj.get(STATE)),
-        events(obj.get(STATE_AFTER)),
-        events(obj.get(EPHEMERAL)),
-        events(obj.get(ACCOUNT_DATA)),
-        events(obj.get(INVITE_STATE)),
-        events(obj.get(KNOCK_STATE)),
+        events(obj.get(TIMELINE_FIELD)),
+        events(obj.get(STATE_FIELD)),
+        events(obj.get(STATE_AFTER_FIELD)),
+        events(obj.get(EPHEMERAL_FIELD)),
+        events(obj.get(ACCOUNT_DATA_FIELD)),
+        events(obj.get(INVITE_STATE_FIELD)),
+        events(obj.get(KNOCK_STATE_FIELD)),
         value);
   }
 

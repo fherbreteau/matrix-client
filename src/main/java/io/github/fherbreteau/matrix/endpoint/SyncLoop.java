@@ -142,11 +142,15 @@ public final class SyncLoop implements AutoCloseable {
       running.set(false);
       return;
     }
-    long delay =
-        exception instanceof RateLimitedException rateLimited
-                && rateLimited.getRetryAfterMs() != null
-            ? Math.max(0, rateLimited.getRetryAfterMs())
-            : retryDelayMs;
+    retryAfterDelay(exception);
+  }
+
+  private void retryAfterDelay(MatrixServerException exception) {
+    long delay = retryDelayMs;
+    if (exception instanceof RateLimitedException rateLimited
+        && rateLimited.getRetryAfterMs() != null) {
+      delay = Math.max(0, rateLimited.getRetryAfterMs());
+    }
     retryAfter(delay);
   }
 
@@ -172,6 +176,7 @@ public final class SyncLoop implements AutoCloseable {
       Thread.sleep(delayMs);
       return running.get();
     } catch (InterruptedException _) {
+      Thread.currentThread().interrupt();
       return false;
     }
   }

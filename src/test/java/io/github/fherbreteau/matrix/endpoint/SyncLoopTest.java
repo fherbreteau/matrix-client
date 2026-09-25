@@ -45,7 +45,8 @@ class SyncLoopTest {
     try (var syncLoop =
         new SyncLoop(client, 0, null, response -> received.countDown(), 10, 20).start()) {
       assertThat(received.await(2, TimeUnit.SECONDS)).isTrue();
-      assertThat(syncLoop.isRunning()).isTrue();
+      syncLoop.close();
+      assertThat(syncLoop.isRunning()).isFalse();
     }
     assertThat(token.get()).isEqualTo("n1");
   }
@@ -176,7 +177,7 @@ class SyncLoopTest {
                 client,
                 0,
                 null,
-                response -> {
+                syncResponse -> {
                   delivered.countDown();
                   throw new IllegalStateException("listener failed");
                 })

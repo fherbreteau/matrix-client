@@ -23,6 +23,18 @@ public record PowerLevelsEventContent(
     JsonValue raw)
     implements EventContent {
 
+  private static final String BAN = "ban";
+  private static final String EVENTS = "events";
+  private static final String EVENTS_DEFAULT = "events_default";
+  private static final String INVITE = "invite";
+  private static final String KICK = "kick";
+  private static final String NOTIFICATIONS = "notifications";
+  private static final String ROOM = "room";
+  private static final String REDACT = "redact";
+  private static final String STATE_DEFAULT = "state_default";
+  private static final String USERS = "users";
+  private static final String USERS_DEFAULT = "users_default";
+
   /**
    * Parses standard power-level fields while retaining unknown and future fields.
    *
@@ -34,48 +46,48 @@ public record PowerLevelsEventContent(
       return null;
     }
     JsonObject object = content.asObject();
-    Long ban = EventFields.longValue(object, "ban");
-    Long eventsDefault = EventFields.longValue(object, "events_default");
-    Long invite = EventFields.longValue(object, "invite");
-    Long kick = EventFields.longValue(object, "kick");
-    Long redact = EventFields.longValue(object, "redact");
-    Long stateDefault = EventFields.longValue(object, "state_default");
-    Long usersDefault = EventFields.longValue(object, "users_default");
+    Long ban = EventFields.longValue(object, BAN);
+    Long eventsDefault = EventFields.longValue(object, EVENTS_DEFAULT);
+    Long invite = EventFields.longValue(object, INVITE);
+    Long kick = EventFields.longValue(object, KICK);
+    Long redact = EventFields.longValue(object, REDACT);
+    Long stateDefault = EventFields.longValue(object, STATE_DEFAULT);
+    Long usersDefault = EventFields.longValue(object, USERS_DEFAULT);
     if (hasWrongKnownFields(object)) {
       return null;
     }
     return new PowerLevelsEventContent(
         ban,
-        object.get("events"),
+        object.get(EVENTS),
         eventsDefault,
         invite,
         kick,
-        object.get("notifications"),
+        object.get(NOTIFICATIONS),
         redact,
         stateDefault,
-        object.get("users"),
+        object.get(USERS),
         usersDefault,
         content);
   }
 
   private static boolean hasWrongKnownFields(JsonObject object) {
-    return EventFields.hasWrongType(object, "ban", "integer")
-        || EventFields.hasWrongIntegerMap(object, "events")
-        || EventFields.hasWrongType(object, "events_default", "integer")
-        || EventFields.hasWrongType(object, "invite", "integer")
-        || EventFields.hasWrongType(object, "kick", "integer")
-        || EventFields.hasWrongType(object, "notifications", "object")
-        || EventFields.hasWrongType(object, "redact", "integer")
-        || EventFields.hasWrongType(object, "state_default", "integer")
-        || EventFields.hasWrongIntegerMap(object, "users")
-        || EventFields.hasWrongType(object, "users_default", "integer")
+    return EventFields.hasWrongType(object, BAN, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongIntegerMap(object, EVENTS)
+        || EventFields.hasWrongType(object, EVENTS_DEFAULT, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, INVITE, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, KICK, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, NOTIFICATIONS, EventFields.OBJECT_TYPE)
+        || EventFields.hasWrongType(object, REDACT, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongType(object, STATE_DEFAULT, EventFields.INTEGER_TYPE)
+        || EventFields.hasWrongIntegerMap(object, USERS)
+        || EventFields.hasWrongType(object, USERS_DEFAULT, EventFields.INTEGER_TYPE)
         || hasWrongNotificationLevels(object);
   }
 
   private static boolean hasWrongNotificationLevels(JsonObject object) {
-    JsonValue notifications = object.get("notifications");
+    JsonValue notifications = object.get(NOTIFICATIONS);
     return notifications != null
         && notifications.isObject()
-        && EventFields.hasWrongType(notifications.asObject(), "room", "integer");
+        && EventFields.hasWrongType(notifications.asObject(), ROOM, EventFields.INTEGER_TYPE);
   }
 }

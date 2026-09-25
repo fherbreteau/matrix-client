@@ -7,6 +7,26 @@ import java.math.BigInteger;
 
 final class EventFields {
 
+  static final String STRING_TYPE = "string";
+  static final String BOOLEAN_TYPE = "boolean";
+  static final String INTEGER_TYPE = "integer";
+  static final String OBJECT_TYPE = "object";
+  static final String ARRAY_TYPE = "array";
+  private static final String MSGTYPE = "msgtype";
+  private static final String BODY = "body";
+  private static final String FORMATTED_BODY = "formatted_body";
+  private static final String FILENAME = "filename";
+  private static final String GEO_URI = "geo_uri";
+  private static final String URL = "url";
+  private static final String FILE = "file";
+  private static final String INFO = "info";
+  private static final String MENTIONS = "m.mentions";
+  private static final String RELATES_TO = "m.relates_to";
+  private static final String ROOM = "room";
+  private static final String USER_IDS = "user_ids";
+  private static final String MIME_TYPE = "mimetype";
+  private static final String TYPE_FORMAT = "format";
+
   private EventFields() {}
 
   static JsonValue field(JsonValue content, String name) {
@@ -57,36 +77,44 @@ final class EventFields {
 
   static boolean hasWrongType(JsonValue value, String expected) {
     return switch (expected) {
-      case "string" -> !value.isString();
-      case "boolean" -> !value.isBoolean();
-      case "integer" -> !isSafeInteger(value);
-      case "object" -> !value.isObject();
-      case "array" -> !value.isArray();
+      case STRING_TYPE -> !value.isString();
+      case BOOLEAN_TYPE -> !value.isBoolean();
+      case INTEGER_TYPE -> !isSafeInteger(value);
+      case OBJECT_TYPE -> !value.isObject();
+      case ARRAY_TYPE -> !value.isArray();
       default -> true;
     };
   }
 
   static boolean hasWrongMessageFields(JsonValue content) {
     JsonObject object = content.asObject();
-    if (hasWrongType(object, "format", "string")
-        || hasWrongType(object, "formatted_body", "string")
-        || hasWrongType(object, "filename", "string")
-        || hasWrongType(object, "geo_uri", "string")
-        || hasWrongType(object, "url", "string")
-        || hasWrongType(object, "file", "object")
-        || hasWrongType(object, "info", "object")
-        || hasWrongType(object, "m.mentions", "object")
-        || hasWrongType(object, "m.relates_to", "object")) {
-      return true;
-    }
-    if (hasWrongType(object, "body", "string") || hasWrongType(object, "msgtype", "string")) {
-      return true;
-    }
-    JsonValue mentions = object.get("m.mentions");
+    return hasWrongOptionalMessageFields(object)
+        || hasWrongRequiredMessageFields(object)
+        || hasWrongMentionFields(object);
+  }
+
+  private static boolean hasWrongOptionalMessageFields(JsonObject object) {
+    return hasWrongType(object, TYPE_FORMAT, STRING_TYPE)
+        || hasWrongType(object, FORMATTED_BODY, STRING_TYPE)
+        || hasWrongType(object, FILENAME, STRING_TYPE)
+        || hasWrongType(object, GEO_URI, STRING_TYPE)
+        || hasWrongType(object, URL, STRING_TYPE)
+        || hasWrongType(object, FILE, OBJECT_TYPE)
+        || hasWrongType(object, INFO, OBJECT_TYPE)
+        || hasWrongType(object, MENTIONS, OBJECT_TYPE)
+        || hasWrongType(object, RELATES_TO, OBJECT_TYPE);
+  }
+
+  private static boolean hasWrongRequiredMessageFields(JsonObject object) {
+    return hasWrongType(object, BODY, STRING_TYPE) || hasWrongType(object, MSGTYPE, STRING_TYPE);
+  }
+
+  private static boolean hasWrongMentionFields(JsonObject object) {
+    JsonValue mentions = object.get(MENTIONS);
     return mentions != null
         && mentions.isObject()
-        && (hasWrongType(mentions.asObject(), "room", "boolean")
-            || hasWrongStringArray(mentions.asObject(), "user_ids"));
+        && (hasWrongType(mentions.asObject(), ROOM, BOOLEAN_TYPE)
+            || hasWrongStringArray(mentions.asObject(), USER_IDS));
   }
 
   static boolean hasWrongTextRepresentations(JsonValue value) {
@@ -103,9 +131,9 @@ final class EventFields {
     for (int i = 0; i < text.asArray().size(); i++) {
       JsonValue representation = text.asArray().get(i);
       if (!representation.isObject()
-          || hasWrongType(representation.asObject(), "body", "string")
+          || hasWrongType(representation.asObject(), "body", STRING_TYPE)
           || !representation.asObject().has("body")
-          || hasWrongType(representation.asObject(), "mimetype", "string")) {
+          || hasWrongType(representation.asObject(), MIME_TYPE, STRING_TYPE)) {
         return true;
       }
     }

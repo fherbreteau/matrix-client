@@ -42,8 +42,8 @@ class SyncLoopTest {
             .syncTokenStore(new AtomicTokenStore(token))
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var syncLoop =
-        new SyncLoop(client, 0, null, response -> received.countDown(), 10, 20).start()) {
+    try (var syncLoop = new SyncLoop(client, 0, null, response -> received.countDown(), 10, 20)) {
+      syncLoop.start();
       assertThat(received.await(2, TimeUnit.SECONDS)).isTrue();
       syncLoop.close();
       assertThat(syncLoop.isRunning()).isFalse();
@@ -73,8 +73,8 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var syncLoop =
-        new SyncLoop(client, 0, null, response -> delivered.countDown(), 0, 1).start()) {
+    try (var syncLoop = new SyncLoop(client, 0, null, response -> delivered.countDown(), 0, 1)) {
+      syncLoop.start();
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
       assertThat(syncLoop.isRunning()).isTrue();
     }
@@ -103,7 +103,8 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var syncLoop = new SyncLoop(client, 0, null, response -> delivered.countDown()).start()) {
+    try (var syncLoop = new SyncLoop(client, 0, null, response -> delivered.countDown())) {
+      syncLoop.start();
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
       assertThat(syncLoop.isRunning()).isTrue();
     }
@@ -129,12 +130,29 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var syncLoop =
-        new SyncLoop(client, 0, null, response -> delivered.countDown(), 0, 1).start()) {
+    try (var syncLoop = new SyncLoop(client, 0, null, response -> delivered.countDown(), 0, 1)) {
+      syncLoop.start();
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
       assertThat(syncLoop.isRunning()).isTrue();
     }
     assertThat(attempts.get()).isGreaterThanOrEqualTo(2);
+  }
+
+  @Test
+  void retryDelayDoublesUntilItSaturatesAtConfiguredMaximum() {
+    try (var loop =
+        new SyncLoop(
+            MatrixClient.builder("https://matrix.example.org").build(),
+            0,
+            null,
+            response -> {},
+            5,
+            40)) {
+      assertThat(loop.nextDelay(0)).isEqualTo(1);
+      assertThat(loop.nextDelay(5)).isEqualTo(10);
+      assertThat(loop.nextDelay(20)).isEqualTo(40);
+      assertThat(loop.nextDelay(Long.MAX_VALUE)).isEqualTo(40);
+    }
   }
 
   @Test
@@ -153,7 +171,8 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var loop = new SyncLoop(client, 0, null, response -> {}, 10, 20).start()) {
+    try (var loop = new SyncLoop(client, 0, null, response -> {}, 10, 20)) {
+      loop.start();
       assertThat(loop.awaitTermination(Duration.ofSeconds(2))).isTrue();
       assertThat(loop.isRunning()).isFalse();
     }
@@ -166,26 +185,25 @@ class SyncLoopTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(
                 request ->
-                    request.url().endsWith("/login")
-                        ? new HttpTransport.Response(200, LOGIN_OK)
-                        : new HttpTransport.Response(200, SYNC_RESPONSE))
+                    new HttpTransport.Response(
+                        200, request.url().endsWith("/login") ? LOGIN_OK : SYNC_RESPONSE))
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
     var delivered = new CountDownLatch(1);
-    var loop =
+    try (var loop =
         new SyncLoop(
-                client,
-                0,
-                null,
-                syncResponse -> {
-                  delivered.countDown();
-                  throw new IllegalStateException("listener failed");
-                })
-            .start();
-    assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
-    assertThat(loop.awaitTermination(Duration.ofSeconds(2))).isTrue();
-    assertThat(loop.isRunning()).isFalse();
-    loop.close();
+            client,
+            0,
+            null,
+            syncResponse -> {
+              delivered.countDown();
+              throw new IllegalStateException("listener failed");
+            })) {
+      loop.start();
+      assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(loop.awaitTermination(Duration.ofSeconds(2))).isTrue();
+      assertThat(loop.isRunning()).isFalse();
+    }
   }
 
   @Test
@@ -211,11 +229,13 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    var loop = new SyncLoop(client, 20_000, null, response -> {}, 10, 20).start();
-    assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
-    loop.close();
-    assertThat(loop.isRunning()).isFalse();
-    assertThat(requests.get()).isZero();
+    try (var loop = new SyncLoop(client, 20_000, null, response -> {}, 10, 20)) {
+      loop.start();
+      assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+      loop.close();
+      assertThat(loop.isRunning()).isFalse();
+      assertThat(requests.get()).isZero();
+    }
   }
 
   @Test
@@ -253,8 +273,8 @@ class SyncLoopTest {
         MatrixFilter.builder()
             .roomTimeline(RoomEventFilter.builder().types(List.of("m.room.message")).build())
             .build();
-    try (var syncLoop =
-        new SyncLoop(client, 0, filter, response -> delivered.countDown(), 0, 1).start()) {
+    try (var syncLoop = new SyncLoop(client, 0, filter, response -> delivered.countDown(), 0, 1)) {
+      syncLoop.start();
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
       assertThat(syncLoop.isRunning()).isTrue();
     }

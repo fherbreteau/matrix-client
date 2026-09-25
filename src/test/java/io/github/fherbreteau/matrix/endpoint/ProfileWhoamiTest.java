@@ -88,14 +88,10 @@ class ProfileWhoamiTest {
 
   @Test
   void whoamiParsesIsGuest() {
+    var resp = "{\"user_id\":\"@alice:matrix.org\",\"device_id\":\"DEV\",\"is_guest\":false}";
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
-            .transport(
-                queued(
-                    new Response(200, LOGIN_OK),
-                    new Response(
-                        200,
-                        "{\"user_id\":\"@alice:matrix.org\",\"device_id\":\"DEV\",\"is_guest\":false}")))
+            .transport(queued(new Response(200, LOGIN_OK), new Response(200, resp)))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     WhoamiResponse whoami = client.whoami();

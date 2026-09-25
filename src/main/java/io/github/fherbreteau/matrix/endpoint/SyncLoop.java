@@ -167,8 +167,12 @@ public final class SyncLoop implements AutoCloseable {
     return status == 408 || status == 429 || status >= 500;
   }
 
-  private long nextDelay(long current) {
-    return current == 0 ? Math.min(1, maxRetryDelayMs) : Math.min(current * 2, maxRetryDelayMs);
+  long nextDelay(long current) {
+    return Math.min(current == 0 ? 1 : saturatedDouble(current), maxRetryDelayMs);
+  }
+
+  private static long saturatedDouble(long value) {
+    return value > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : value * 2;
   }
 
   private boolean pause(long delayMs) {

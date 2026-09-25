@@ -63,7 +63,7 @@ class TransactionIdClientTest {
             new Response(200, EVENT_OK));
     client.login(new PasswordCredentials("@alice:matrix.org", "secret"));
     assertThat(
-            client.sendMessageEventWithTransactionId(
+            client.sendEvent(
                 RoomId.of("!room:matrix.org"),
                 "m.room.message",
                 JsonParser.parse("{}"),

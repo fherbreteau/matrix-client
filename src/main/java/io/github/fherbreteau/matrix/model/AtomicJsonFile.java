@@ -57,12 +57,7 @@ final class AtomicJsonFile {
       temporary = parent.resolve("." + path.getFileName() + "." + UUID.randomUUID() + ".tmp");
       createRestrictedFile(temporary);
       Files.writeString(temporary, value.toJson(), StandardCharsets.UTF_8);
-      try {
-        Files.move(
-            temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-      } catch (AtomicMoveNotSupportedException exception) {
-        Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
-      }
+      moveIntoPlace(temporary);
       restrictFile(path);
     } catch (IOException exception) {
       throw new IllegalStateException("Unable to atomically write persistence file", exception);
@@ -70,7 +65,7 @@ final class AtomicJsonFile {
       if (temporary != null) {
         try {
           Files.deleteIfExists(temporary);
-        } catch (IOException exception) {
+        } catch (IOException _) {
           temporary.toFile().deleteOnExit();
         }
       }
@@ -89,10 +84,19 @@ final class AtomicJsonFile {
     }
   }
 
+  private void moveIntoPlace(Path temporary) throws IOException {
+    try {
+      Files.move(
+          temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (AtomicMoveNotSupportedException _) {
+      Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
+    }
+  }
+
   private static void createRestrictedFile(Path file) throws IOException {
     try {
       Files.createFile(file, PosixFilePermissions.asFileAttribute(OWNER_ONLY));
-    } catch (UnsupportedOperationException exception) {
+    } catch (UnsupportedOperationException _) {
       Files.createFile(file);
     }
   }

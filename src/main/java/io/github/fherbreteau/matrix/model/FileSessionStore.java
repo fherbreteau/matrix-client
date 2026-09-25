@@ -22,6 +22,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public final class FileSessionStore implements SessionStore {
 
+  private static final String ACCESS_TOKEN = "access_token";
+
   private final AtomicJsonFile file;
   private final ReentrantLock lock = new ReentrantLock();
 
@@ -40,7 +42,7 @@ public final class FileSessionStore implements SessionStore {
     try {
       var object = new io.github.fherbreteau.matrix.json.JsonObject();
       object.put("user_id", session.userId());
-      object.put("access_token", session.accessToken());
+      object.put(ACCESS_TOKEN, session.accessToken());
       AtomicJsonFile.putNullable(object, "refresh_token", session.refreshToken());
       AtomicJsonFile.putNullable(object, "expires_in_ms", session.expiresInMs());
       AtomicJsonFile.putNullable(object, "device_id", session.deviceId());
@@ -56,13 +58,13 @@ public final class FileSessionStore implements SessionStore {
     lock.lock();
     try {
       var object = AtomicJsonFile.objectOrEmpty(file.read());
-      if (!object.has("access_token")) {
+      if (!object.has(ACCESS_TOKEN)) {
         return Optional.empty();
       }
       var session =
           new Session(
               AtomicJsonFile.requiredString(object, "user_id"),
-              AtomicJsonFile.requiredString(object, "access_token"),
+              AtomicJsonFile.requiredString(object, ACCESS_TOKEN),
               AtomicJsonFile.string(object, "refresh_token"),
               AtomicJsonFile.longValue(object, "expires_in_ms"),
               AtomicJsonFile.string(object, "device_id"),

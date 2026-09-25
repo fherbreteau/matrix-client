@@ -860,21 +860,7 @@ public final class MatrixClient {
         roomId, eventType, content, UUID.randomUUID().toString());
   }
 
-  /**
-   * Sends a message event with an explicit transaction identifier for idempotent retries.
-   *
-   * @param roomId the room to receive the event
-   * @param eventType the event type
-   * @param content the event content
-   * @param transactionId the idempotent transaction identifier
-   * @return the created event identifier
-   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
-   *     the token is no longer valid
-   * @see <a
-   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid">Matrix
-   *     specification</a>
-   */
-  public EventId sendMessageEventWithTransactionId(
+  private EventId sendMessageEventWithTransactionId(
       RoomId roomId, String eventType, JsonValue content, String transactionId) {
     String eventId =
         authenticated(
@@ -935,20 +921,7 @@ public final class MatrixClient {
    */
   public EventId sendEvent(
       RoomId roomId, String eventType, JsonValue content, String transactionId) {
-    String eventId =
-        authenticated(
-                "PUT",
-                ROOMS_PATH
-                    + encode(roomId.value())
-                    + "/send/"
-                    + encode(eventType)
-                    + "/"
-                    + encode(transactionId),
-                content)
-            .asObject()
-            .get(EVENT_ID_FIELD)
-            .asString();
-    return EventId.of(eventId);
+    return sendMessageEventWithTransactionId(roomId, eventType, content, transactionId);
   }
 
   /**

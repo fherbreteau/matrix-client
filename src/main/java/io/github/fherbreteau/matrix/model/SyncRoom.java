@@ -21,6 +21,15 @@ public record SyncRoom(
     List<RoomEvent> knockState,
     JsonValue raw) {
 
+  private static final String EVENTS = "events";
+  private static final String TIMELINE = "timeline";
+  private static final String STATE = "state";
+  private static final String STATE_AFTER = "state_after";
+  private static final String EPHEMERAL = "ephemeral";
+  private static final String ACCOUNT_DATA = "account_data";
+  private static final String INVITE_STATE = "invite_state";
+  private static final String KNOCK_STATE = "knock_state";
+
   /**
    * Parses a room sync section.
    *
@@ -32,21 +41,21 @@ public record SyncRoom(
     }
     JsonObject obj = value.asObject();
     return new SyncRoom(
-        events(obj.get("timeline"), "events"),
-        events(obj.get("state"), "events"),
-        events(obj.get("state_after"), "events"),
-        events(obj.get("ephemeral"), "events"),
-        events(obj.get("account_data"), "events"),
-        events(obj.get("invite_state"), "events"),
-        events(obj.get("knock_state"), "events"),
+        events(obj.get(TIMELINE)),
+        events(obj.get(STATE)),
+        events(obj.get(STATE_AFTER)),
+        events(obj.get(EPHEMERAL)),
+        events(obj.get(ACCOUNT_DATA)),
+        events(obj.get(INVITE_STATE)),
+        events(obj.get(KNOCK_STATE)),
         value);
   }
 
-  private static List<RoomEvent> events(JsonValue section, String field) {
+  private static List<RoomEvent> events(JsonValue section) {
     if (section == null || !section.isObject()) {
       return List.of();
     }
-    JsonValue chunk = section.asObject().get(field);
+    JsonValue chunk = section.asObject().get(EVENTS);
     if (chunk == null || !chunk.isArray()) {
       return List.of();
     }

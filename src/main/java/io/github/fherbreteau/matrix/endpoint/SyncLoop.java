@@ -6,8 +6,10 @@ import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.SyncResponse;
 import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
 import io.github.fherbreteau.matrix.transport.TransportTimeoutException;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
@@ -31,7 +33,8 @@ public final class SyncLoop implements AutoCloseable {
   private final AtomicBoolean running = new AtomicBoolean();
   private final AtomicBoolean started = new AtomicBoolean();
   private final AtomicBoolean closed = new AtomicBoolean();
-  private volatile Thread worker;
+  private final AtomicReference<Thread> worker = new AtomicReference<>();
+  private long retryDelayMs;
 
   /**
    * Creates a sync loop with exponential retry from 500 ms to 30 seconds.
@@ -85,9 +88,10 @@ public final class SyncLoop implements AutoCloseable {
       throw new IllegalStateException("sync loop already started or closed");
     }
     running.set(true);
-    worker = new Thread(this::run, "matrix-sync-loop");
-    worker.setDaemon(true);
-    worker.start();
+    Thread thread = new Thread(this::run, "matrix-sync-loop");
+    thread.setDaemon(true);
+    worker.set(thread);
+    thread.start();
     return this;
   }
 
@@ -101,42 +105,57 @@ public final class SyncLoop implements AutoCloseable {
   }
 
   private void run() {
-    long retryDelayMs = initialRetryDelayMs;
+    try {
+      runLoop();
+    } finally {
+      running.set(false);
+    }
+  }
+
+  private void runLoop() {
+    retryDelayMs = initialRetryDelayMs;
     while (running.get()) {
       try {
-        SyncResponse response = client.syncWithFilter(timeoutMs, filter);
-        listener.accept(response);
-        retryDelayMs = initialRetryDelayMs;
-      } catch (TransportInterruptedException e) {
-        if (!running.get()) {
-          break;
-        }
+        processSyncResponse();
+      } catch (TransportInterruptedException _) {
         Thread.currentThread().interrupt();
-        break;
-      } catch (TransportTimeoutException e) {
-        if (!pause(retryDelayMs)) {
-          break;
-        }
-        retryDelayMs = nextDelay(retryDelayMs);
-      } catch (MatrixServerException e) {
-        if (!isRetryableSyncFailure(e)) {
-          running.set(false);
-          break;
-        }
-        long delay =
-            e instanceof RateLimitedException rateLimited && rateLimited.getRetryAfterMs() != null
-                ? Math.max(0, rateLimited.getRetryAfterMs())
-                : retryDelayMs;
-        if (!pause(delay)) {
-          break;
-        }
-        retryDelayMs = nextDelay(retryDelayMs);
-      } catch (RuntimeException e) {
         running.set(false);
-        throw e;
+      } catch (TransportTimeoutException _) {
+        retryAfter(retryDelayMs);
+      } catch (MatrixServerException exception) {
+        handleServerException(exception);
+      } catch (RuntimeException exception) {
+        running.set(false);
+        throw exception;
       }
     }
-    running.set(false);
+  }
+
+  private void processSyncResponse() {
+    SyncResponse response = client.syncWithFilter(timeoutMs, filter);
+    listener.accept(response);
+    retryDelayMs = initialRetryDelayMs;
+  }
+
+  private void handleServerException(MatrixServerException exception) {
+    if (!isRetryableSyncFailure(exception)) {
+      running.set(false);
+      return;
+    }
+    long delay =
+        exception instanceof RateLimitedException rateLimited
+                && rateLimited.getRetryAfterMs() != null
+            ? Math.max(0, rateLimited.getRetryAfterMs())
+            : retryDelayMs;
+    retryAfter(delay);
+  }
+
+  private void retryAfter(long delay) {
+    if (pause(delay)) {
+      retryDelayMs = nextDelay(retryDelayMs);
+    } else {
+      running.set(false);
+    }
   }
 
   private static boolean isRetryableSyncFailure(MatrixServerException exception) {
@@ -145,10 +164,7 @@ public final class SyncLoop implements AutoCloseable {
   }
 
   private long nextDelay(long current) {
-    if (current == 0) {
-      return Math.min(1, maxRetryDelayMs);
-    }
-    return Math.min(current * 2, maxRetryDelayMs);
+    return current == 0 ? Math.min(1, maxRetryDelayMs) : Math.min(current * 2, maxRetryDelayMs);
   }
 
   private boolean pause(long delayMs) {
@@ -156,9 +172,17 @@ public final class SyncLoop implements AutoCloseable {
       Thread.sleep(delayMs);
       return running.get();
     } catch (InterruptedException _) {
-      Thread.currentThread().interrupt();
       return false;
     }
+  }
+
+  boolean awaitTermination(Duration timeout) throws InterruptedException {
+    Thread thread = worker.get();
+    if (thread == null) {
+      return false;
+    }
+    thread.join(timeout.toMillis());
+    return !thread.isAlive();
   }
 
   /** Stops the loop and interrupts an in-flight sync request or backoff wait. */
@@ -166,8 +190,9 @@ public final class SyncLoop implements AutoCloseable {
   public synchronized void close() {
     closed.set(true);
     running.set(false);
-    if (worker != null) {
-      worker.interrupt();
+    Thread thread = worker.get();
+    if (thread != null) {
+      thread.interrupt();
     }
   }
 }

@@ -1367,10 +1367,7 @@ public final class MatrixClient {
    */
   public String createFilter(MatrixFilter filter) {
     JsonValue result =
-        authenticated(
-            "POST",
-            "_matrix/client/v3/user/" + encode(currentUserId()) + "/filter",
-            filter.toJson());
+        authenticated("POST", USER_PATH + encode(currentUserId()) + "/filter", filter.toJson());
     JsonValue filterId = result.asObject().get("filter_id");
     if (filterId == null || !filterId.isString()) {
       throw new DiscoveryException("Filter response must contain filter_id");
@@ -1390,9 +1387,7 @@ public final class MatrixClient {
   public MatrixFilter getFilter(String filterId) {
     return MatrixFilter.from(
         authenticated(
-            "GET",
-            "_matrix/client/v3/user/" + encode(currentUserId()) + "/filter/" + encode(filterId),
-            null));
+            "GET", USER_PATH + encode(currentUserId()) + "/filter/" + encode(filterId), null));
   }
 
   /**

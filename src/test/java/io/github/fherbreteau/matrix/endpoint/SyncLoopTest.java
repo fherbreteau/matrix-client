@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
+import io.github.fherbreteau.matrix.model.RoomEventFilter;
+import io.github.fherbreteau.matrix.model.SyncTokenStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
 import io.github.fherbreteau.matrix.transport.TransportTimeoutException;
@@ -40,9 +42,10 @@ class SyncLoopTest {
             .syncTokenStore(new AtomicTokenStore(token))
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var loop =
+    try (var syncLoop =
         new SyncLoop(client, 0, null, response -> received.countDown(), 10, 20).start()) {
       assertThat(received.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(syncLoop.isRunning()).isTrue();
     }
     assertThat(token.get()).isEqualTo("n1");
   }
@@ -69,9 +72,10 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var loop =
+    try (var syncLoop =
         new SyncLoop(client, 0, null, response -> delivered.countDown(), 0, 1).start()) {
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(syncLoop.isRunning()).isTrue();
     }
     assertThat(attempts.get()).isGreaterThanOrEqualTo(2);
   }
@@ -98,8 +102,9 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var loop = new SyncLoop(client, 0, null, response -> delivered.countDown()).start()) {
+    try (var syncLoop = new SyncLoop(client, 0, null, response -> delivered.countDown()).start()) {
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(syncLoop.isRunning()).isTrue();
     }
     assertThat(attempts.get()).isGreaterThanOrEqualTo(2);
   }
@@ -123,9 +128,10 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    try (var loop =
+    try (var syncLoop =
         new SyncLoop(client, 0, null, response -> delivered.countDown(), 0, 1).start()) {
       assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(syncLoop.isRunning()).isTrue();
     }
     assertThat(attempts.get()).isGreaterThanOrEqualTo(2);
   }
@@ -146,9 +152,39 @@ class SyncLoopTest {
                 })
             .build();
     client.login(new PasswordCredentials("@sync:test.org", "secret"));
-    var loop = new SyncLoop(client, 0, null, response -> {}, 10, 20).start();
-    awaitStopped(loop);
+    try (var loop = new SyncLoop(client, 0, null, response -> {}, 10, 20).start()) {
+      assertThat(loop.awaitTermination(Duration.ofSeconds(2))).isTrue();
+      assertThat(loop.isRunning()).isFalse();
+    }
     assertThat(attempts.get()).isEqualTo(1);
+  }
+
+  @Test
+  void listenerFailureStopsTheLoopAndSignalsTermination() throws Exception {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                request ->
+                    request.url().endsWith("/login")
+                        ? new HttpTransport.Response(200, LOGIN_OK)
+                        : new HttpTransport.Response(200, SYNC_RESPONSE))
+            .build();
+    client.login(new PasswordCredentials("@sync:test.org", "secret"));
+    var delivered = new CountDownLatch(1);
+    var loop =
+        new SyncLoop(
+                client,
+                0,
+                null,
+                response -> {
+                  delivered.countDown();
+                  throw new IllegalStateException("listener failed");
+                })
+            .start();
+    assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
+    assertThat(loop.awaitTermination(Duration.ofSeconds(2))).isTrue();
+    assertThat(loop.isRunning()).isFalse();
+    loop.close();
   }
 
   @Test
@@ -164,7 +200,7 @@ class SyncLoopTest {
                   }
                   entered.countDown();
                   try {
-                    Thread.sleep(Duration.ofSeconds(20));
+                    new CountDownLatch(1).await(20, TimeUnit.SECONDS);
                   } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new TransportInterruptedException("interrupted", e);
@@ -177,7 +213,7 @@ class SyncLoopTest {
     var loop = new SyncLoop(client, 20_000, null, response -> {}, 10, 20).start();
     assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
     loop.close();
-    awaitStopped(loop);
+    assertThat(loop.isRunning()).isFalse();
     assertThat(requests.get()).isZero();
   }
 
@@ -214,15 +250,13 @@ class SyncLoopTest {
     CountDownLatch delivered = new CountDownLatch(2);
     MatrixFilter filter =
         MatrixFilter.builder()
-            .roomTimeline(
-                io.github.fherbreteau.matrix.model.RoomEventFilter.builder()
-                    .types(List.of("m.room.message"))
-                    .build())
+            .roomTimeline(RoomEventFilter.builder().types(List.of("m.room.message")).build())
             .build();
-    var loop = new SyncLoop(client, 0, filter, response -> delivered.countDown(), 0, 1).start();
-    assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
-    loop.close();
-    awaitStopped(loop);
+    try (var syncLoop =
+        new SyncLoop(client, 0, filter, response -> delivered.countDown(), 0, 1).start()) {
+      assertThat(delivered.await(2, TimeUnit.SECONDS)).isTrue();
+      assertThat(syncLoop.isRunning()).isTrue();
+    }
     assertThat(requests.get(0).url()).contains("filter=%7B");
     assertThat(requests.get(1).url()).contains("since=n1");
   }
@@ -234,16 +268,7 @@ class SyncLoopTest {
     throw new TransportInterruptedException("done", new InterruptedException("done"));
   }
 
-  private static void awaitStopped(SyncLoop loop) throws InterruptedException {
-    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-    while (loop.isRunning() && System.nanoTime() < deadline) {
-      Thread.sleep(1);
-    }
-    assertThat(loop.isRunning()).isFalse();
-  }
-
-  private static final class AtomicTokenStore
-      implements io.github.fherbreteau.matrix.model.SyncTokenStore {
+  private static final class AtomicTokenStore implements SyncTokenStore {
     private final AtomicReference<String> token;
 
     private AtomicTokenStore(AtomicReference<String> token) {

@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
-- **Sync Coverage**: Added tests for initial/incremental sync, opaque-token persistence and recovery, malformed payload handling, filters (including `state_after`), rate-limit/timeout retry, non-retryable errors, cancellation and configurable/default retry backoff (#27)
+- **Sync Coverage**: Added tests for initial/incremental sync, opaque-token persistence and recovery, malformed payload handling, filters (including `state_after`), rate-limit/timeout retry, non-retryable errors, listener failure, cancellation and configurable/default retry backoff (294 total tests) (#27)
 
 ## 🤝 Contributing to Changelog
 

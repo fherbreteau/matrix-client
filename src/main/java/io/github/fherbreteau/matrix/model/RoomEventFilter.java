@@ -12,7 +12,10 @@ import java.util.List;
  * @see <a href="https://spec.matrix.org/latest/client-server-api/#filtering">Matrix
  *     specification</a>
  */
-public final class RoomEventFilter {
+public final class RoomEventFilter implements FilterJson {
+
+  private static final String LAZY_LOAD_MEMBERS = "lazy_load_members";
+  private static final String INCLUDE_REDUNDANT_MEMBERS = "include_redundant_members";
 
   private final JsonObject options;
 
@@ -67,7 +70,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder senders(List<UserId> senders) {
-      options.put("senders", EventFilter.strings(senders.stream().map(UserId::value).toList()));
+      options.put("senders", FilterJson.strings(senders.stream().map(UserId::value).toList()));
       return this;
     }
 
@@ -78,7 +81,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder notSenders(List<UserId> senders) {
-      options.put("not_senders", EventFilter.strings(senders.stream().map(UserId::value).toList()));
+      options.put("not_senders", FilterJson.strings(senders.stream().map(UserId::value).toList()));
       return this;
     }
 
@@ -89,7 +92,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder types(List<String> types) {
-      options.put("types", EventFilter.strings(types));
+      options.put("types", FilterJson.strings(types));
       return this;
     }
 
@@ -100,7 +103,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder notTypes(List<String> types) {
-      options.put("not_types", EventFilter.strings(types));
+      options.put("not_types", FilterJson.strings(types));
       return this;
     }
 
@@ -111,7 +114,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder rooms(List<RoomId> rooms) {
-      options.put("rooms", EventFilter.strings(rooms.stream().map(RoomId::value).toList()));
+      options.put("rooms", FilterJson.strings(rooms.stream().map(RoomId::value).toList()));
       return this;
     }
 
@@ -122,7 +125,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder notRooms(List<RoomId> rooms) {
-      options.put("not_rooms", EventFilter.strings(rooms.stream().map(RoomId::value).toList()));
+      options.put("not_rooms", FilterJson.strings(rooms.stream().map(RoomId::value).toList()));
       return this;
     }
 
@@ -144,7 +147,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder lazyLoadMembers(boolean enabled) {
-      options.put("lazy_load_members", enabled);
+      options.put(LAZY_LOAD_MEMBERS, enabled);
       return this;
     }
 
@@ -155,7 +158,7 @@ public final class RoomEventFilter {
      * @return this builder for chaining
      */
     public Builder includeRedundantMembers(boolean enabled) {
-      options.put("include_redundant_members", enabled);
+      options.put(INCLUDE_REDUNDANT_MEMBERS, enabled);
       return this;
     }
 
@@ -177,8 +180,8 @@ public final class RoomEventFilter {
      * @return the filter
      */
     public RoomEventFilter build() {
-      if (options.has("include_redundant_members")
-          && (!options.has("lazy_load_members") || !options.get("lazy_load_members").asBoolean())) {
+      if (options.has(INCLUDE_REDUNDANT_MEMBERS)
+          && (!options.has(LAZY_LOAD_MEMBERS) || !options.get(LAZY_LOAD_MEMBERS).asBoolean())) {
         throw new IllegalArgumentException(
             "include_redundant_members requires lazy_load_members to be enabled");
       }

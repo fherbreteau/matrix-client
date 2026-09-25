@@ -1,8 +1,6 @@
 package io.github.fherbreteau.matrix.model;
 
-import io.github.fherbreteau.matrix.json.JsonArray;
 import io.github.fherbreteau.matrix.json.JsonObject;
-import io.github.fherbreteau.matrix.json.JsonString;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import java.util.List;
 
@@ -14,7 +12,18 @@ import java.util.List;
  * @see <a href="https://spec.matrix.org/latest/client-server-api/#filtering">Matrix
  *     specification</a>
  */
-public final class EventFilter {
+public final class EventFilter implements FilterJson {
+
+  private static final String LAZY_LOAD_MEMBERS = "lazy_load_members";
+  private static final String INCLUDE_REDUNDANT_MEMBERS = "include_redundant_members";
+  private static final String TYPES = "types";
+  private static final String NOT_TYPES = "not_types";
+  private static final String SENDERS = "senders";
+  private static final String NOT_SENDERS = "not_senders";
+  private static final String ROOMS = "rooms";
+  private static final String NOT_ROOMS = "not_rooms";
+  private static final String CONTAINS_URL = "contains_url";
+  private static final String LIMIT = "limit";
 
   private final JsonObject options;
 
@@ -54,7 +63,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder types(List<String> types) {
-      options.put("types", strings(types));
+      options.put(TYPES, FilterJson.strings(types));
       return this;
     }
 
@@ -65,7 +74,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder notTypes(List<String> types) {
-      options.put("not_types", strings(types));
+      options.put(NOT_TYPES, FilterJson.strings(types));
       return this;
     }
 
@@ -76,7 +85,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder senders(List<UserId> senders) {
-      options.put("senders", identifiers(senders.stream().map(UserId::value).toList()));
+      options.put(SENDERS, FilterJson.strings(senders.stream().map(UserId::value).toList()));
       return this;
     }
 
@@ -87,7 +96,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder notSenders(List<UserId> senders) {
-      options.put("not_senders", identifiers(senders.stream().map(UserId::value).toList()));
+      options.put(NOT_SENDERS, FilterJson.strings(senders.stream().map(UserId::value).toList()));
       return this;
     }
 
@@ -98,7 +107,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder rooms(List<RoomId> rooms) {
-      options.put("rooms", identifiers(rooms.stream().map(RoomId::value).toList()));
+      options.put(ROOMS, FilterJson.strings(rooms.stream().map(RoomId::value).toList()));
       return this;
     }
 
@@ -109,7 +118,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder notRooms(List<RoomId> rooms) {
-      options.put("not_rooms", identifiers(rooms.stream().map(RoomId::value).toList()));
+      options.put(NOT_ROOMS, FilterJson.strings(rooms.stream().map(RoomId::value).toList()));
       return this;
     }
 
@@ -120,7 +129,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder containsUrl(boolean containsUrl) {
-      options.put("contains_url", containsUrl);
+      options.put(CONTAINS_URL, containsUrl);
       return this;
     }
 
@@ -135,7 +144,7 @@ public final class EventFilter {
       if (limit <= 0) {
         throw new IllegalArgumentException("filter limit must be positive");
       }
-      options.put("limit", limit);
+      options.put(LIMIT, limit);
       return this;
     }
 
@@ -146,7 +155,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder lazyLoadMembers(boolean enabled) {
-      options.put("lazy_load_members", enabled);
+      options.put(LAZY_LOAD_MEMBERS, enabled);
       return this;
     }
 
@@ -157,7 +166,7 @@ public final class EventFilter {
      * @return this builder for chaining
      */
     public Builder includeRedundantMembers(boolean enabled) {
-      options.put("include_redundant_members", enabled);
+      options.put(INCLUDE_REDUNDANT_MEMBERS, enabled);
       return this;
     }
 
@@ -179,24 +188,12 @@ public final class EventFilter {
      * @return the event filter
      */
     public EventFilter build() {
-      if (options.has("include_redundant_members")
-          && (!options.has("lazy_load_members") || !options.get("lazy_load_members").asBoolean())) {
+      if (options.has(INCLUDE_REDUNDANT_MEMBERS)
+          && (!options.has(LAZY_LOAD_MEMBERS) || !options.get(LAZY_LOAD_MEMBERS).asBoolean())) {
         throw new IllegalArgumentException(
             "include_redundant_members requires lazy_load_members to be enabled");
       }
       return new EventFilter(options);
     }
-  }
-
-  static JsonArray strings(List<String> values) {
-    var array = new JsonArray();
-    for (String value : values) {
-      array.add(JsonString.of(value));
-    }
-    return array;
-  }
-
-  private static JsonArray identifiers(List<String> values) {
-    return strings(values);
   }
 }

@@ -65,7 +65,7 @@ public final class MatrixFilter {
      * @return this builder for chaining
      */
     public Builder eventFields(List<String> fields) {
-      options.put("event_fields", EventFilter.strings(fields));
+      options.put("event_fields", FilterJson.strings(fields));
       return this;
     }
 

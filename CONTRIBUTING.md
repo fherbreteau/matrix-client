@@ -188,6 +188,7 @@ mvn test -Dtest=JsonParserTest
 ### Writing Tests
 
 - **Use JUnit 5** with **AssertJ** for fluent assertions
+- Sync tests should inject `SyncTokenStore`, exercise initial and incremental tokens, simulate timeout/rate-limit/failure responses, and verify cancellation deterministically (without real delays or network calls)
 - **Prefer idiomatic AssertJ** over chained getter assertions:
   - `assertThat(x).extracting(X::getter)` instead of `assertThat(x.getter())`
   - `asInstanceOf(type(...))` or `InstanceOfAssertFactories` instead of manual casts

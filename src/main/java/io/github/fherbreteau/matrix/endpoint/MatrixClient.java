@@ -1,6 +1,7 @@
 package io.github.fherbreteau.matrix.endpoint;
 
 import io.github.fherbreteau.matrix.error.AuthenticationException;
+import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonObject;
@@ -10,6 +11,7 @@ import io.github.fherbreteau.matrix.model.Credentials;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
+import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.MediaDownload;
 import io.github.fherbreteau.matrix.model.MessageBody;
@@ -26,6 +28,9 @@ import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SessionStore;
+import io.github.fherbreteau.matrix.model.SyncOptions;
+import io.github.fherbreteau.matrix.model.SyncResponse;
+import io.github.fherbreteau.matrix.model.SyncTokenStore;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
@@ -89,11 +94,13 @@ public final class MatrixClient {
   private final DiscoveredHomeserver discovery;
   private final SessionStore sessionStore;
   private final MediaTransport mediaTransport;
+  private final SyncTokenStore syncTokenStore;
 
   private MatrixClient(Builder builder) {
     this.transport = builder.transport;
     this.mediaTransport = builder.mediaTransport;
     this.sessionStore = builder.sessionStore;
+    this.syncTokenStore = builder.syncTokenStore;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
       this.homeserverUrl = discovery.homeserverUrl();
@@ -324,6 +331,7 @@ public final class MatrixClient {
   public void logout() {
     authenticated("POST", "_matrix/client/v3/logout", null);
     sessionStore.clear();
+    syncTokenStore.clear();
   }
 
   /**
@@ -338,6 +346,7 @@ public final class MatrixClient {
   public void logoutAll() {
     authenticated("POST", "_matrix/client/v3/logout/all", null);
     sessionStore.clear();
+    syncTokenStore.clear();
   }
 
   /**
@@ -1313,6 +1322,140 @@ public final class MatrixClient {
   }
 
   /**
+   * Retrieves a sync response using a typed filter and the saved opaque sync token, or performs an
+   * initial sync when no token is stored.
+   *
+   * @param timeoutMs maximum long-poll duration in milliseconds
+   * @param filter the typed filter, or null for no filter
+   * @return the parsed response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3sync">Matrix
+   *     specification</a>
+   */
+  public SyncResponse syncWithFilter(long timeoutMs, MatrixFilter filter) {
+    String filterJson = filter == null ? null : filter.toJson().toJson();
+    return syncWithFilterJson(timeoutMs, filterJson);
+  }
+
+  private SyncResponse syncWithFilterJson(long timeoutMs, String inlineFilterJson) {
+    String since = syncTokenStore.current().orElse(null);
+    var query = new JsonObject();
+    if (since != null) {
+      query.put("since", since);
+    }
+    if (timeoutMs > 0) {
+      query.put("timeout", timeoutMs);
+    }
+    query.put("full_state", false);
+    if (inlineFilterJson != null) {
+      query.put("filter", inlineFilterJson);
+    }
+    SyncResponse response =
+        SyncResponse.from(authenticated("GET", appendQuery("_matrix/client/v3/sync", query), null));
+    syncTokenStore.save(response.nextBatch());
+    return response;
+  }
+
+  /**
+   * Creates a server-side sync filter and returns its filter ID.
+   *
+   * @param filter the filter definition
+   * @return the server-issued filter ID
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3useruseridfilter">Matrix
+   *     specification</a>
+   */
+  public String createFilter(MatrixFilter filter) {
+    JsonValue result =
+        authenticated("POST", USER_PATH + encode(currentUserId()) + "/filter", filter.toJson());
+    JsonValue filterId = result.asObject().get("filter_id");
+    if (filterId == null || !filterId.isString()) {
+      throw new DiscoveryException("Filter response must contain filter_id");
+    }
+    return filterId.asString();
+  }
+
+  /**
+   * Retrieves a previously created sync filter by ID.
+   *
+   * @param filterId the server-issued filter ID
+   * @return the parsed filter definition
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3useruseridfilterfilterid">Matrix
+   *     specification</a>
+   */
+  public MatrixFilter getFilter(String filterId) {
+    return MatrixFilter.from(
+        authenticated(
+            "GET", USER_PATH + encode(currentUserId()) + "/filter/" + encode(filterId), null));
+  }
+
+  /**
+   * Performs a sync request and atomically stores the returned opaque {@code next_batch} token when
+   * parsing succeeds. Sync is optional: callers that do not use this API need no sync-specific
+   * configuration.
+   *
+   * @param options sync query options
+   * @return the parsed sync response
+   * @throws IllegalArgumentException if the server response is malformed
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3sync">Matrix
+   *     specification</a>
+   */
+  public SyncResponse sync(SyncOptions options) {
+    JsonValue response =
+        authenticated("GET", appendQuery("_matrix/client/v3/sync", options.toQuery()), null);
+    SyncResponse parsed = SyncResponse.from(response);
+    syncTokenStore.save(parsed.nextBatch());
+    return parsed;
+  }
+
+  /**
+   * Performs an incremental sync from the saved token, if present; otherwise starts an initial
+   * sync. The returned {@code next_batch} token is saved only after a complete successful response.
+   *
+   * @param timeoutMs maximum long-poll duration in milliseconds
+   * @param filter saved filter ID or null for no filter
+   * @return the parsed sync response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3sync">Matrix
+   *     specification</a>
+   */
+  public SyncResponse sync(long timeoutMs, String filter) {
+    SyncOptions options =
+        syncTokenStore
+            .current()
+            .map(token -> SyncOptions.incremental(token, timeoutMs, filter))
+            .orElseGet(() -> SyncOptions.initial(timeoutMs, filter));
+    return sync(options);
+  }
+
+  /**
+   * Returns the saved opaque sync token, if a successful sync has completed.
+   *
+   * @return the saved {@code next_batch} token, if available
+   */
+  public Optional<String> syncToken() {
+    return syncTokenStore.current();
+  }
+
+  /** Clears the saved sync token so the next sync starts an initial sync. */
+  public void clearSyncToken() {
+    syncTokenStore.clear();
+  }
+
+  private static String appendQuery(String path, JsonObject query) {
+    var builder = new StringBuilder(path);
+    boolean first = true;
+    for (Map.Entry<String, JsonValue> entry : query.entrySet()) {
+      builder.append(first ? '?' : '&');
+      first = false;
+      builder.append(encode(entry.getKey())).append('=');
+      JsonValue value = entry.getValue();
+      builder.append(encode(value.isString() ? value.asString() : value.toJson()));
+    }
+    return builder.toString();
+  }
+
+  /**
    * Uploads raw bytes to the content repository and returns their Matrix content URI.
    *
    * @param content the media bytes
@@ -1634,6 +1777,7 @@ public final class MatrixClient {
     private HttpTransport transport = HttpTransport.create();
     private SessionStore sessionStore = SessionStore.create();
     private MediaTransport mediaTransport = MediaTransport.create();
+    private SyncTokenStore syncTokenStore = SyncTokenStore.inMemory();
     private boolean discover;
     private boolean validateVersions;
 
@@ -1678,6 +1822,18 @@ public final class MatrixClient {
      */
     public Builder validateVersions() {
       this.validateVersions = true;
+      return this;
+    }
+
+    /**
+     * Supplies the optional sync-token store. Sync remains opt-in; this store is consulted only by
+     * the sync methods.
+     *
+     * @param syncTokenStore the store for opaque next_batch tokens
+     * @return this builder for chaining
+     */
+    public Builder syncTokenStore(SyncTokenStore syncTokenStore) {
+      this.syncTokenStore = syncTokenStore;
       return this;
     }
 

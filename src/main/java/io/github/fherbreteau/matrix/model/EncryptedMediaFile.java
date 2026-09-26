@@ -13,15 +13,20 @@ public record EncryptedMediaFile(
     JsonValue raw) {
 
   static EncryptedMediaFile from(JsonValue value) {
-    if (value == null || !value.isObject()) {
+    if (value == null || !value.isObject() || EventFields.hasWrongEncryptedFileShape(value)) {
       return null;
     }
     var object = value.asObject();
-    var hashes = EventFields.stringMap(object.get("hashes"));
-    EncryptedMediaKey key = EncryptedMediaKey.from(object.get("key"));
+    JsonValue hashesValue = object.get("hashes");
+    JsonValue keyValue = object.get("key");
+    var hashes = EventFields.stringMap(hashesValue);
+    EncryptedMediaKey key = EncryptedMediaKey.from(keyValue);
     String iv = EventFields.string(value, "iv");
     String url = EventFields.string(value, "url");
     String version = EventFields.string(value, "v");
+    if (EventFields.hasWrongEncryptedFileShape(value)) {
+      return null;
+    }
     if (hashes == null || key == null || iv == null || url == null || version == null) {
       return null;
     }

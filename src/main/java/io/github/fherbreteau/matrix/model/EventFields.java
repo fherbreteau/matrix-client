@@ -31,8 +31,6 @@ final class EventFields {
   private static final String USER_IDS = "user_ids";
   static final String MIME_TYPE = "mimetype";
   static final String TYPE_FORMAT = "format";
-  private static final String THUMBNAIL_URL = "thumbnail_url";
-  private static final String THUMBNAIL_FILE = "thumbnail_file";
   private static final String ENCRYPTED_KEY = "key";
   private static final String ENCRYPTED_HASHES = "hashes";
   private static final String ENCRYPTED_IV = "iv";
@@ -43,6 +41,8 @@ final class EventFields {
   private static final String ENCRYPTED_KEY_DATA = "k";
   private static final String ENCRYPTED_KEY_OPERATIONS = "key_ops";
   private static final String ENCRYPTED_KEY_TYPE = "kty";
+  private static final String THUMBNAIL_URL = "thumbnail_url";
+  private static final String THUMBNAIL_FILE = "thumbnail_file";
   private static final String ANIMATED = "is_animated";
   private static final String HEIGHT = "h";
   private static final String WIDTH = "w";
@@ -109,7 +109,85 @@ final class EventFields {
   }
 
   static boolean hasWrongEncryptedFileShape(JsonValue value) {
-    return value != null && !value.isNull() && EncryptedMediaFile.from(value) == null;
+    if (value == null || value.isNull()) {
+      return false;
+    }
+    if (!value.isObject()) {
+      return true;
+    }
+    return hasWrongRequiredEncryptedFileFields(value.asObject());
+  }
+
+  private static boolean hasWrongRequiredEncryptedFileFields(JsonObject encrypted) {
+    JsonValue key = encrypted.get(ENCRYPTED_KEY);
+    String version = string(encrypted, ENCRYPTED_VERSION);
+    return hasWrongEncryptedFileFields(
+        encrypted,
+        encrypted.get(ENCRYPTED_HASHES),
+        key,
+        string(encrypted, ENCRYPTED_IV),
+        string(encrypted, ENCRYPTED_URL),
+        version);
+  }
+
+  private static boolean hasWrongEncryptedFileFields(
+      JsonObject encryptedFile,
+      JsonValue hashes,
+      JsonValue key,
+      String iv,
+      String url,
+      String version) {
+    String versionField = string(encryptedFile, "v");
+    return hashes == null
+        || hasWrongStringMap(hashes)
+        || hasWrongType(encryptedFile, "hashes", OBJECT_TYPE)
+        || iv == null
+        || hasWrongType(encryptedFile, "iv", STRING_TYPE)
+        || url == null
+        || hasWrongType(encryptedFile, "url", STRING_TYPE)
+        || version == null
+        || !version.equals(versionField)
+        || hasWrongType(encryptedFile, "v", STRING_TYPE)
+        || hasWrongEncryptedKey(key);
+  }
+
+  private static boolean hasWrongStringMap(JsonValue value) {
+    if (value == null || !value.isObject()) {
+      return true;
+    }
+    return value.asObject().entrySet().stream().anyMatch(entry -> !entry.getValue().isString());
+  }
+
+  static boolean hasWrongEncryptedKeyFields(
+      JsonObject key,
+      String algorithm,
+      JsonValue extractable,
+      String encodedKey,
+      JsonValue operations,
+      String keyType) {
+    return algorithm == null
+        || hasWrongType(key, "alg", STRING_TYPE)
+        || hasWrongType(key, "ext", BOOLEAN_TYPE)
+        || extractable == null
+        || encodedKey == null
+        || hasWrongType(key, "k", STRING_TYPE)
+        || hasWrongStringArray(key, "key_ops")
+        || operations == null
+        || keyType == null
+        || hasWrongType(key, "kty", STRING_TYPE);
+  }
+
+  private static boolean hasWrongEncryptedKey(JsonValue value) {
+    if (value == null || !value.isObject()) {
+      return true;
+    }
+    JsonObject key = value.asObject();
+    String algorithm = string(key, "alg");
+    JsonValue extractable = key.get("ext");
+    String encodedKey = string(key, "k");
+    JsonValue operations = key.get("key_ops");
+    String keyType = string(key, "kty");
+    return hasWrongEncryptedKeyFields(key, algorithm, extractable, encodedKey, operations, keyType);
   }
 
   static boolean hasWrongMessageInfoFields(JsonValue info) {
@@ -155,7 +233,7 @@ final class EventFields {
 
   private static boolean hasWrongFileField(JsonObject content) {
     JsonValue file = content.get(FILE);
-    return file != null && !file.isNull() && !file.isObject();
+    return file != null && !file.isNull() && hasWrongEncryptedFileShape(file);
   }
 
   private static boolean hasWrongInfoField(JsonObject content) {
@@ -169,7 +247,6 @@ final class EventFields {
         || hasWrongType(object, FILENAME, STRING_TYPE)
         || hasWrongType(object, GEO_URI, STRING_TYPE)
         || hasWrongType(object, URL, STRING_TYPE)
-        || hasWrongType(object, FILE, OBJECT_TYPE)
         || hasWrongType(object, INFO, OBJECT_TYPE)
         || hasWrongType(object, MENTIONS, OBJECT_TYPE)
         || hasWrongType(object, RELATES_TO, OBJECT_TYPE);

@@ -408,6 +408,7 @@ class EventRegistryTest {
     assertThat(EventFields.hasWrongType(object, "list", EventFields.ARRAY_TYPE)).isFalse();
     assertThat(EventFields.hasWrongType(object, "missing", EventFields.STRING_TYPE)).isFalse();
     assertThat(EventFields.hasWrongType(object, "value", EventFields.OBJECT_TYPE)).isTrue();
+    assertThat(EventFields.hasWrongType(object, "nested", EventFields.STRING_TYPE)).isTrue();
     assertThat(EventFields.hasWrongType(JsonParser.parse("1.5"), EventFields.INTEGER_TYPE))
         .isTrue();
     assertThat(EventFields.hasWrongType(JsonParser.parse("null"), EventFields.STRING_TYPE))
@@ -484,6 +485,7 @@ class EventRegistryTest {
     assertThat(EventFields.hasWrongIntegerMap(JsonParser.parse("{}").asObject(), "missing"))
         .isFalse();
     assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("[]"))).isTrue();
+    assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("{\"nullable\":null}"))).isTrue();
     assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("{\"custom\":false}"))).isTrue();
     assertThat(
             EventFields.hasWrongIntegerMap(
@@ -638,6 +640,13 @@ class EventRegistryTest {
     assertThat(EventFields.hasWrongType(JsonParser.parse("null"), EventFields.OBJECT_TYPE))
         .isTrue();
     assertThat(EventFields.hasWrongType(JsonParser.parse("[]"), EventFields.STRING_TYPE)).isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("{}"), EventFields.BOOLEAN_TYPE)).isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("1.25"), EventFields.INTEGER_TYPE))
+        .isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("false"), EventFields.ARRAY_TYPE))
+        .isTrue();
+    assertThat(EventFields.string(JsonParser.parse("{}"), "absent")).isNull();
+    assertThat(EventFields.booleanValue(JsonParser.parse("{}"), "absent")).isNull();
     assertThat(EventFields.field(null, "x")).isNull();
     assertThat(EventFields.field(JsonParser.parse("[]"), "x")).isNull();
     assertThat(EventFields.string(JsonParser.parse("{\"x\":5}"), "x")).isNull();

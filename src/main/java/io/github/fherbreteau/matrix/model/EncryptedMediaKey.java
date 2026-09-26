@@ -19,8 +19,13 @@ public record EncryptedMediaKey(
     String alg = EventFields.string(value, "alg");
     JsonValue ext = EventFields.field(value, "ext");
     String key = EventFields.string(value, "k");
-    List<String> operations = EventFields.stringList(EventFields.field(value, "key_ops"));
+    JsonValue operationsValue = EventFields.field(value, "key_ops");
+    List<String> operations = EventFields.stringList(operationsValue);
     String type = EventFields.string(value, "kty");
+    if (EventFields.hasWrongEncryptedKeyFields(
+        value.asObject(), alg, ext, key, operationsValue, type)) {
+      return null;
+    }
     if (alg == null
         || ext == null
         || !ext.isBoolean()

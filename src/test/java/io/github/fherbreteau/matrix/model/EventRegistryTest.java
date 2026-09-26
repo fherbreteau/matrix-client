@@ -14,6 +14,34 @@ import org.junit.jupiter.api.Test;
 class EventRegistryTest {
 
   @Test
+  void typedEventFactoriesReturnNullForAbsentOrNonObjectContent() {
+    assertThat(MessageEventContent.from(null)).isNull();
+    assertThat(MessageEventContent.from(JsonParser.parse("[]"))).isNull();
+    assertThat(MembershipEventContent.from(null)).isNull();
+    assertThat(MembershipEventContent.from(JsonParser.parse("[]"))).isNull();
+    assertThat(RoomNameEventContent.from(null)).isNull();
+    assertThat(RoomNameEventContent.from(JsonParser.parse("[]"))).isNull();
+    assertThat(RoomTopicEventContent.from(null)).isNull();
+    assertThat(RoomTopicEventContent.from(JsonParser.parse("[]"))).isNull();
+    assertThat(PowerLevelsEventContent.from(null)).isNull();
+    assertThat(PowerLevelsEventContent.from(JsonParser.parse("[]"))).isNull();
+    assertThat(CanonicalAliasEventContent.from(null)).isNull();
+    assertThat(CanonicalAliasEventContent.from(JsonParser.parse("[]"))).isNull();
+    assertThat(TopicTranslations.from(null)).isNull();
+    assertThat(TopicTranslations.from(JsonParser.parse("[]"))).isNull();
+    assertThat(ThumbnailInfo.from(null)).isNull();
+    assertThat(ThumbnailInfo.from(JsonParser.parse("[]"))).isNull();
+    assertThat(MessageInfo.from(null)).isNull();
+    assertThat(MessageInfo.from(JsonParser.parse("[]"))).isNull();
+    assertThat(MessageMentions.from(null)).isNull();
+    assertThat(MessageMentions.from(JsonParser.parse("[]"))).isNull();
+    assertThat(EventRelation.from(null)).isNull();
+    assertThat(EventRelation.from(JsonParser.parse("[]"))).isNull();
+    assertThat(ThirdPartyInvite.from(null)).isNull();
+    assertThat(ThirdPartyInvite.from(JsonParser.parse("[]"))).isNull();
+  }
+
+  @Test
   void commonMessageContentIsTypedAndRetainsUnknownContentFieldsAndEnvelope() {
     var event =
         RoomEvent.from(
@@ -39,7 +67,7 @@ class EventRegistryTest {
     var message = (MessageEventContent) typed.content();
     assertThat(message.format()).isEqualTo("org.matrix.custom.html");
     assertThat(message.formattedBody()).isEqualTo("<b>hello</b>");
-    assertThat(message.mentions().userIds().asArray().get(0).asString()).isEqualTo("@b:b");
+    assertThat(message.mentions().userIds().getFirst()).isEqualTo("@b:b");
     assertThat(message.relatesTo().relationType()).isEqualTo("m.thread");
     assertThat(message.raw().asObject().get("custom").asBoolean()).isTrue();
   }
@@ -83,9 +111,9 @@ class EventRegistryTest {
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.file\",\"body\":\"file\",\"file\":{\"url\":\"mxc://h/f\"},"
+                    "{\"msgtype\":\"m.file\",\"body\":\"file\",\"url\":\"mxc://h/f\","
                         + "\"info\":{\"mimetype\":\"application/pdf\",\"size\":10}}"));
-    assertThat(file.file().isObject()).isTrue();
+    assertThat(file.url()).isEqualTo("mxc://h/f");
     assertThat(file.info().mimeType()).isEqualTo("application/pdf");
 
     var audio =
@@ -134,6 +162,30 @@ class EventRegistryTest {
     assertThat(registry.parse(event("m.room.power_levels", "{\"ban\":1.5}")))
         .isInstanceOf(UnknownEventContent.class);
     assertThat(registry.parse(event("m.room.power_levels", "{\"users\":{\"@a:b\":true}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.power_levels", "{\"events\":{\"m.room.name\":1.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.power_levels", "{\"notifications\":{\"room\":2.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.power_levels", "{\"ban\":9007199254740992}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"w\":1.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"h\":1.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.audio\",\"body\":\"a\",\"info\":{\"duration\":1.5}}")))
         .isInstanceOf(UnknownEventContent.class);
     assertThat(registry.parse(event("m.room.canonical_alias", "{\"alias\":2}")))
         .isInstanceOf(UnknownEventContent.class);
@@ -195,8 +247,7 @@ class EventRegistryTest {
                     "m.room.topic",
                     "{\"topic\":\"Topic\",\"m.topic\":{\"m.text\":[{\"body\":\"Topic\",\"mimetype\":\"text/plain\"}]}}"));
     assertThat(topic.topic()).isEqualTo("Topic");
-    assertThat(topic.topicTranslations().text().asArray().get(0).asObject().get("body").asString())
-        .isEqualTo("Topic");
+    assertThat(topic.topicTranslations().text().getFirst().body()).isEqualTo("Topic");
     var levels =
         (PowerLevelsEventContent)
             registry.parse(
@@ -204,9 +255,8 @@ class EventRegistryTest {
                     "m.room.power_levels",
                     "{\"ban\":55,\"events\":{\"m.room.name\":60},"
                         + "\"events_default\":7,\"invite\":8,\"kick\":9,"
-                        + "\"notifications\":{\"room\":50},\"redact\":10,"
-                        + "\"state_default\":11,\"users\":{\"@a:b\":50},"
-                        + "\"users_default\":12}"));
+                        + "\"notifications\":{\"room\":50,\"custom_notification\":70},\"redact\":10,"
+                        + "\"state_default\":11,\"users\":{\"@a:b\":50},\"users_default\":12}"));
     assertThat(levels)
         .extracting(
             PowerLevelsEventContent::ban,
@@ -217,9 +267,11 @@ class EventRegistryTest {
             PowerLevelsEventContent::stateDefault,
             PowerLevelsEventContent::usersDefault)
         .containsExactly(55L, 7L, 8L, 9L, 10L, 11L, 12L);
-    assertThat(levels.events().asObject().get("m.room.name").asLong()).isEqualTo(60);
-    assertThat(levels.notifications().asObject().get("room").asLong()).isEqualTo(50);
-    assertThat(levels.users().asObject().get("@a:b").asLong()).isEqualTo(50);
+    assertThat(levels.events()).containsEntry("m.room.name", 60L);
+    assertThat(levels.notifications())
+        .containsEntry("room", 50L)
+        .containsEntry("custom_notification", 70L);
+    assertThat(levels.users()).containsEntry("@a:b", 50L);
     assertThat(
             ((CanonicalAliasEventContent)
                     registry.parse(
@@ -323,6 +375,327 @@ class EventRegistryTest {
         task.get(5, TimeUnit.SECONDS);
       }
     }
+  }
+
+  @Test
+  void optionalSchemaFieldsMayBeAbsentOrNullWhenAllowed() {
+    var registry = new EventRegistry();
+    var topicWithoutTranslations =
+        (RoomTopicEventContent) registry.parse(event("m.room.topic", "{\"topic\":\"plain\"}"));
+    assertThat(topicWithoutTranslations.topicTranslations()).isNull();
+
+    var aliasWithoutPrimaryAlias =
+        (CanonicalAliasEventContent)
+            registry.parse(event("m.room.canonical_alias", "{\"alias\":null}"));
+    assertThat(aliasWithoutPrimaryAlias.alias()).isNull();
+
+    var nullableDisplayName =
+        (MembershipEventContent)
+            registry.parse(
+                event("m.room.member", "{\"membership\":\"join\",\"displayname\":null}"));
+    assertThat(nullableDisplayName.displayName()).isNull();
+  }
+
+  @Test
+  void schemaFieldValidatorsCoverExpectedAndMalformedJsonTypes() {
+    var object =
+        JsonParser.parse("{\"value\":\"ok\",\"flag\":true,\"count\":2,\"nested\":{},\"list\":[]}")
+            .asObject();
+    assertThat(EventFields.hasWrongType(object, "value", EventFields.STRING_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(object, "flag", EventFields.BOOLEAN_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(object, "count", EventFields.INTEGER_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(object, "nested", EventFields.OBJECT_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(object, "list", EventFields.ARRAY_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(object, "missing", EventFields.STRING_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(object, "value", EventFields.OBJECT_TYPE)).isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("1.5"), EventFields.INTEGER_TYPE))
+        .isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("null"), EventFields.STRING_TYPE))
+        .isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("true"), "unknown-type")).isTrue();
+    assertThat(
+            EventFields.hasWrongType(
+                JsonParser.parse("{\"value\":1.5}").asObject(), "value", EventFields.INTEGER_TYPE))
+        .isTrue();
+    assertThat(
+            EventFields.hasWrongType(
+                JsonParser.parse("{\"value\":null}").asObject(), "value", EventFields.STRING_TYPE))
+        .isFalse();
+
+    assertThat(
+            EventFields.hasWrongMessageFields(
+                JsonParser.parse("{\"msgtype\":\"m.text\",\"body\":\"x\"}")))
+        .isFalse();
+    assertThat(EventFields.hasWrongMessageFields(JsonParser.parse("{\"msgtype\":\"m.text\"}")))
+        .isTrue();
+    assertThat(
+            EventFields.hasWrongMessageFields(
+                JsonParser.parse(
+                    "{\"msgtype\":\"m.text\",\"body\":\"x\",\"m.mentions\":{\"room\":\"yes\"}}")))
+        .isTrue();
+    assertThat(
+            EventFields.hasWrongMessageFields(
+                JsonParser.parse(
+                    "{\"msgtype\":\"m.text\",\"body\":\"x\",\"m.mentions\":{\"user_ids\":[2]}}")))
+        .isTrue();
+
+    assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{}"))).isFalse();
+    assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("[]"))).isTrue();
+    assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{\"m.text\":false}")))
+        .isTrue();
+    assertThat(
+            EventFields.hasWrongTextRepresentations(
+                JsonParser.parse("{\"m.text\":[{\"body\":\"x\"}]}")))
+        .isFalse();
+    assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{\"m.text\":[{}]}")))
+        .isTrue();
+
+    assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":null}").asObject(), "a"))
+        .isFalse();
+    assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":[]}").asObject(), "a"))
+        .isFalse();
+    assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":false}").asObject(), "a"))
+        .isTrue();
+    assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":[1]}").asObject(), "a"))
+        .isTrue();
+
+    assertThat(EventFields.hasWrongIntegerMap(JsonParser.parse("{\"a\":null}").asObject(), "a"))
+        .isFalse();
+    assertThat(
+            EventFields.hasWrongIntegerMap(JsonParser.parse("{\"a\":{\"x\":1}}").asObject(), "a"))
+        .isFalse();
+    assertThat(EventFields.hasWrongIntegerMap(JsonParser.parse("{\"a\":false}").asObject(), "a"))
+        .isTrue();
+    assertThat(
+            EventFields.hasWrongIntegerMap(
+                JsonParser.parse("{\"a\":{\"x\":true}}").asObject(), "a"))
+        .isTrue();
+    assertThat(EventFields.hasWrongIntegerObject(null)).isFalse();
+    assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("null"))).isFalse();
+    assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("{\"room\":50}"))).isFalse();
+    assertThat(EventFields.integerMap(null)).isEmpty();
+    assertThat(EventFields.integerMap(JsonParser.parse("null"))).isEmpty();
+    assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":4}")).get("x")).isEqualTo(4L);
+    assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":false}"))).isNull();
+    assertThat(
+            EventFields.hasWrongIntegerMap(
+                JsonParser.parse("{\"values\":null}").asObject(), "values"))
+        .isFalse();
+    assertThat(EventFields.hasWrongIntegerMap(JsonParser.parse("{}").asObject(), "missing"))
+        .isFalse();
+    assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("[]"))).isTrue();
+    assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("{\"custom\":false}"))).isTrue();
+    assertThat(
+            EventFields.hasWrongIntegerMap(
+                JsonParser.parse("{\"a\":{\"x\":true}}").asObject(), "a"))
+        .isTrue();
+    assertThat(EventFields.longField(JsonParser.parse("{\"x\":5}").asObject(), "x")).isEqualTo(5L);
+    assertThat(EventFields.longField(JsonParser.parse("{\"x\":1.5}").asObject(), "x")).isNull();
+    assertThat(EventFields.longValue(JsonParser.parse("{\"x\":1e100}").asObject(), "x")).isNull();
+  }
+
+  @Test
+  void encryptedFileAndJwkSchemasValidateKnownFieldTypes() {
+    var registry = new EventRegistry();
+    String encryptedFile =
+        "{\"hashes\":{\"sha256\":\"hash\"},\"iv\":\"iv\","
+            + "\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\","
+            + "\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"},"
+            + "\"url\":\"mxc://h/file\",\"v\":\"v2\"}";
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"file\":" + encryptedFile + "}")))
+        .isInstanceOf(MessageEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"file\":{\"key\":{\"alg\":4}}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"image\","
+                        + "\"info\":{\"thumbnail_file\":{\"key\":{\"kty\":false}}}}")))
+        .isInstanceOf(UnknownEventContent.class);
+  }
+
+  @Test
+  void infoOptionalIntegerAndThumbnailEncryptionBranchesAreCovered() {
+    var registry = new EventRegistry();
+    var image =
+        (MessageEventContent)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"is_animated\":true}}"));
+    assertThat(image.info().animated()).isTrue();
+    var video =
+        (MessageEventContent)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.video\",\"body\":\"v\",\"info\":{\"height\":720}}"));
+    assertThat(video.info()).isNotNull();
+  }
+
+  @Test
+  void nestedMessageInfoAndEncryptedFileValidationCoversMalformedStructures() {
+    var registry = new EventRegistry();
+    assertThat(
+            registry.parse(
+                event("m.room.message", "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":false}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event("m.room.message", "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":false}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"thumbnail_file\":false}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"thumbnail_file\":{\"key\":false}}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"key\":false}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"hashes\":{},\"iv\":\"iv\",\"url\":\"mxc://b/id\",\"v\":\"v2\",\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\",\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"}}}")))
+        .isInstanceOf(MessageEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"hashes\":{},\"iv\":\"iv\",\"url\":\"mxc://b/id\",\"v\":\"v2\",\"key\":{\"alg\":3}}}")))
+        .isInstanceOf(UnknownEventContent.class);
+  }
+
+  @Test
+  void roomTopicAndAliasMissingRequiredContentFallBackToRaw() {
+    var registry = new EventRegistry();
+    assertThat(registry.parse(event("m.room.topic", "{}"))).isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.canonical_alias", "{}")))
+        .isInstanceOf(CanonicalAliasEventContent.class);
+  }
+
+  @Test
+  void integerFieldHelperRejectsNonNumberField() {
+    assertThat(
+            EventFields.hasWrongIntegerField(
+                JsonParser.parse("{\"value\":\"number\"}").asObject(), "value"))
+        .isTrue();
+  }
+
+  @Test
+  void messageInfoAndThumbnailDimensionsRejectInvalidIntegerSchemaValues() {
+    var registry = new EventRegistry();
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"w\":1.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"h\":1.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.video\",\"body\":\"v\",\"info\":{\"duration\":1.5}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"thumbnail_info\":{\"size\":1.5}}}")))
+        .isInstanceOf(UnknownEventContent.class);
+  }
+
+  @Test
+  void eventFieldHelpersCoverNullableAndIncorrectScalarFieldTypes() {
+    var nullFields = JsonParser.parse("{\"value\":null,\"flag\":false}").asObject();
+    assertThat(EventFields.hasWrongType(nullFields, "value", EventFields.STRING_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(nullFields, "flag", EventFields.BOOLEAN_TYPE)).isFalse();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("null"), EventFields.OBJECT_TYPE))
+        .isTrue();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("[]"), EventFields.STRING_TYPE)).isTrue();
+    assertThat(EventFields.field(null, "x")).isNull();
+    assertThat(EventFields.field(JsonParser.parse("[]"), "x")).isNull();
+    assertThat(EventFields.string(JsonParser.parse("{\"x\":5}"), "x")).isNull();
+    assertThat(EventFields.booleanValue(JsonParser.parse("{\"x\":0}"), "x")).isNull();
+    assertThat(EventFields.longField(JsonParser.parse("{\"x\":\"one\"}"), "x")).isNull();
+    assertThat(EventFields.longField(JsonParser.parse("{\"x\":1.25}"), "x")).isNull();
+    assertThat(EventFields.longValue(JsonParser.parse("{\"x\":\"one\"}").asObject(), "x")).isNull();
+    assertThat(EventFields.hasWrongType(JsonParser.parse("true"), "not-a-type")).isTrue();
+    assertThat(
+            EventFields.hasWrongType(
+                JsonParser.parse("{\"value\":1.5}").asObject(), "value", EventFields.INTEGER_TYPE))
+        .isTrue();
+  }
+
+  @Test
+  void requiredTypedFieldsRejectMissingValuesAndMalformedNumericRepresentations() {
+    var registry = new EventRegistry();
+    assertThat(registry.parse(event("m.room.name", "{}"))).isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.topic", "{\"topic\":2}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.member", "{\"membership\":null}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event("m.room.member", "{\"membership\":\"join\",\"is_direct\":\"yes\"}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(event("m.room.member", "{\"membership\":\"join\",\"displayname\":17}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(registry.parse(event("m.room.canonical_alias", "{\"alt_aliases\":7}")))
+        .isInstanceOf(UnknownEventContent.class);
+
+    var malformedLongContent =
+        MessageEventContent.from(JsonParser.parse("{\"msgtype\":\"m.text\",\"body\":\"x\"}"));
+    assertThat(EventFields.hasWrongType(JsonParser.parse("{}"), EventFields.INTEGER_TYPE)).isTrue();
+    assertThat(EventFields.longField(JsonParser.parse("{\"value\":1.5}"), "value")).isNull();
+    assertThat(EventFields.longValue(JsonParser.parse("{\"value\":1e100}").asObject(), "value"))
+        .isNull();
+    assertThat(malformedLongContent).isNotNull();
+  }
+
+  @Test
+  void nullableOptionalFieldsAndMissingOptionalMediaInfoAreAccepted() {
+    var registry = new EventRegistry();
+    var message =
+        registry.parse(
+            event("m.room.message", "{\"msgtype\":\"m.text\",\"body\":\"hi\",\"format\":null}"));
+    assertThat(message).isInstanceOf(MessageEventContent.class);
+    var member =
+        registry.parse(
+            event("m.room.member", "{\"membership\":\"join\",\"third_party_invite\":null}"));
+    assertThat(member).isInstanceOf(MembershipEventContent.class);
+    assertThat(((MembershipEventContent) member).thirdPartyInvite()).isNull();
+    var image =
+        registry.parse(
+            event("m.room.message", "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{}}"));
+    assertThat(image).isInstanceOf(MessageEventContent.class);
+    assertThat(((MessageEventContent) image).info()).isNotNull();
   }
 
   @Test

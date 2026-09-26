@@ -6,7 +6,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 public record ThumbnailInfo(Long height, Long width, Long size, String mimeType, JsonValue raw) {
 
   static ThumbnailInfo from(JsonValue value) {
-    if (value == null || !value.isObject()) {
+    if (value == null || !value.isObject() || EventFields.hasWrongThumbnailInfoFields(value)) {
       return null;
     }
     return new ThumbnailInfo(

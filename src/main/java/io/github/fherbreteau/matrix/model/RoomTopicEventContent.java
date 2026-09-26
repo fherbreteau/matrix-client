@@ -16,8 +16,11 @@ public record RoomTopicEventContent(
     if (content == null || !content.isObject()) {
       return null;
     }
-    String topic = EventFields.string(content, "topic");
-    if (topic == null || EventFields.hasWrongType(content.asObject(), "topic", "string")) {
+    String topic = EventFields.string(content, EventFields.TOPIC);
+    if (!content.asObject().has(EventFields.TOPIC)
+        || topic == null
+        || EventFields.hasWrongType(
+            content.asObject(), EventFields.TOPIC, EventFields.STRING_TYPE)) {
       return null;
     }
     JsonValue translations = EventFields.field(content, "m.topic");

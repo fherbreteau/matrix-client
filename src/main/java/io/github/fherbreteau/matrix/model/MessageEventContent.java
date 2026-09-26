@@ -15,7 +15,7 @@ public record MessageEventContent(
     String formattedBody,
     String filename,
     String url,
-    JsonValue file,
+    EncryptedMediaFile file,
     MessageInfo info,
     String geoUri,
     MessageMentions mentions,
@@ -30,19 +30,24 @@ public record MessageEventContent(
    * @return the typed content, or {@code null} if the required fields are malformed
    */
   public static MessageEventContent from(JsonValue content) {
-    String msgtype = EventFields.string(content, "msgtype");
-    String body = EventFields.string(content, "body");
-    if (msgtype == null || body == null || EventFields.hasWrongMessageFields(content)) {
+    String msgtype = EventFields.string(content, EventFields.MESSAGE_TYPE);
+    String body = EventFields.string(content, EventFields.BODY);
+    if (content == null
+        || !content.isObject()
+        || msgtype == null
+        || body == null
+        || EventFields.hasWrongMessageFields(content)
+        || EventFields.hasWrongEncryptedFileShape(EventFields.field(content, "file"))) {
       return null;
     }
     return new MessageEventContent(
         msgtype,
         body,
-        EventFields.string(content, "format"),
+        EventFields.string(content, EventFields.TYPE_FORMAT),
         EventFields.string(content, "formatted_body"),
         EventFields.string(content, "filename"),
         EventFields.string(content, "url"),
-        EventFields.field(content, "file"),
+        EncryptedMediaFile.from(EventFields.field(content, "file")),
         MessageInfo.from(EventFields.field(content, "info")),
         EventFields.string(content, "geo_uri"),
         MessageMentions.from(EventFields.field(content, "m.mentions")),

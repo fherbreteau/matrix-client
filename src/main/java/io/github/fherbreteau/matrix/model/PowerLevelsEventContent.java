@@ -2,6 +2,7 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.Map;
 
 /**
  * Content of an {@code m.room.power_levels} state event, preserving all fields as JSON.
@@ -11,14 +12,14 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  */
 public record PowerLevelsEventContent(
     Long ban,
-    JsonValue events,
+    Map<String, Long> events,
     Long eventsDefault,
     Long invite,
     Long kick,
-    JsonValue notifications,
+    Map<String, Long> notifications,
     Long redact,
     Long stateDefault,
-    JsonValue users,
+    Map<String, Long> users,
     Long usersDefault,
     JsonValue raw)
     implements EventContent {
@@ -29,7 +30,6 @@ public record PowerLevelsEventContent(
   private static final String JSON_KEY_INVITE = "invite";
   private static final String JSON_KEY_KICK = "kick";
   private static final String JSON_KEY_NOTIFICATIONS = "notifications";
-  private static final String ROOM = "room";
   private static final String JSON_KEY_REDACT = "redact";
   private static final String JSON_KEY_STATE_DEFAULT = "state_default";
   private static final String JSON_KEY_USERS = "users";
@@ -58,14 +58,14 @@ public record PowerLevelsEventContent(
     }
     return new PowerLevelsEventContent(
         ban,
-        object.get(JSON_KEY_EVENTS),
+        EventFields.integerMap(object.get(JSON_KEY_EVENTS)),
         eventsDefault,
         invite,
         kick,
-        object.get(JSON_KEY_NOTIFICATIONS),
+        EventFields.integerMap(object.get(JSON_KEY_NOTIFICATIONS)),
         redact,
         stateDefault,
-        object.get(JSON_KEY_USERS),
+        EventFields.integerMap(object.get(JSON_KEY_USERS)),
         usersDefault,
         content);
   }
@@ -84,10 +84,8 @@ public record PowerLevelsEventContent(
         || hasWrongNotificationLevels(object);
   }
 
-  private static boolean hasWrongNotificationLevels(JsonObject object) {
-    JsonValue notifications = object.get(JSON_KEY_NOTIFICATIONS);
-    return notifications != null
-        && notifications.isObject()
-        && EventFields.hasWrongType(notifications.asObject(), ROOM, EventFields.INTEGER_TYPE);
+  private static boolean hasWrongNotificationLevels(JsonObject content) {
+    JsonValue notifications = content.get(JSON_KEY_NOTIFICATIONS);
+    return EventFields.hasWrongIntegerObject(notifications);
   }
 }

@@ -21,7 +21,7 @@ public record MembershipEventContent(
     implements EventContent {
 
   private static final String MEMBERSHIP_TYPE = "membership";
-  private static final String DISPLAY_NAME = "displayname";
+  static final String DISPLAY_NAME = "displayname";
   private static final String AVATAR_URL = "avatar_url";
   private static final String IS_DIRECT = "is_direct";
   private static final String JOIN_AUTHORISED_VIA = "join_authorised_via_users_server";
@@ -36,9 +36,10 @@ public record MembershipEventContent(
    */
   public static MembershipEventContent from(JsonValue content) {
     String membership = EventFields.string(content, MEMBERSHIP_TYPE);
-    if (membership == null
-        || content == null
+    if (content == null
         || !content.isObject()
+        || membership == null
+        || !content.asObject().has(MEMBERSHIP_TYPE)
         || EventFields.hasWrongType(content.asObject(), MEMBERSHIP_TYPE, EventFields.STRING_TYPE)
         || hasWrongOptionalFields(content)) {
       return null;

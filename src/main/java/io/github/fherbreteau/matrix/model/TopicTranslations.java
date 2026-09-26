@@ -1,18 +1,31 @@
 package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.List;
 
-/** Typed experimental {@code m.topic} topic translations with raw JSON retained. */
-public record TopicTranslations(JsonValue text, JsonValue raw) {
+/** Typed representations in the experimental {@code m.topic.m.text} array. */
+public record TopicTranslations(List<TopicTextRepresentation> text, JsonValue raw) {
 
   static TopicTranslations from(JsonValue value) {
     if (value == null || !value.isObject()) {
       return null;
     }
-    if (EventFields.hasWrongTextRepresentations(value)) {
+    JsonValue textValue = EventFields.field(value, EventFields.TEXT_REPRESENTATIONS);
+    if (textValue == null) {
+      return new TopicTranslations(List.of(), value);
+    }
+    if (!textValue.isArray()) {
       return null;
     }
-    JsonValue text = EventFields.field(value, "m.text");
-    return new TopicTranslations(text, value);
+    var text = new java.util.ArrayList<TopicTextRepresentation>();
+    for (int i = 0; i < textValue.asArray().size(); i++) {
+      TopicTextRepresentation representation =
+          TopicTextRepresentation.from(textValue.asArray().get(i));
+      if (representation == null) {
+        return null;
+      }
+      text.add(representation);
+    }
+    return new TopicTranslations(List.copyOf(text), value);
   }
 }

@@ -11,15 +11,24 @@ public record MessageInfo(
     String mimeType,
     Boolean animated,
     String thumbnailUrl,
-    JsonValue thumbnailFile,
+    EncryptedMediaFile thumbnailFile,
     ThumbnailInfo thumbnailInfo,
     JsonValue raw) {
 
   static MessageInfo from(JsonValue value) {
-    if (value == null || !value.isObject()) {
+    if (value == null || !value.isObject() || EventFields.hasWrongMessageInfoFields(value)) {
       return null;
     }
     JsonValue thumbnailInfoValue = EventFields.field(value, "thumbnail_info");
+    if (thumbnailInfoValue != null
+        && !thumbnailInfoValue.isNull()
+        && !thumbnailInfoValue.isObject()) {
+      return null;
+    }
+    ThumbnailInfo thumbnailInfo = ThumbnailInfo.from(thumbnailInfoValue);
+    if (thumbnailInfoValue != null && !thumbnailInfoValue.isNull() && thumbnailInfo == null) {
+      return null;
+    }
     return new MessageInfo(
         EventFields.longField(value, "h"),
         EventFields.longField(value, "w"),
@@ -28,8 +37,8 @@ public record MessageInfo(
         EventFields.string(value, "mimetype"),
         EventFields.booleanValue(value, "is_animated"),
         EventFields.string(value, "thumbnail_url"),
-        EventFields.field(value, "thumbnail_file"),
-        ThumbnailInfo.from(thumbnailInfoValue),
+        EncryptedMediaFile.from(EventFields.field(value, "thumbnail_file")),
+        thumbnailInfo,
         value);
   }
 }

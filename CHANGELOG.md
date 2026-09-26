@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
-- **Typed Event Registry with Raw Fallback**: Implemented issue #12 — `RoomEvent` retains the complete event envelope; typed models cover message, membership, room name/topic, power levels and canonical aliases while preserving raw content and extra fields. The thread-safe `EventRegistry` supports custom parsers and falls back to raw content for unknown types, malformed content and parser failures (#29)
+- **Typed Event Registry with Raw Fallback**: Implemented issue #12 — `RoomEvent` retains the complete event envelope; typed models expose common and schema-defined message/media/mentions/relations fields, full membership and third-party-invite data, room name/topic translations, power-level maps and canonical aliases while preserving raw content and extra fields. The thread-safe `EventRegistry` supports custom parsers and falls back to raw content for unregistered types, malformed schemas and parser failures (#29)
 
 - **Pluggable Persistence and Transaction Safety**: Implemented issue #11 — introduced injectable `TransactionIdStore` and optional `MediaMetadataStore`, thread-safe in-memory defaults, and file-backed session, sync-token, transaction-ID and media-metadata stores. File persistence writes a same-directory temporary file and replaces it atomically when supported, restricts data files to owner read/write permissions on POSIX systems, and documents that power-loss durability is not guaranteed. Transaction mappings persist by application-supplied operation key for retry-safe message sends and redactions; file transactions coordinate threads and processes using file locks. No database/runtime dependency added
 

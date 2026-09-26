@@ -14,16 +14,23 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class EventRegistry {
 
+  private static final String MESSAGE = "m.room.message";
+  private static final String MEMBER = "m.room.member";
+  private static final String ROOM_NAME = "m.room.name";
+  private static final String ROOM_TOPIC = "m.room.topic";
+  private static final String POWER_LEVELS = "m.room.power_levels";
+  private static final String CANONICAL_ALIAS = "m.room.canonical_alias";
+
   private final Map<String, EventContentParser<?>> parsers = new ConcurrentHashMap<>();
 
   /** Creates a registry containing parsers for common Matrix room events. */
   public EventRegistry() {
-    register("m.room.message", MessageEventContent::from);
-    register("m.room.member", MembershipEventContent::from);
-    register("m.room.name", RoomNameEventContent::from);
-    register("m.room.topic", RoomTopicEventContent::from);
-    register("m.room.power_levels", PowerLevelsEventContent::from);
-    register("m.room.canonical_alias", CanonicalAliasEventContent::from);
+    register(MESSAGE, MessageEventContent::from);
+    register(MEMBER, MembershipEventContent::from);
+    register(ROOM_NAME, RoomNameEventContent::from);
+    register(ROOM_TOPIC, RoomTopicEventContent::from);
+    register(POWER_LEVELS, PowerLevelsEventContent::from);
+    register(CANONICAL_ALIAS, CanonicalAliasEventContent::from);
   }
 
   /**

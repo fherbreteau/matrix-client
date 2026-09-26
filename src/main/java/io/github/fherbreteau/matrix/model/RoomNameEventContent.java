@@ -15,8 +15,11 @@ public record RoomNameEventContent(String name, JsonValue raw) implements EventC
     if (content == null || !content.isObject()) {
       return null;
     }
-    String name = EventFields.string(content, "name");
-    if (name == null || EventFields.hasWrongType(content.asObject(), "name", "string")) {
+    String name = EventFields.string(content, EventFields.NAME);
+    if (!content.asObject().has(EventFields.NAME)
+        || name == null
+        || EventFields.hasWrongType(
+            content.asObject(), EventFields.NAME, EventFields.STRING_TYPE)) {
       return null;
     }
     return new RoomNameEventContent(name, content);

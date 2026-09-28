@@ -457,6 +457,11 @@ class EventRegistryTest {
     assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{\"m.text\":[{}]}")))
         .isTrue();
 
+    assertThat(EventFields.hasWrongStringList(null)).isFalse();
+    assertThat(EventFields.hasWrongStringList(JsonParser.parse("null"))).isFalse();
+    assertThat(EventFields.hasWrongStringList(JsonParser.parse("[\"id\"]"))).isFalse();
+    assertThat(EventFields.hasWrongStringList(JsonParser.parse("[7]"))).isTrue();
+    assertThat(EventFields.hasWrongStringList(JsonParser.parse("false"))).isTrue();
     assertThat(EventFields.stringList(JsonParser.parse("[\"id\"]")).getFirst()).isEqualTo("id");
     assertThat(EventFields.stringMap(JsonParser.parse("{\"id\":\"value\"}")))
         .containsEntry("id", "value");

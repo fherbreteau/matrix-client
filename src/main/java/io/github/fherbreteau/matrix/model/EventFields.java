@@ -123,24 +123,14 @@ final class EventFields {
     JsonValue key = encrypted.get(ENCRYPTED_KEY);
     String version = string(encrypted, ENCRYPTED_VERSION);
     return hasWrongEncryptedFileFields(
-        encrypted,
-        encrypted.get(ENCRYPTED_HASHES),
-        key,
-        string(encrypted, ENCRYPTED_IV),
-        string(encrypted, ENCRYPTED_URL),
-        version);
+        encrypted, key, string(encrypted, ENCRYPTED_IV), string(encrypted, ENCRYPTED_URL), version);
   }
 
   private static boolean hasWrongEncryptedFileFields(
-      JsonObject encryptedFile,
-      JsonValue hashes,
-      JsonValue key,
-      String iv,
-      String url,
-      String version) {
-    String versionField = string(encryptedFile, "v");
-    return hasWrongType(encryptedFile, "hashes", OBJECT_TYPE)
-        || hasWrongStringMap(hashes)
+      JsonObject encryptedFile, JsonValue key, String iv, String url, String version) {
+    String versionField = string(encryptedFile, ENCRYPTED_VERSION);
+    return hasWrongType(encryptedFile, ENCRYPTED_HASHES, OBJECT_TYPE)
+        || hasWrongStringMap(field(encryptedFile, ENCRYPTED_HASHES))
         || iv == null
         || hasWrongType(encryptedFile, "iv", STRING_TYPE)
         || url == null
@@ -159,12 +149,13 @@ final class EventFields {
     return hasWrongEncryptedKeyFields(key, key.get(ENCRYPTED_KEY_OPERATIONS));
   }
 
-  static boolean hasWrongEncryptedKeyFields(JsonObject key, JsonValue operations) {
+  private static boolean hasWrongEncryptedKeyFields(JsonObject key, JsonValue operations) {
     return hasWrongType(key, "alg", STRING_TYPE)
         || hasWrongType(key, "ext", BOOLEAN_TYPE)
         || hasWrongType(key, "k", STRING_TYPE)
         || hasWrongType(key, ENCRYPTED_KEY_OPERATIONS, ARRAY_TYPE)
         || hasWrongType(key, "kty", STRING_TYPE)
+        || operations == null
         || hasWrongStringArray(key, ENCRYPTED_KEY_OPERATIONS);
   }
 

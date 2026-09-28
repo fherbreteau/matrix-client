@@ -21,6 +21,16 @@ public sealed interface MessageEventContent extends EventContent
         MessageEventContent.VerificationRequest,
         MessageEventContent.Unknown {
 
+  String TEXT_TYPE = "m.text";
+  String EMOTE_TYPE = "m.emote";
+  String NOTICE_TYPE = "m.notice";
+  String IMAGE_TYPE = "m.image";
+  String FILE_TYPE = "m.file";
+  String AUDIO_TYPE = "m.audio";
+  String VIDEO_TYPE = "m.video";
+  String LOCATION_TYPE = "m.location";
+  String VERIFICATION_REQUEST_TYPE = "m.key.verification.request";
+
   /**
    * Returns this message's {@code msgtype}.
    *
@@ -82,7 +92,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.text";
+      return TEXT_TYPE;
     }
   }
 
@@ -98,7 +108,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.emote";
+      return EMOTE_TYPE;
     }
   }
 
@@ -114,7 +124,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.notice";
+      return NOTICE_TYPE;
     }
   }
 
@@ -133,7 +143,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.image";
+      return IMAGE_TYPE;
     }
   }
 
@@ -152,7 +162,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.file";
+      return FILE_TYPE;
     }
   }
 
@@ -171,7 +181,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.audio";
+      return AUDIO_TYPE;
     }
   }
 
@@ -190,7 +200,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.video";
+      return VIDEO_TYPE;
     }
   }
 
@@ -208,7 +218,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.location";
+      return LOCATION_TYPE;
     }
   }
 
@@ -227,7 +237,7 @@ public sealed interface MessageEventContent extends EventContent
 
     @Override
     public String msgtype() {
-      return "m.key.verification.request";
+      return VERIFICATION_REQUEST_TYPE;
     }
   }
 
@@ -267,12 +277,12 @@ public sealed interface MessageEventContent extends EventContent
     MessageMentions mentions = MessageMentions.from(EventFields.field(content, "m.mentions"));
     EventRelation relatesTo = EventRelation.from(EventFields.field(content, "m.relates_to"));
     return switch (msgtype) {
-      case "m.text" -> new Text(body, format, formattedBody, mentions, relatesTo, content);
-      case "m.emote" -> new Emote(body, format, formattedBody, mentions, relatesTo, content);
-      case "m.notice" -> new Notice(body, format, formattedBody, mentions, relatesTo, content);
-      case "m.image", "m.file", "m.audio", "m.video" ->
+      case TEXT_TYPE -> new Text(body, format, formattedBody, mentions, relatesTo, content);
+      case EMOTE_TYPE -> new Emote(body, format, formattedBody, mentions, relatesTo, content);
+      case NOTICE_TYPE -> new Notice(body, format, formattedBody, mentions, relatesTo, content);
+      case IMAGE_TYPE, FILE_TYPE, AUDIO_TYPE, VIDEO_TYPE ->
           mediaMessage(msgtype, content, body, format, formattedBody, mentions, relatesTo);
-      case "m.location" -> {
+      case LOCATION_TYPE -> {
         String geoUri = EventFields.string(content, "geo_uri");
         if (geoUri == null || !object.has("geo_uri")) {
           yield null;
@@ -287,7 +297,7 @@ public sealed interface MessageEventContent extends EventContent
             relatesTo,
             content);
       }
-      case "m.key.verification.request" ->
+      case VERIFICATION_REQUEST_TYPE ->
           verificationRequest(content, body, format, formattedBody, mentions, relatesTo);
       default -> new Unknown(msgtype, body, format, formattedBody, mentions, relatesTo, content);
     };
@@ -308,16 +318,16 @@ public sealed interface MessageEventContent extends EventContent
     String filename = EventFields.string(content, "filename");
     MessageInfo info = MessageInfo.from(EventFields.field(content, "info"));
     return switch (msgtype) {
-      case "m.image" ->
+      case IMAGE_TYPE ->
           new Image(
               body, format, formattedBody, filename, source, info, mentions, relatesTo, content);
-      case "m.file" ->
+      case FILE_TYPE ->
           new File(
               body, format, formattedBody, filename, source, info, mentions, relatesTo, content);
-      case "m.audio" ->
+      case AUDIO_TYPE ->
           new Audio(
               body, format, formattedBody, filename, source, info, mentions, relatesTo, content);
-      case "m.video" ->
+      case VIDEO_TYPE ->
           new Video(
               body, format, formattedBody, filename, source, info, mentions, relatesTo, content);
       default -> throw new IllegalArgumentException("unsupported media message type");

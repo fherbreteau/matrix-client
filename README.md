@@ -49,11 +49,13 @@ mvn javadoc:javadoc
 `RoomEvent` preserves the complete event envelope and raw JSON. The registry provides typed views
 for standard message content and media metadata, member-event fields and third-party invites, room
 name/topic (including `m.topic` text representations), all power-level fields/maps, and canonical
-aliases. Message media info and encrypted-file/JWK descriptors, power-level integer maps, and topic
-text representations are typed too. Typed content retains its original JSON for unknown extension
-fields. The registry is intentionally not an exhaustive Matrix event catalog: unregistered types and
-malformed known content return `UnknownEventContent`, preserving the raw content. Applications can
-register parsers for custom types.
+aliases. Message content is a sealed hierarchy selected by `msgtype` (`Text`, `Image`, `Location`,
+and related variants); media variants expose a non-null source that is either a plaintext URL or an
+encrypted-file descriptor. Unknown message types use an `Unknown` subtype that retains common fields
+and raw JSON. Typed content retains its original JSON for extension fields. The event registry is
+intentionally not an exhaustive Matrix event catalog: unregistered event types and malformed known
+content return `UnknownEventContent`, preserving the raw content. Applications can register parsers
+for custom event types.
 
 ```java
 import io.github.fherbreteau.matrix.model.EventRegistry;

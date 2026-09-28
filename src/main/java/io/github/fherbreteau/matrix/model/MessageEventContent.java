@@ -334,7 +334,7 @@ public sealed interface MessageEventContent extends EventContent
   /**
    * Unknown or custom message type, with common fields and the complete raw content.
    *
-   * @see <a href="https://spec.matrix.org/latest/client-server-api/#types-of-room-events">Matrix
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
    *     specification</a>
    * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage-msgtypes">Matrix
    *     fallback body guidance</a>
@@ -379,25 +379,34 @@ public sealed interface MessageEventContent extends EventContent
       case NOTICE_TYPE -> new Notice(body, format, formattedBody, mentions, relatesTo, content);
       case IMAGE_TYPE, FILE_TYPE, AUDIO_TYPE, VIDEO_TYPE ->
           mediaMessage(msgtype, content, body, format, formattedBody, mentions, relatesTo);
-      case LOCATION_TYPE -> {
-        String geoUri = EventFields.string(content, "geo_uri");
-        if (geoUri == null || !object.has("geo_uri")) {
-          yield null;
-        }
-        yield new Location(
-            body,
-            format,
-            formattedBody,
-            geoUri,
-            MessageInfo.from(EventFields.field(content, "info")),
-            mentions,
-            relatesTo,
-            content);
-      }
+      case LOCATION_TYPE ->
+          locationMessage(object, body, format, formattedBody, mentions, relatesTo);
       case VERIFICATION_REQUEST_TYPE ->
           verificationRequest(content, body, format, formattedBody, mentions, relatesTo);
       default -> new Unknown(msgtype, body, format, formattedBody, mentions, relatesTo, content);
     };
+  }
+
+  private static MessageEventContent locationMessage(
+      JsonValue content,
+      String body,
+      String format,
+      String formattedBody,
+      MessageMentions mentions,
+      EventRelation relatesTo) {
+    String geoUri = EventFields.string(content, "geo_uri");
+    if (geoUri == null) {
+      return null;
+    }
+    return new Location(
+        body,
+        format,
+        formattedBody,
+        geoUri,
+        MessageInfo.from(EventFields.field(content, "info")),
+        mentions,
+        relatesTo,
+        content);
   }
 
   private static MessageEventContent mediaMessage(

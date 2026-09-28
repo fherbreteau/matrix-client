@@ -11,6 +11,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  *     specification</a>
  * @see <a href="https://spec.matrix.org/latest/client-server-api/#mvideo_videoinfo">Matrix video
  *     info specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mlocation_locationinfo">Matrix
+ *     location info specification</a>
  */
 public record ThumbnailInfo(Long height, Long width, Long size, String mimeType, JsonValue raw) {
 

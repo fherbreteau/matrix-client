@@ -6,8 +6,10 @@ import java.util.List;
 /**
  * Typed content of an {@code m.room.message} event, selected by its {@code msgtype}.
  *
- * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage-msgtypes">Matrix
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
  *     specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage-msgtypes">Matrix
+ *     msgtype specification</a>
  */
 public sealed interface MessageEventContent extends EventContent
     permits MessageEventContent.Text,
@@ -35,6 +37,8 @@ public sealed interface MessageEventContent extends EventContent
    * Returns this message's {@code msgtype}.
    *
    * @return the message type
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
+   *     specification</a>
    */
   String msgtype();
 
@@ -42,6 +46,8 @@ public sealed interface MessageEventContent extends EventContent
    * Returns the plain-text body.
    *
    * @return the body text
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
+   *     specification</a>
    */
   String body();
 
@@ -49,6 +55,8 @@ public sealed interface MessageEventContent extends EventContent
    * Returns the formatting identifier, or {@code null} when absent.
    *
    * @return the format identifier
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
+   *     specification</a>
    */
   String format();
 
@@ -56,6 +64,8 @@ public sealed interface MessageEventContent extends EventContent
    * Returns the formatted body, or {@code null} when absent.
    *
    * @return the formatted body
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
+   *     specification</a>
    */
   String formattedBody();
 
@@ -63,6 +73,8 @@ public sealed interface MessageEventContent extends EventContent
    * Returns typed mentions, or {@code null} when absent.
    *
    * @return typed mentions
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#user-and-room-mentions">Matrix
+   *     specification</a>
    */
   MessageMentions mentions();
 
@@ -70,6 +82,8 @@ public sealed interface MessageEventContent extends EventContent
    * Returns the event relation, or {@code null} when absent.
    *
    * @return the event relation
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#definition-mrelates_to">Matrix
+   *     specification</a>
    */
   EventRelation relatesTo();
 
@@ -77,10 +91,19 @@ public sealed interface MessageEventContent extends EventContent
    * Returns the complete original content JSON.
    *
    * @return raw content
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix
+   *     specification</a>
    */
   JsonValue raw();
 
-  /** Text message fields. */
+  /**
+   * Text message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mtext">Matrix msgtype
+   *     specification</a>
+   */
   record Text(
       String body,
       String format,
@@ -96,7 +119,14 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Emote message fields. */
+  /**
+   * Emote message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#memote">Matrix msgtype
+   *     specification</a>
+   */
   record Emote(
       String body,
       String format,
@@ -112,7 +142,14 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Notice message fields. */
+  /**
+   * Notice message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mnotice">Matrix msgtype
+   *     specification</a>
+   */
   record Notice(
       String body,
       String format,
@@ -128,7 +165,16 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Image message fields. */
+  /**
+   * Image message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mimage">Matrix msgtype
+   *     specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mimage_imageinfo">Matrix image
+   *     info specification</a>
+   */
   record Image(
       String body,
       String format,
@@ -147,7 +193,16 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** File message fields. */
+  /**
+   * File message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mfile">Matrix msgtype
+   *     specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mfile_fileinfo">Matrix file
+   *     info specification</a>
+   */
   record File(
       String body,
       String format,
@@ -166,7 +221,16 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Audio message fields. */
+  /**
+   * Audio message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#maudio">Matrix msgtype
+   *     specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#maudio_audioinfo">Matrix audio
+   *     info specification</a>
+   */
   record Audio(
       String body,
       String format,
@@ -185,7 +249,16 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Video message fields. */
+  /**
+   * Video message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mvideo">Matrix msgtype
+   *     specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mvideo_videoinfo">Matrix video
+   *     info specification</a>
+   */
   record Video(
       String body,
       String format,
@@ -204,7 +277,16 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Location message fields, including the required geographic URI. */
+  /**
+   * Location message fields, including the required geographic URI.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mlocation">Matrix msgtype
+   *     specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mlocation_locationinfo">Matrix
+   *     location info specification</a>
+   */
   record Location(
       String body,
       String format,
@@ -222,7 +304,15 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** In-room key verification request message fields. */
+  /**
+   * In-room key verification request message fields.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage">Matrix base
+   *     message specification</a>
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#mroommessagemkeyverificationrequest">Matrix
+   *     msgtype specification</a>
+   */
   record VerificationRequest(
       String body,
       String format,
@@ -241,7 +331,14 @@ public sealed interface MessageEventContent extends EventContent
     }
   }
 
-  /** Unknown or custom message type, with common fields and the complete raw content. */
+  /**
+   * Unknown or custom message type, with common fields and the complete raw content.
+   *
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#types-of-room-events">Matrix
+   *     specification</a>
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#mroommessage-msgtypes">Matrix
+   *     fallback body guidance</a>
+   */
   record Unknown(
       String msgtype,
       String body,

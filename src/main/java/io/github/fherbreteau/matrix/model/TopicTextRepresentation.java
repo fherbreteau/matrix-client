@@ -2,7 +2,13 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonValue;
 
-/** A language-tagged or MIME-tagged text representation used by experimental {@code m.topic}. */
+/**
+ * A language-tagged or MIME-tagged text representation used by experimental {@code m.topic}.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#mroomtopic_textualrepresentation">Matrix
+ *     specification</a>
+ */
 public record TopicTextRepresentation(String body, String mimeType, JsonValue raw) {
 
   static TopicTextRepresentation from(JsonValue value) {

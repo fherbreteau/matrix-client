@@ -3,7 +3,13 @@ package io.github.fherbreteau.matrix.model;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import java.util.List;
 
-/** Parsed JWK fields used by Matrix encrypted media, retaining the original JSON. */
+/**
+ * Parsed JWK fields used by Matrix encrypted media, retaining the original JSON.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#definition-encryptedfile_jwk">Matrix
+ *     specification</a>
+ */
 public record EncryptedMediaKey(
     String algorithm,
     boolean extractable,

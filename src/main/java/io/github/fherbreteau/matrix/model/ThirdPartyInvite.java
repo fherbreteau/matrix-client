@@ -2,7 +2,16 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonValue;
 
-/** Typed {@code third_party_invite} member-event content with signature data preserved as JSON. */
+/**
+ * Typed {@code third_party_invite} member-event content with signature data preserved as JSON.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#mroommember_thirdpartyinvite">Matrix
+ *     specification</a>
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#mroommember_signedthirdpartyinvite">Matrix
+ *     signature specification</a>
+ */
 public record ThirdPartyInvite(
     String displayName, String matrixUserId, String token, JsonValue signatures, JsonValue raw) {
 

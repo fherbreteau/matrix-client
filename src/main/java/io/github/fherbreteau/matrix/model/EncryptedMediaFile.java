@@ -3,7 +3,12 @@ package io.github.fherbreteau.matrix.model;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import java.util.Map;
 
-/** Parsed Matrix encrypted-file descriptor, retaining the original JSON representation. */
+/**
+ * Parsed Matrix encrypted-file descriptor, retaining the original JSON representation.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#definition-encryptedfile">Matrix
+ *     specification</a>
+ */
 public record EncryptedMediaFile(
     Map<String, String> hashes,
     String initializationVector,

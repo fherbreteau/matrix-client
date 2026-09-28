@@ -3,7 +3,12 @@ package io.github.fherbreteau.matrix.model;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import java.util.List;
 
-/** Typed message mentions, retaining unknown extension fields. */
+/**
+ * Typed message mentions, retaining unknown extension fields.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#user-and-room-mentions">Matrix
+ *     specification</a>
+ */
 public record MessageMentions(Boolean room, List<String> userIds, JsonValue raw) {
 
   static MessageMentions from(JsonValue value) {

@@ -2,7 +2,20 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonValue;
 
-/** Typed common media metadata in a message content {@code info} object. */
+/**
+ * Typed common media metadata in a message content {@code info} object.
+ *
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mimage_imageinfo">Matrix
+ *     specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mfile_fileinfo">Matrix file info
+ *     specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#maudio_audioinfo">Matrix audio
+ *     info specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mvideo_videoinfo">Matrix video
+ *     info specification</a>
+ * @see <a href="https://spec.matrix.org/latest/client-server-api/#mlocation_locationinfo">Matrix
+ *     location info specification</a>
+ */
 public record MessageInfo(
     Long height,
     Long width,

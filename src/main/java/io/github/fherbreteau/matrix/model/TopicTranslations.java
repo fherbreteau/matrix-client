@@ -4,7 +4,13 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Typed representations in the experimental {@code m.topic.m.text} array. */
+/**
+ * Typed representations in the experimental {@code m.topic.m.text} array.
+ *
+ * @see <a
+ *     href="https://spec.matrix.org/latest/client-server-api/#mroomtopic_topiccontentblock">Matrix
+ *     specification</a>
+ */
 public record TopicTranslations(List<TopicTextRepresentation> text, JsonValue raw) {
 
   static TopicTranslations from(JsonValue value) {

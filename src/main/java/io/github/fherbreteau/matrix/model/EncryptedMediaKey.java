@@ -22,8 +22,8 @@ public record EncryptedMediaKey(
     JsonValue operationsValue = EventFields.field(value, "key_ops");
     List<String> operations = EventFields.stringList(operationsValue);
     String type = EventFields.string(value, "kty");
-    if (EventFields.hasWrongEncryptedKeyFields(
-        value.asObject(), alg, ext, key, operationsValue, type)) {
+    if (EventFields.hasWrongEncryptedKeyFields(value.asObject(), operationsValue)
+        || EventFields.hasWrongStringList(operationsValue)) {
       return null;
     }
     if (alg == null

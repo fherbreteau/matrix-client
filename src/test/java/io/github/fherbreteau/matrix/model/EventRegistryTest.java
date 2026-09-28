@@ -397,7 +397,7 @@ class EventRegistryTest {
   }
 
   @Test
-  void schemaFieldValidatorsCoverExpectedAndMalformedJsonTypes() {
+  void schemaScalarValidatorsCoverExpectedAndMalformedTypes() {
     var object =
         JsonParser.parse("{\"value\":\"ok\",\"flag\":true,\"count\":2,\"nested\":{},\"list\":[]}")
             .asObject();
@@ -422,7 +422,10 @@ class EventRegistryTest {
             EventFields.hasWrongType(
                 JsonParser.parse("{\"value\":null}").asObject(), "value", EventFields.STRING_TYPE))
         .isFalse();
+  }
 
+  @Test
+  void messageSchemaValidationChecksRequiredFieldsAndMentions() {
     assertThat(
             EventFields.hasWrongMessageFields(
                 JsonParser.parse("{\"msgtype\":\"m.text\",\"body\":\"x\"}")))
@@ -439,7 +442,10 @@ class EventRegistryTest {
                 JsonParser.parse(
                     "{\"msgtype\":\"m.text\",\"body\":\"x\",\"m.mentions\":{\"user_ids\":[2]}}")))
         .isTrue();
+  }
 
+  @Test
+  void topicTranslationAndStringCollectionValidation() {
     assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{}"))).isFalse();
     assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("[]"))).isTrue();
     assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{\"m.text\":false}")))
@@ -451,6 +457,9 @@ class EventRegistryTest {
     assertThat(EventFields.hasWrongTextRepresentations(JsonParser.parse("{\"m.text\":[{}]}")))
         .isTrue();
 
+    assertThat(EventFields.stringList(JsonParser.parse("[\"id\"]")).getFirst()).isEqualTo("id");
+    assertThat(EventFields.stringMap(JsonParser.parse("{\"id\":\"value\"}")).get("id"))
+        .isEqualTo("value");
     assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":null}").asObject(), "a"))
         .isFalse();
     assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":[]}").asObject(), "a"))
@@ -459,7 +468,10 @@ class EventRegistryTest {
         .isTrue();
     assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":[1]}").asObject(), "a"))
         .isTrue();
+  }
 
+  @Test
+  void integerMapAndNumericConversionValidation() {
     assertThat(EventFields.hasWrongIntegerMap(JsonParser.parse("{\"a\":null}").asObject(), "a"))
         .isFalse();
     assertThat(
@@ -477,7 +489,9 @@ class EventRegistryTest {
     assertThat(EventFields.integerMap(null)).isEmpty();
     assertThat(EventFields.integerMap(JsonParser.parse("null"))).isEmpty();
     assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":4}")).get("x")).isEqualTo(4L);
-    assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":false}"))).isNull();
+    assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":false}")).get("x")).isNull();
+    assertThat(EventFields.integerMap(JsonParser.parse("{\"fractional\":1.5}")).get("fractional"))
+        .isNull();
     assertThat(
             EventFields.hasWrongIntegerMap(
                 JsonParser.parse("{\"values\":null}").asObject(), "values"))
@@ -494,6 +508,8 @@ class EventRegistryTest {
     assertThat(EventFields.longField(JsonParser.parse("{\"x\":5}").asObject(), "x")).isEqualTo(5L);
     assertThat(EventFields.longField(JsonParser.parse("{\"x\":1.5}").asObject(), "x")).isNull();
     assertThat(EventFields.longValue(JsonParser.parse("{\"x\":1e100}").asObject(), "x")).isNull();
+    assertThat(EventFields.hasWrongIntegerConversion(JsonParser.parse("4"))).isFalse();
+    assertThat(EventFields.hasWrongIntegerConversion(JsonParser.parse("\"4\""))).isTrue();
   }
 
   @Test

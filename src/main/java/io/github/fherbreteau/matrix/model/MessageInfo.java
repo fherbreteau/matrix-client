@@ -16,7 +16,11 @@ public record MessageInfo(
     JsonValue raw) {
 
   static MessageInfo from(JsonValue value) {
-    if (value == null || !value.isObject() || EventFields.hasWrongMessageInfoFields(value)) {
+    if (value == null
+        || !value.isObject()
+        || EventFields.hasWrongMessageInfoFields(value)
+        || EventFields.hasWrongEncryptedFileShape(EventFields.field(value, "thumbnail_file"))
+        || EventFields.hasWrongThumbnailInfoField(EventFields.field(value, "thumbnail_info"))) {
       return null;
     }
     JsonValue thumbnailInfoValue = EventFields.field(value, "thumbnail_info");

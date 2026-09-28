@@ -4,6 +4,11 @@ import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 final class EventFields {
 
@@ -36,11 +41,6 @@ final class EventFields {
   private static final String ENCRYPTED_IV = "iv";
   private static final String ENCRYPTED_URL = "url";
   private static final String ENCRYPTED_VERSION = "v";
-  private static final String ENCRYPTED_ALGORITHM = "alg";
-  private static final String ENCRYPTED_EXTENDED = "ext";
-  private static final String ENCRYPTED_KEY_DATA = "k";
-  private static final String ENCRYPTED_KEY_OPERATIONS = "key_ops";
-  private static final String ENCRYPTED_KEY_TYPE = "kty";
   private static final String THUMBNAIL_URL = "thumbnail_url";
   private static final String THUMBNAIL_FILE = "thumbnail_file";
   private static final String ANIMATED = "is_animated";
@@ -138,9 +138,8 @@ final class EventFields {
       String url,
       String version) {
     String versionField = string(encryptedFile, "v");
-    return hashes == null
+    return hasWrongType(encryptedFile, "hashes", OBJECT_TYPE)
         || hasWrongStringMap(hashes)
-        || hasWrongType(encryptedFile, "hashes", OBJECT_TYPE)
         || iv == null
         || hasWrongType(encryptedFile, "iv", STRING_TYPE)
         || url == null
@@ -151,43 +150,21 @@ final class EventFields {
         || hasWrongEncryptedKey(key);
   }
 
-  private static boolean hasWrongStringMap(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      return true;
-    }
-    return value.asObject().entrySet().stream().anyMatch(entry -> !entry.getValue().isString());
-  }
-
-  static boolean hasWrongEncryptedKeyFields(
-      JsonObject key,
-      String algorithm,
-      JsonValue extractable,
-      String encodedKey,
-      JsonValue operations,
-      String keyType) {
-    return algorithm == null
-        || hasWrongType(key, "alg", STRING_TYPE)
-        || hasWrongType(key, "ext", BOOLEAN_TYPE)
-        || extractable == null
-        || encodedKey == null
-        || hasWrongType(key, "k", STRING_TYPE)
-        || hasWrongStringArray(key, "key_ops")
-        || operations == null
-        || keyType == null
-        || hasWrongType(key, "kty", STRING_TYPE);
-  }
-
-  private static boolean hasWrongEncryptedKey(JsonValue value) {
+  static boolean hasWrongEncryptedKey(JsonValue value) {
     if (value == null || !value.isObject()) {
       return true;
     }
     JsonObject key = value.asObject();
-    String algorithm = string(key, "alg");
-    JsonValue extractable = key.get("ext");
-    String encodedKey = string(key, "k");
-    JsonValue operations = key.get("key_ops");
-    String keyType = string(key, "kty");
-    return hasWrongEncryptedKeyFields(key, algorithm, extractable, encodedKey, operations, keyType);
+    return hasWrongEncryptedKeyFields(key, key.get("key_ops"));
+  }
+
+  static boolean hasWrongEncryptedKeyFields(JsonObject key, JsonValue operations) {
+    return hasWrongType(key, "alg", STRING_TYPE)
+        || hasWrongType(key, "ext", BOOLEAN_TYPE)
+        || hasWrongType(key, "k", STRING_TYPE)
+        || hasWrongType(key, "key_ops", ARRAY_TYPE)
+        || hasWrongType(key, "kty", STRING_TYPE)
+        || hasWrongStringArray(key, "key_ops");
   }
 
   static boolean hasWrongMessageInfoFields(JsonValue info) {
@@ -200,7 +177,14 @@ final class EventFields {
         || hasWrongType(object, ANIMATED, BOOLEAN_TYPE)
         || hasWrongType(object, THUMBNAIL_URL, STRING_TYPE)
         || hasWrongEncryptedFileShape(object.get(THUMBNAIL_FILE))
-        || hasWrongThumbnailInfoField(object);
+        || hasWrongThumbnailInfoField(object.get(THUMBNAIL_INFO));
+  }
+
+  static boolean hasWrongThumbnailInfoField(JsonValue info) {
+    if (info == null || info.isNull()) {
+      return false;
+    }
+    return !info.isObject() || hasWrongThumbnailInfoFields(info);
   }
 
   static boolean hasWrongThumbnailInfoFields(JsonValue info) {
@@ -213,13 +197,6 @@ final class EventFields {
 
   static boolean hasWrongIntegerField(JsonObject object, String name) {
     return hasWrongType(object, name, INTEGER_TYPE);
-  }
-
-  private static boolean hasWrongThumbnailInfoField(JsonObject object) {
-    JsonValue thumbnailInfo = object.get(THUMBNAIL_INFO);
-    return thumbnailInfo != null
-        && !thumbnailInfo.isNull()
-        && (!thumbnailInfo.isObject() || hasWrongThumbnailInfoFields(thumbnailInfo));
   }
 
   static boolean hasWrongMessageFields(JsonValue content) {
@@ -306,40 +283,55 @@ final class EventFields {
     return false;
   }
 
-  static java.util.List<String> stringList(JsonValue value) {
-    if (value == null || !value.isArray()) {
-      return null;
-    }
-    var strings = new java.util.ArrayList<String>();
-    for (int i = 0; i < value.asArray().size(); i++) {
-      JsonValue item = value.asArray().get(i);
-      if (!item.isString()) {
-        return null;
-      }
-      strings.add(item.asString());
-    }
-    return java.util.List.copyOf(strings);
-  }
-
-  static java.util.Map<String, String> stringMap(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      return null;
-    }
-    var strings = new java.util.LinkedHashMap<String, String>();
-    for (var entry : value.asObject().entrySet()) {
-      if (!entry.getValue().isString()) {
-        return null;
-      }
-      strings.put(entry.getKey(), entry.getValue().asString());
-    }
-    return java.util.Collections.unmodifiableMap(strings);
-  }
-
-  static boolean hasWrongIntegerObject(JsonValue value) {
+  static boolean hasWrongStringList(JsonValue value) {
     if (value == null || value.isNull()) {
       return false;
     }
-    return hasWrongIntegerMap(value);
+    if (!value.isArray()) {
+      return true;
+    }
+    for (int i = 0; i < value.asArray().size(); i++) {
+      if (!value.asArray().get(i).isString()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static List<String> stringList(JsonValue value) {
+    if (value == null || !value.isArray()) {
+      return List.of();
+    }
+    var strings = new ArrayList<String>();
+    for (int i = 0; i < value.asArray().size(); i++) {
+      strings.add(value.asArray().get(i).asString());
+    }
+    return List.copyOf(strings);
+  }
+
+  static boolean hasWrongStringMap(JsonValue value) {
+    if (value == null || value.isNull()) {
+      return false;
+    }
+    if (!value.isObject()) {
+      return true;
+    }
+    return value.asObject().entrySet().stream().anyMatch(entry -> !entry.getValue().isString());
+  }
+
+  static Map<String, String> stringMap(JsonValue value) {
+    if (value == null || !value.isObject()) {
+      return Map.of();
+    }
+    var strings = new LinkedHashMap<String, String>();
+    for (var entry : value.asObject().entrySet()) {
+      strings.put(entry.getKey(), entry.getValue().asString());
+    }
+    return Collections.unmodifiableMap(strings);
+  }
+
+  static boolean hasWrongIntegerObject(JsonValue value) {
+    return value != null && !value.isNull() && hasWrongIntegerMap(value);
   }
 
   static boolean hasWrongIntegerMap(JsonObject content, String name) {
@@ -359,18 +351,38 @@ final class EventFields {
     return false;
   }
 
-  static java.util.Map<String, Long> integerMap(JsonValue value) {
-    if (value == null || value.isNull()) {
-      return java.util.Map.of();
+  static boolean hasWrongIntegerMapShape(JsonValue value) {
+    return value == null || !value.isObject() || hasWrongIntegerMap(value);
+  }
+
+  static boolean hasWrongIntegerConversion(JsonValue value) {
+    if (value == null || !value.isNumber() || !isSafeInteger(value)) {
+      return true;
     }
-    if (hasWrongIntegerMap(value)) {
-      return null;
+    return longFieldValue(value) == null;
+  }
+
+  static Map<String, Long> integerMap(JsonValue value) {
+    if (value == null || value.isNull() || !value.isObject()) {
+      return Map.of();
     }
-    var result = new java.util.LinkedHashMap<String, Long>();
+    var result = new LinkedHashMap<String, Long>();
     for (var entry : value.asObject().entrySet()) {
-      result.put(entry.getKey(), entry.getValue().asBigDecimal().longValueExact());
+      JsonValue item = entry.getValue();
+      result.put(entry.getKey(), item.isNumber() ? longFieldValue(item) : null);
     }
     return java.util.Collections.unmodifiableMap(result);
+  }
+
+  private static Long longFieldValue(JsonValue value) {
+    if (!value.isNumber()) {
+      return null;
+    }
+    try {
+      return value.asBigDecimal().longValueExact();
+    } catch (ArithmeticException _) {
+      return null;
+    }
   }
 
   private static boolean isSafeInteger(JsonValue value) {

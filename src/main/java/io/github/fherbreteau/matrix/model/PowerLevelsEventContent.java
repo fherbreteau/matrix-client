@@ -72,20 +72,31 @@ public record PowerLevelsEventContent(
 
   private static boolean hasWrongKnownFields(JsonObject object) {
     return EventFields.hasWrongType(object, JSON_KEY_BAN, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongIntegerMap(object, JSON_KEY_EVENTS)
+        || hasWrongIntegerMapField(object, JSON_KEY_EVENTS)
         || EventFields.hasWrongType(object, JSON_KEY_EVENTS_DEFAULT, EventFields.INTEGER_TYPE)
         || EventFields.hasWrongType(object, JSON_KEY_INVITE, EventFields.INTEGER_TYPE)
         || EventFields.hasWrongType(object, JSON_KEY_KICK, EventFields.INTEGER_TYPE)
         || EventFields.hasWrongType(object, JSON_KEY_NOTIFICATIONS, EventFields.OBJECT_TYPE)
         || EventFields.hasWrongType(object, JSON_KEY_REDACT, EventFields.INTEGER_TYPE)
         || EventFields.hasWrongType(object, JSON_KEY_STATE_DEFAULT, EventFields.INTEGER_TYPE)
-        || EventFields.hasWrongIntegerMap(object, JSON_KEY_USERS)
+        || hasWrongIntegerMapField(object, JSON_KEY_USERS)
         || EventFields.hasWrongType(object, JSON_KEY_USERS_DEFAULT, EventFields.INTEGER_TYPE)
         || hasWrongNotificationLevels(object);
   }
 
+  private static boolean hasWrongIntegerMapField(JsonObject content, String name) {
+    if (!content.has(name)) {
+      return false;
+    }
+    JsonValue value = content.get(name);
+    return EventFields.hasWrongType(value, EventFields.OBJECT_TYPE)
+        || EventFields.hasWrongIntegerMapShape(value);
+  }
+
   private static boolean hasWrongNotificationLevels(JsonObject content) {
-    JsonValue notifications = content.get(JSON_KEY_NOTIFICATIONS);
-    return EventFields.hasWrongIntegerObject(notifications);
+    if (!content.has(JSON_KEY_NOTIFICATIONS)) {
+      return false;
+    }
+    return hasWrongIntegerMapField(content, JSON_KEY_NOTIFICATIONS);
   }
 }

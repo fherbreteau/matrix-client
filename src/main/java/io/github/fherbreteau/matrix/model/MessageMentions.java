@@ -1,9 +1,10 @@
 package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.List;
 
 /** Typed message mentions, retaining unknown extension fields. */
-public record MessageMentions(Boolean room, java.util.List<String> userIds, JsonValue raw) {
+public record MessageMentions(Boolean room, List<String> userIds, JsonValue raw) {
 
   static MessageMentions from(JsonValue value) {
     if (value == null || !value.isObject()) {

@@ -1,6 +1,7 @@
 package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Typed representations in the experimental {@code m.topic.m.text} array. */
@@ -17,7 +18,7 @@ public record TopicTranslations(List<TopicTextRepresentation> text, JsonValue ra
     if (!textValue.isArray()) {
       return null;
     }
-    var text = new java.util.ArrayList<TopicTextRepresentation>();
+    var text = new ArrayList<TopicTextRepresentation>();
     for (int i = 0; i < textValue.asArray().size(); i++) {
       TopicTextRepresentation representation =
           TopicTextRepresentation.from(textValue.asArray().get(i));

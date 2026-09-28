@@ -729,7 +729,8 @@ class EventRegistryTest {
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.key.verification.request\",\"body\":\"verify\",\"from_device\":\"D\",\"to\":\"@b:s\",\"methods\":[\"m.sas.v1\"]}"));
+                    "{\"msgtype\":\"m.key.verification.request\",\"body\":\"verify\","
+                        + "\"from_device\":\"D\",\"to\":\"@b:s\",\"methods\":[\"m.sas.v1\"]}"));
     assertThat(verification.msgtype()).isEqualTo("m.key.verification.request");
   }
 
@@ -792,13 +793,15 @@ class EventRegistryTest {
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.text\",\"body\":\"text\",\"format\":\"org.matrix.custom.html\"}")))
+                    "{\"msgtype\":\"m.text\",\"body\":\"text\","
+                        + "\"format\":\"org.matrix.custom.html\"}")))
         .isInstanceOf(UnknownEventContent.class);
     assertThat(
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.text\",\"body\":\"text\",\"formatted_body\":\"<p>text</p>\"}")))
+                    "{\"msgtype\":\"m.text\",\"body\":\"text\","
+                        + "\"formatted_body\":\"<p>text</p>\"}")))
         .isInstanceOf(UnknownEventContent.class);
   }
 
@@ -895,7 +898,8 @@ class EventRegistryTest {
         registry.parse(
             event(
                 "m.room.message",
-                "{\"msgtype\":\"m.text\",\"body\":\"hi\",\"format\":null,\"formatted_body\":\"<p>hi</p>\"}"));
+                "{\"msgtype\":\"m.text\",\"body\":\"hi\","
+                    + "\"format\":null,\"formatted_body\":\"<p>hi</p>\"}"));
     assertThat(message).isInstanceOf(MessageEventContent.Text.class);
     var member =
         registry.parse(

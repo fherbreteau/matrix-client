@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 /**
  * File-backed idempotency-key to transaction-ID mapping. Data writes use atomic replacement and are
@@ -105,7 +106,7 @@ public final class FileTransactionIdStore implements TransactionIdStore {
         });
   }
 
-  private <T> T withLock(java.util.function.Supplier<T> action) {
+  private <T> T withLock(Supplier<T> action) {
     instanceLock.lock();
     processLock.lock();
     try {

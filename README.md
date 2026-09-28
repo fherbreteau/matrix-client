@@ -44,6 +44,31 @@ mvn test
 mvn javadoc:javadoc
 ```
 
+## Typed event content
+
+`RoomEvent` preserves the complete event envelope and raw JSON. The registry provides typed views
+for standard message content and media metadata, member-event fields and third-party invites, room
+name/topic (including `m.topic` text representations), all power-level fields/maps, and canonical
+aliases. Message content is a sealed hierarchy selected by `msgtype` (`Text`, `Image`, `Location`,
+and related variants); media variants expose a non-null source that is either a plaintext URL or an
+encrypted-file descriptor. Unknown message types use an `Unknown` subtype that retains common fields
+and raw JSON. Typed content retains its original JSON for extension fields. The event registry is
+intentionally not an exhaustive Matrix event catalog: unregistered event types and malformed known
+content return `UnknownEventContent`, preserving the raw content. Applications can register parsers
+for custom event types.
+
+```java
+import io.github.fherbreteau.matrix.model.EventRegistry;
+import io.github.fherbreteau.matrix.model.MessageEventContent;
+import io.github.fherbreteau.matrix.model.RoomEvent;
+
+RoomEvent event = RoomEvent.from(response);
+var typed = event.withTypedContent(new EventRegistry());
+if (typed.content() instanceof MessageEventContent message) {
+    System.out.println(message.body());
+}
+```
+
 ## Persistence
 
 Session and sync-token state remain in-memory by default. Applications can opt into file-backed

@@ -213,6 +213,7 @@ final class EventFields {
   private static boolean hasWrongOptionalMessageFields(JsonObject object) {
     return hasWrongType(object, TYPE_FORMAT, STRING_TYPE)
         || hasWrongType(object, FORMATTED_BODY, STRING_TYPE)
+        || object.has(TYPE_FORMAT) != object.has(FORMATTED_BODY)
         || hasWrongType(object, FILENAME, STRING_TYPE)
         || hasWrongType(object, GEO_URI, STRING_TYPE)
         || hasWrongType(object, URL, STRING_TYPE)

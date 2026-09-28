@@ -59,12 +59,12 @@ class EventRegistryTest {
     assertThat(event.raw().asObject().get("future").asLong()).isEqualTo(42);
     assertThat(typed.envelope()).isSameAs(event);
     assertThat(typed.content())
-        .isInstanceOf(MessageEventContent.class)
+        .isInstanceOf(MessageEventContent.Text.class)
         .asInstanceOf(
-            org.assertj.core.api.InstanceOfAssertFactories.type(MessageEventContent.class))
-        .extracting(MessageEventContent::msgtype, MessageEventContent::body)
+            org.assertj.core.api.InstanceOfAssertFactories.type(MessageEventContent.Text.class))
+        .extracting(MessageEventContent.Text::msgtype, MessageEventContent.Text::body)
         .containsExactly("m.text", "hello");
-    var message = (MessageEventContent) typed.content();
+    var message = (MessageEventContent.Text) typed.content();
     assertThat(message.format()).isEqualTo("org.matrix.custom.html");
     assertThat(message.formattedBody()).isEqualTo("<b>hello</b>");
     assertThat(message.mentions().userIds().getFirst()).isEqualTo("@b:b");
@@ -86,18 +86,24 @@ class EventRegistryTest {
   }
 
   @Test
-  void messageInfoParsesImageFileAudioVideoAndLocationMetadata() {
+  void imageSubtypeExposesImageInfoAndMediaSource() {
     var registry = new EventRegistry();
+    var parsed =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.image\",\"body\":\"image\",\"url\":\"mxc://h/i\","
+                    + "\"filename\":\"image.png\",\"info\":{\"h\":100,\"w\":200,"
+                    + "\"size\":300,\"mimetype\":\"image/png\",\"is_animated\":true,"
+                    + "\"thumbnail_url\":\"mxc://h/t\",\"thumbnail_info\":{"
+                    + "\"h\":20,\"w\":40,\"size\":50,\"mimetype\":\"image/jpeg\"}}}"));
     var image =
-        (MessageEventContent)
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"url\":\"mxc://h/i\","
-                        + "\"filename\":\"image.png\",\"info\":{\"h\":100,\"w\":200,"
-                        + "\"size\":300,\"mimetype\":\"image/png\",\"is_animated\":true,"
-                        + "\"thumbnail_url\":\"mxc://h/t\",\"thumbnail_info\":{"
-                        + "\"h\":20,\"w\":40,\"size\":50,\"mimetype\":\"image/jpeg\"}}}"));
+        assertThat(parsed)
+            .isInstanceOf(MessageEventContent.Image.class)
+            .asInstanceOf(
+                org.assertj.core.api.InstanceOfAssertFactories.type(
+                    MessageEventContent.Image.class))
+            .actual();
     assertThat(image.info().height()).isEqualTo(100L);
     assertThat(image.info().width()).isEqualTo(200L);
     assertThat(image.info().size()).isEqualTo(300L);
@@ -105,45 +111,64 @@ class EventRegistryTest {
     assertThat(image.info().animated()).isTrue();
     assertThat(image.info().thumbnailUrl()).isEqualTo("mxc://h/t");
     assertThat(image.info().thumbnailInfo().mimeType()).isEqualTo("image/jpeg");
+    var source = (PlainMediaSource) image.source();
+    assertThat(source.url()).isEqualTo("mxc://h/i");
+  }
 
-    var file =
-        (MessageEventContent)
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.file\",\"body\":\"file\",\"url\":\"mxc://h/f\","
-                        + "\"info\":{\"mimetype\":\"application/pdf\",\"size\":10}}"));
-    assertThat(file.url()).isEqualTo("mxc://h/f");
+  @Test
+  void fileSubtypeExposesFileMetadata() {
+    var registry = new EventRegistry();
+    var parsed =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.file\",\"body\":\"file\",\"url\":\"mxc://h/f\","
+                    + "\"info\":{\"mimetype\":\"application/pdf\",\"size\":10}}"));
+    var file = (MessageEventContent.File) parsed;
+    assertThat(((PlainMediaSource) file.source()).url()).isEqualTo("mxc://h/f");
     assertThat(file.info().mimeType()).isEqualTo("application/pdf");
+  }
 
-    var audio =
-        (MessageEventContent)
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.audio\",\"body\":\"audio\","
-                        + "\"info\":{\"duration\":900,\"mimetype\":\"audio/ogg\",\"size\":99}}"));
+  @Test
+  void audioSubtypeExposesDuration() {
+    var registry = new EventRegistry();
+    var parsed =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.audio\",\"body\":\"audio\","
+                    + "\"url\":\"mxc://h/a\",\"info\":{\"duration\":900,"
+                    + "\"mimetype\":\"audio/ogg\",\"size\":99}}"));
+    var audio = (MessageEventContent.Audio) parsed;
     assertThat(audio.info().duration()).isEqualTo(900L);
+  }
 
-    var video =
-        (MessageEventContent)
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.video\",\"body\":\"video\","
-                        + "\"info\":{\"duration\":1000,\"h\":720,\"w\":1280,"
-                        + "\"mimetype\":\"video/mp4\",\"size\":500}}"));
+  @Test
+  void videoSubtypeExposesDimensions() {
+    var registry = new EventRegistry();
+    var parsed =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.video\",\"body\":\"video\","
+                    + "\"url\":\"mxc://h/v\",\"info\":{\"duration\":1000,"
+                    + "\"h\":720,\"w\":1280,\"mimetype\":\"video/mp4\",\"size\":500}}"));
+    var video = (MessageEventContent.Video) parsed;
     assertThat(video.info())
         .extracting(MessageInfo::height, MessageInfo::width)
         .containsExactly(720L, 1280L);
+  }
 
-    var location =
-        (MessageEventContent)
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.location\",\"body\":\"place\","
-                        + "\"geo_uri\":\"geo:1,2\",\"info\":{\"thumbnail_url\":\"mxc://h/map\"}}"));
+  @Test
+  void locationSubtypeExposesRequiredGeoUri() {
+    var registry = new EventRegistry();
+    var parsed =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.location\",\"body\":\"place\","
+                    + "\"geo_uri\":\"geo:1,2\",\"info\":{\"thumbnail_url\":\"mxc://h/map\"}}"));
+    var location = (MessageEventContent.Location) parsed;
     assertThat(location.geoUri()).isEqualTo("geo:1,2");
     assertThat(location.info().thumbnailUrl()).isEqualTo("mxc://h/map");
   }
@@ -245,7 +270,8 @@ class EventRegistryTest {
             registry.parse(
                 event(
                     "m.room.topic",
-                    "{\"topic\":\"Topic\",\"m.topic\":{\"m.text\":[{\"body\":\"Topic\",\"mimetype\":\"text/plain\"}]}}"));
+                    "{\"topic\":\"Topic\",\"m.topic\":{\"m.text\":"
+                        + "[{\"body\":\"Topic\",\"mimetype\":\"text/plain\"}]}}"));
     assertThat(topic.topic()).isEqualTo("Topic");
     assertThat(topic.topicTranslations().text().getFirst().body()).isEqualTo("Topic");
     var levels =
@@ -255,8 +281,9 @@ class EventRegistryTest {
                     "m.room.power_levels",
                     "{\"ban\":55,\"events\":{\"m.room.name\":60},"
                         + "\"events_default\":7,\"invite\":8,\"kick\":9,"
-                        + "\"notifications\":{\"room\":50,\"custom_notification\":70},\"redact\":10,"
-                        + "\"state_default\":11,\"users\":{\"@a:b\":50},\"users_default\":12}"));
+                        + "\"notifications\":{\"room\":50,\"custom_notification\":70},"
+                        + "\"redact\":10,\"state_default\":11,\"users\":{\"@a:b\":50},"
+                        + "\"users_default\":12}"));
     assertThat(levels)
         .extracting(
             PowerLevelsEventContent::ban,
@@ -525,12 +552,14 @@ class EventRegistryTest {
             + "\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\","
             + "\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"},"
             + "\"url\":\"mxc://h/file\",\"v\":\"v2\"}";
-    assertThat(
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"file\":" + encryptedFile + "}")))
-        .isInstanceOf(MessageEventContent.class);
+    var encryptedImage =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.image\",\"body\":\"image\",\"file\":" + encryptedFile + "}"));
+    assertThat(encryptedImage).isInstanceOf(MessageEventContent.Image.class);
+    assertThat(((MessageEventContent.Image) encryptedImage).source())
+        .isInstanceOf(EncryptedMediaSource.class);
     assertThat(
             registry.parse(
                 event(
@@ -559,18 +588,20 @@ class EventRegistryTest {
   void infoOptionalIntegerAndThumbnailEncryptionBranchesAreCovered() {
     var registry = new EventRegistry();
     var image =
-        (MessageEventContent)
+        (MessageEventContent.Image)
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"is_animated\":true}}"));
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"url\":\"mxc://h/i\","
+                        + "\"info\":{\"is_animated\":true}}"));
     assertThat(image.info().animated()).isTrue();
     var video =
-        (MessageEventContent)
+        (MessageEventContent.Video)
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.video\",\"body\":\"v\",\"info\":{\"height\":720}}"));
+                    "{\"msgtype\":\"m.video\",\"body\":\"v\",\"url\":\"mxc://h/v\","
+                        + "\"info\":{\"height\":720}}"));
     assertThat(video.info()).isNotNull();
   }
 
@@ -589,13 +620,15 @@ class EventRegistryTest {
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"thumbnail_file\":false}}")))
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\","
+                        + "\"info\":{\"thumbnail_file\":false}}")))
         .isInstanceOf(UnknownEventContent.class);
     assertThat(
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"thumbnail_file\":{\"key\":false}}}")))
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\","
+                        + "\"info\":{\"thumbnail_file\":{\"key\":false}}}")))
         .isInstanceOf(UnknownEventContent.class);
     assertThat(
             registry.parse(
@@ -603,17 +636,24 @@ class EventRegistryTest {
                     "m.room.message",
                     "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"key\":false}}")))
         .isInstanceOf(UnknownEventContent.class);
+    var encryptedImage =
+        registry.parse(
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"hashes\":{},"
+                    + "\"iv\":\"iv\",\"url\":\"mxc://b/id\",\"v\":\"v2\","
+                    + "\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\","
+                    + "\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"}}}"));
+    assertThat(encryptedImage).isInstanceOf(MessageEventContent.Image.class);
+    assertThat(((MessageEventContent.Image) encryptedImage).source())
+        .isInstanceOf(EncryptedMediaSource.class);
     assertThat(
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"hashes\":{},\"iv\":\"iv\",\"url\":\"mxc://b/id\",\"v\":\"v2\",\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\",\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"}}}")))
-        .isInstanceOf(MessageEventContent.class);
-    assertThat(
-            registry.parse(
-                event(
-                    "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"hashes\":{},\"iv\":\"iv\",\"url\":\"mxc://b/id\",\"v\":\"v2\",\"key\":{\"alg\":3}}}")))
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"file\":{\"hashes\":{},"
+                        + "\"iv\":\"iv\",\"url\":\"mxc://b/id\",\"v\":\"v2\","
+                        + "\"key\":{\"alg\":3}}}")))
         .isInstanceOf(UnknownEventContent.class);
   }
 
@@ -631,6 +671,135 @@ class EventRegistryTest {
             EventFields.hasWrongIntegerField(
                 JsonParser.parse("{\"value\":\"number\"}").asObject(), "value"))
         .isTrue();
+  }
+
+  @Test
+  void eachKnownMessageTypeParsesToItsSpecificSubtype() {
+    var registry = new EventRegistry();
+    var text =
+        (MessageEventContent.Text)
+            registry.parse(event("m.room.message", "{\"msgtype\":\"m.text\",\"body\":\"text\"}"));
+    assertThat(text.msgtype()).isEqualTo("m.text");
+    var emote =
+        (MessageEventContent.Emote)
+            registry.parse(event("m.room.message", "{\"msgtype\":\"m.emote\",\"body\":\"emote\"}"));
+    assertThat(emote.msgtype()).isEqualTo("m.emote");
+    var notice =
+        (MessageEventContent.Notice)
+            registry.parse(
+                event("m.room.message", "{\"msgtype\":\"m.notice\",\"body\":\"notice\"}"));
+    assertThat(notice.msgtype()).isEqualTo("m.notice");
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"url\":\"mxc://h/i\"}")))
+        .isInstanceOf(MessageEventContent.Image.class);
+    var file =
+        (MessageEventContent.File)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.file\",\"body\":\"file\",\"url\":\"mxc://h/f\"}"));
+    assertThat(file.msgtype()).isEqualTo("m.file");
+    assertThat(file.source()).isInstanceOf(PlainMediaSource.class);
+    var audio =
+        (MessageEventContent.Audio)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.audio\",\"body\":\"audio\",\"url\":\"mxc://h/a\"}"));
+    assertThat(audio.msgtype()).isEqualTo("m.audio");
+    var video =
+        (MessageEventContent.Video)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.video\",\"body\":\"video\",\"url\":\"mxc://h/v\"}"));
+    assertThat(video.msgtype()).isEqualTo("m.video");
+    var location =
+        (MessageEventContent.Location)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.location\",\"body\":\"place\",\"geo_uri\":\"geo:1,2\"}"));
+    assertThat(location.msgtype()).isEqualTo("m.location");
+    var verification =
+        (MessageEventContent.VerificationRequest)
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.key.verification.request\",\"body\":\"verify\",\"from_device\":\"D\",\"to\":\"@b:s\",\"methods\":[\"m.sas.v1\"]}"));
+    assertThat(verification.msgtype()).isEqualTo("m.key.verification.request");
+  }
+
+  @Test
+  void encryptedMediaSourceIsNonNullableAndCarriesDescriptor() {
+    var parsed =
+        new EventRegistry()
+            .parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"file\":{"
+                        + "\"hashes\":{\"sha256\":\"hash\"},\"iv\":\"iv\","
+                        + "\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\","
+                        + "\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"},"
+                        + "\"url\":\"mxc://h/image\",\"v\":\"v2\"}}"));
+    var image = (MessageEventContent.Image) parsed;
+    assertThat(image.msgtype()).isEqualTo("m.image");
+    assertThat(image.source()).isInstanceOf(EncryptedMediaSource.class);
+    assertThat(((EncryptedMediaSource) image.source()).file().contentUri())
+        .isEqualTo("mxc://h/image");
+  }
+
+  @Test
+  void customMessageTypeKeepsCommonFallbackFields() {
+    var parsed =
+        new EventRegistry()
+            .parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"org.example.custom\",\"body\":\"fallback\",\"future\":true}"));
+    assertThat(parsed).isInstanceOf(MessageEventContent.Unknown.class);
+    assertThat(((MessageEventContent.Unknown) parsed).msgtype()).isEqualTo("org.example.custom");
+    assertThat(((MessageEventContent.Unknown) parsed).body()).isEqualTo("fallback");
+    assertThat(((MessageEventContent.Unknown) parsed).raw().asObject().get("future").asBoolean())
+        .isTrue();
+  }
+
+  @Test
+  void malformedMediaAndVerificationSubtypeDataFallsBackToRawEventContent() {
+    var registry = new EventRegistry();
+    assertThat(
+            registry.parse(event("m.room.message", "{\"msgtype\":\"m.image\",\"body\":\"image\"}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event("m.room.message", "{\"msgtype\":\"m.location\",\"body\":\"place\"}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.key.verification.request\",\"body\":\"verify\"}")))
+        .isInstanceOf(UnknownEventContent.class);
+  }
+
+  @Test
+  void messageEventFormatPairMustBeComplete() {
+    var registry = new EventRegistry();
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.text\",\"body\":\"text\",\"format\":\"org.matrix.custom.html\"}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.text\",\"body\":\"text\",\"formatted_body\":\"<p>text</p>\"}")))
+        .isInstanceOf(UnknownEventContent.class);
   }
 
   @Test
@@ -658,7 +827,8 @@ class EventRegistryTest {
             registry.parse(
                 event(
                     "m.room.message",
-                    "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{\"thumbnail_info\":{\"size\":1.5}}}")))
+                    "{\"msgtype\":\"m.image\",\"body\":\"i\","
+                        + "\"info\":{\"thumbnail_info\":{\"size\":1.5}}}")))
         .isInstanceOf(UnknownEventContent.class);
   }
 
@@ -723,8 +893,10 @@ class EventRegistryTest {
     var registry = new EventRegistry();
     var message =
         registry.parse(
-            event("m.room.message", "{\"msgtype\":\"m.text\",\"body\":\"hi\",\"format\":null}"));
-    assertThat(message).isInstanceOf(MessageEventContent.class);
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.text\",\"body\":\"hi\",\"format\":null,\"formatted_body\":\"<p>hi</p>\"}"));
+    assertThat(message).isInstanceOf(MessageEventContent.Text.class);
     var member =
         registry.parse(
             event("m.room.member", "{\"membership\":\"join\",\"third_party_invite\":null}"));
@@ -732,9 +904,11 @@ class EventRegistryTest {
     assertThat(((MembershipEventContent) member).thirdPartyInvite()).isNull();
     var image =
         registry.parse(
-            event("m.room.message", "{\"msgtype\":\"m.image\",\"body\":\"i\",\"info\":{}}"));
-    assertThat(image).isInstanceOf(MessageEventContent.class);
-    assertThat(((MessageEventContent) image).info()).isNotNull();
+            event(
+                "m.room.message",
+                "{\"msgtype\":\"m.image\",\"body\":\"i\",\"url\":\"mxc://h/i\",\"info\":{}}"));
+    assertThat(image).isInstanceOf(MessageEventContent.Image.class);
+    assertThat(((MessageEventContent.Image) image).info()).isNotNull();
   }
 
   @Test

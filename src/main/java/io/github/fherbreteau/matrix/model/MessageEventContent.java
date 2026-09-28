@@ -36,8 +36,7 @@ public record MessageEventContent(
         || !content.isObject()
         || msgtype == null
         || body == null
-        || EventFields.hasWrongMessageFields(content)
-        || hasWrongMentionsContent(content)) {
+        || EventFields.hasWrongMessageFields(content)) {
       return null;
     }
     return new MessageEventContent(
@@ -53,12 +52,5 @@ public record MessageEventContent(
         MessageMentions.from(EventFields.field(content, "m.mentions")),
         EventRelation.from(EventFields.field(content, "m.relates_to")),
         content);
-  }
-
-  private static boolean hasWrongMentionsContent(JsonValue content) {
-    JsonValue mentions = EventFields.field(content, "m.mentions");
-    return mentions != null
-        && mentions.isObject()
-        && EventFields.hasWrongStringList(EventFields.field(mentions, "user_ids"));
   }
 }

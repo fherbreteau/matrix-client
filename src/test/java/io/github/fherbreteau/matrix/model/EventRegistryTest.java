@@ -458,8 +458,8 @@ class EventRegistryTest {
         .isTrue();
 
     assertThat(EventFields.stringList(JsonParser.parse("[\"id\"]")).getFirst()).isEqualTo("id");
-    assertThat(EventFields.stringMap(JsonParser.parse("{\"id\":\"value\"}")).get("id"))
-        .isEqualTo("value");
+    assertThat(EventFields.stringMap(JsonParser.parse("{\"id\":\"value\"}")))
+        .containsEntry("id", "value");
     assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":null}").asObject(), "a"))
         .isFalse();
     assertThat(EventFields.hasWrongStringArray(JsonParser.parse("{\"a\":[]}").asObject(), "a"))
@@ -488,7 +488,7 @@ class EventRegistryTest {
     assertThat(EventFields.hasWrongIntegerObject(JsonParser.parse("{\"room\":50}"))).isFalse();
     assertThat(EventFields.integerMap(null)).isEmpty();
     assertThat(EventFields.integerMap(JsonParser.parse("null"))).isEmpty();
-    assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":4}")).get("x")).isEqualTo(4L);
+    assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":4}"))).containsEntry("x", 4L);
     assertThat(EventFields.integerMap(JsonParser.parse("{\"x\":false}")).get("x")).isNull();
     assertThat(EventFields.integerMap(JsonParser.parse("{\"fractional\":1.5}")).get("fractional"))
         .isNull();
@@ -538,6 +538,15 @@ class EventRegistryTest {
                     "m.room.message",
                     "{\"msgtype\":\"m.image\",\"body\":\"image\","
                         + "\"info\":{\"thumbnail_file\":{\"key\":{\"kty\":false}}}}")))
+        .isInstanceOf(UnknownEventContent.class);
+    assertThat(
+            registry.parse(
+                event(
+                    "m.room.message",
+                    "{\"msgtype\":\"m.image\",\"body\":\"image\",\"file\":{"
+                        + "\"hashes\":{},\"iv\":\"iv\",\"url\":\"mxc://h/f\",\"v\":\"v2\","
+                        + "\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"key\","
+                        + "\"key_ops\":[4],\"kty\":\"oct\"}}}")))
         .isInstanceOf(UnknownEventContent.class);
   }
 

@@ -23,13 +23,12 @@ public record EncryptedMediaFile(
         || EventFields.hasWrongEncryptedKey(keyValue)) {
       return null;
     }
-    var object = value.asObject();
-    var hashes = EventFields.stringMap(hashesValue);
+    Map<String, String> hashes = EventFields.stringMap(hashesValue);
     EncryptedMediaKey key = EncryptedMediaKey.from(keyValue);
     String iv = EventFields.string(value, "iv");
     String url = EventFields.string(value, "url");
     String version = EventFields.string(value, "v");
-    if (hashes == null || key == null || iv == null || url == null || version == null) {
+    if (key == null || iv == null || url == null || version == null) {
       return null;
     }
     if (!"v2".equals(version)) {

@@ -37,10 +37,11 @@ final class EventFields {
   static final String MIME_TYPE = "mimetype";
   static final String TYPE_FORMAT = "format";
   private static final String ENCRYPTED_KEY = "key";
-  private static final String ENCRYPTED_HASHES = "hashes";
+  static final String ENCRYPTED_HASHES = "hashes";
   private static final String ENCRYPTED_IV = "iv";
   private static final String ENCRYPTED_URL = "url";
   private static final String ENCRYPTED_VERSION = "v";
+  static final String ENCRYPTED_KEY_OPERATIONS = "key_ops";
   private static final String THUMBNAIL_URL = "thumbnail_url";
   private static final String THUMBNAIL_FILE = "thumbnail_file";
   private static final String ANIMATED = "is_animated";
@@ -146,7 +147,7 @@ final class EventFields {
         || hasWrongType(encryptedFile, "url", STRING_TYPE)
         || version == null
         || !version.equals(versionField)
-        || hasWrongType(encryptedFile, "v", STRING_TYPE)
+        || hasWrongType(encryptedFile, ENCRYPTED_VERSION, STRING_TYPE)
         || hasWrongEncryptedKey(key);
   }
 
@@ -155,16 +156,16 @@ final class EventFields {
       return true;
     }
     JsonObject key = value.asObject();
-    return hasWrongEncryptedKeyFields(key, key.get("key_ops"));
+    return hasWrongEncryptedKeyFields(key, key.get(ENCRYPTED_KEY_OPERATIONS));
   }
 
   static boolean hasWrongEncryptedKeyFields(JsonObject key, JsonValue operations) {
     return hasWrongType(key, "alg", STRING_TYPE)
         || hasWrongType(key, "ext", BOOLEAN_TYPE)
         || hasWrongType(key, "k", STRING_TYPE)
-        || hasWrongType(key, "key_ops", ARRAY_TYPE)
+        || hasWrongType(key, ENCRYPTED_KEY_OPERATIONS, ARRAY_TYPE)
         || hasWrongType(key, "kty", STRING_TYPE)
-        || hasWrongStringArray(key, "key_ops");
+        || hasWrongStringArray(key, ENCRYPTED_KEY_OPERATIONS);
   }
 
   static boolean hasWrongMessageInfoFields(JsonValue info) {

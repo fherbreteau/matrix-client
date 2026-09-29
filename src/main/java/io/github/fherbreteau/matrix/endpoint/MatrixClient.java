@@ -16,6 +16,7 @@ import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.MediaDownload;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.MxcUri;
+import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.Presence;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
@@ -292,7 +293,12 @@ public final class MatrixClient {
     } catch (RateLimitedException e) {
       throw e;
     } catch (MatrixServerException e) {
-      throw new AuthenticationException(e.getErrcode(), e.getMessage());
+      String message = e.getMessage();
+      if (credentials instanceof PasswordCredentials passwordCredentials) {
+        message = message.replace(passwordCredentials.password(), "***");
+        message = message.replace(passwordCredentials.identifier(), "***");
+      }
+      throw new AuthenticationException(e.getErrcode(), message);
     }
   }
 

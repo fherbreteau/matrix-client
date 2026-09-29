@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
-- **Mock Homeserver and Opt-In Synapse Integration Tests**: Implemented issue #14 — added a reusable JDK HTTP mock fixture, a Docker-backed Synapse/Testcontainers suite exercising client methods end to end, and separate fast-unit versus integration Maven commands. Testcontainers is test-scoped; the Docker suite runs in a dedicated CI job (#14)
+- **Mock Homeserver and Opt-In Synapse Integration Tests**: Implemented issue #14 — added a reusable JDK HTTP mock fixture, a Docker-backed Synapse/Testcontainers suite exercising client methods end to end, and separate fast-unit versus integration Maven commands. Testcontainers is test-scoped; the Docker suite runs in a dedicated CI job (#14, #33)
 
 - **Safe Retries and Request Observability**: Implemented issue #13 — added bounded configurable retries for idempotent requests, capped `Retry-After` handling, per-call POST replay opt-in, interruptible backoff, and redacted request-attempt observation without runtime dependencies (#13)
 

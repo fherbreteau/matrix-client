@@ -243,7 +243,9 @@ class SynapseContainerIT {
         .hasMessageNotContaining("invalid-integration-password");
   }
 
-  private static void generateConfig() {
+  private static void generateConfig() throws IOException {
+    String uid = Files.getAttribute(dataDirectory, "unix:uid").toString();
+    String gid = Files.getAttribute(dataDirectory, "unix:gid").toString();
     try (@SuppressWarnings("resource")
         var generator =
             new GenericContainer<>(DockerImageName.parse(IMAGE))
@@ -251,8 +253,8 @@ class SynapseContainerIT {
                     dataDirectory.toAbsolutePath().toString(), "/data", BindMode.READ_WRITE)
                 .withEnv("SYNAPSE_SERVER_NAME", SERVER_NAME)
                 .withEnv("SYNAPSE_REPORT_STATS", "no")
-                .withEnv("UID", "0")
-                .withEnv("GID", "0")
+                .withEnv("UID", uid)
+                .withEnv("GID", gid)
                 .withCommand(
                     "generate",
                     "--config-path",
@@ -289,13 +291,15 @@ class SynapseContainerIT {
   }
 
   @SuppressWarnings("resource")
-  private static GenericContainer<?> startServer() {
+  private static GenericContainer<?> startServer() throws IOException {
+    String uid = Files.getAttribute(dataDirectory, "unix:uid").toString();
+    String gid = Files.getAttribute(dataDirectory, "unix:gid").toString();
     var container =
         new GenericContainer<>(DockerImageName.parse(IMAGE))
             .withFileSystemBind(
                 dataDirectory.toAbsolutePath().toString(), "/data", BindMode.READ_WRITE)
-            .withEnv("UID", "0")
-            .withEnv("GID", "0")
+            .withEnv("UID", uid)
+            .withEnv("GID", gid)
             .withCommand("run", "--config-path", "/data/homeserver.yaml")
             .withExposedPorts(8008)
             .waitingFor(Wait.forHttp("/_matrix/client/versions").forStatusCode(200))

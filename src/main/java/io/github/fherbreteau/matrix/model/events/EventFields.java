@@ -364,7 +364,7 @@ final class EventFields {
       JsonValue item = entry.getValue();
       result.put(entry.getKey(), item.isNumber() ? longFieldValue(item) : null);
     }
-    return java.util.Collections.unmodifiableMap(result);
+    return Collections.unmodifiableMap(result);
   }
 
   private static Long longFieldValue(JsonValue value) {

@@ -25,6 +25,8 @@
         <!-- Tools dependencies versions -->
         <compiler-plugin.version>3.16.0</compiler-plugin.version>
         <surefire-plugin.version>3.6.0</surefire-plugin.version>
+        <failsafe-plugin.version>3.6.0</failsafe-plugin.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
         <checkstyle-maven.version>3.6.0</checkstyle-maven.version>
         <checkstyle.version>14.1.0</checkstyle.version>
         <jacoco.version>0.8.15</jacoco.version>
@@ -65,9 +67,55 @@
             <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
+        <profile>
+            <id>integration</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>before-integration-test-execution</id>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <destFile>${project.build.directory}/jacoco/jacoco-integration-tests.exec</destFile>
+                                    <propertyName>failsafe.jacoco.args</propertyName>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>${failsafe-plugin.version}</version>
+                        <configuration>
+<argLine>@{failsafe.jacoco.args} --add-reads io.github.fherbreteau.matrix=jdk.httpserver</argLine>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>sonar</id>
             <build>
@@ -434,13 +482,32 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>jacoco-merge</id>
+                        <phase>post-integration-test</phase>
+                        <goals>
+                            <goal>merge</goal>
+                        </goals>
+                        <configuration>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.directory}/jacoco</directory>
+                                    <includes>
+                                        <include>jacoco-unit-tests.exec</include>
+                                        <include>jacoco-integration-tests.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                            <destFile>${project.build.directory}/jacoco/jacoco-merged.exec</destFile>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>jacoco-report</id>
                         <phase>post-integration-test</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
                         <configuration>
-                            <dataFile>${project.build.directory}/jacoco/jacoco-unit-tests.exec</dataFile>
+                            <dataFile>${project.build.directory}/jacoco/jacoco-merged.exec</dataFile>
                             <formats>
                                 <format>XML</format>
                                 <format>HTML</format>
@@ -454,7 +521,7 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <dataFile>${project.build.directory}/jacoco/jacoco-unit-tests.exec</dataFile>
+                            <dataFile>${project.build.directory}/jacoco/jacoco-merged.exec</dataFile>
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>

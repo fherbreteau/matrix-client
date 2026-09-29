@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
+- **Mock Homeserver and Opt-In Synapse Integration Tests**: Implemented issue #14 — added a reusable JDK HTTP mock fixture, a Docker-backed Synapse/Testcontainers suite exercising client methods end to end, and separate fast-unit versus integration Maven commands. Testcontainers is test-scoped; the Docker suite runs in a dedicated CI job (#14, #33)
+
 - **Safe Retries and Request Observability**: Implemented issue #13 — added bounded configurable retries for idempotent requests, capped `Retry-After` handling, per-call POST replay opt-in, interruptible backoff, and redacted request-attempt observation without runtime dependencies (#13)
 
 - **Media Upload, Download, and Thumbnail APIs**: Implemented issue #9 — `uploadMedia` posts raw bytes with a configurable content type and optional filename to the content repository and parses the returned `content_uri` into a validated `MxcUri` (path-traversal-safe media IDs), `downloadMedia` uses the authenticated v1.11 endpoint and returns a `MediaDownload` streaming the body through an `AutoCloseable` `InputStream` with the `Content-Type`/`Content-Disposition` headers, `getThumbnail` requests thumbnails with `width`/`height`, the `ThumbnailMethod` enum (`scale`/`crop`) and the `animated` flag, `getMediaConfig` exposes the advertised `m.upload.size`, a new pluggable `MediaTransport` (JDK default, overridable via the builder) moves raw bytes, and configurable `maxBytes` limits raise `M_TOO_LARGE` instead of buffering unbounded responses; media methods and models link to their specification sections (#26)

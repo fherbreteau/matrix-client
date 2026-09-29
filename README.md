@@ -124,6 +124,32 @@ persisted transaction ID for the same caller-provided logical operation key; use
 key for each operation. Media metadata is optional and application-defined through
 `MediaMetadataStore`; it does not cache media bytes.
 
+## Testing
+
+Fast deterministic tests run with `mvn test`. `MockHomeserverConformanceTest` uses a reusable
+in-process JDK HTTP server fixture and exercises authentication, rooms, messaging, state, media,
+rate limits, sync, unknown fields and unknown event types over the actual HTTP transport. To run that
+suite alone:
+
+```sh
+mvn -Dtest=MockHomeserverConformanceTest test
+```
+
+`SynapseContainerIT` launches the official `matrixdotorg/synapse` image with Testcontainers. It is
+opt-in, runs through Maven Failsafe, and requires Docker; its test-only dependency does not affect the
+runtime library:
+
+```sh
+mvn -Pintegration verify
+```
+
+The suite generates a temporary Synapse configuration and disposable users. It exercises versions,
+login/`whoami`, rooms, membership/moderation, state and messages, history/timestamps, profiles, account
+data, aliases, presence, receipts, typing, filters, sync, media configuration/upload/download, and
+invalid-credential handling. The container and temporary data are removed after tests. CI's normal
+`mvn clean verify` does not start Docker. Mock-fixture failure messages report method and path while
+redacting authorization values and query strings.
+
 ## Minimal example
 
 ```java

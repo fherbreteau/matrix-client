@@ -22,7 +22,7 @@ final class RetryAfterParser {
       try {
         TemporalAccessor parsed = DateTimeFormatter.RFC_1123_DATE_TIME.parse(stripped);
         Instant retryAt = Instant.from(parsed).atOffset(ZoneOffset.UTC).toInstant();
-        return Duration.between(Instant.now(), retryAt).toMillis();
+        return Math.max(0, Duration.between(Instant.now(), retryAt).toMillis());
       } catch (DateTimeException | ArithmeticException _) {
         return null;
       }

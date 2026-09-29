@@ -7,7 +7,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -103,7 +102,7 @@ public final class JdkHttpTransport implements HttpTransport {
           response.statusCode(),
           lowerCaseHeaders(response),
           response.body(),
-          parseRetryAfter(response.headers().firstValue("Retry-After").orElse(null)));
+          RetryAfterParser.parse(response.headers().firstValue("Retry-After").orElse(null)));
     } catch (HttpTimeoutException e) {
       throw new TransportTimeoutException(
           "HTTP request timed out: " + request.method() + " " + request.url(), e);
@@ -124,16 +123,5 @@ public final class JdkHttpTransport implements HttpTransport {
       }
     }
     return headers;
-  }
-
-  private static Long parseRetryAfter(String value) {
-    if (value == null || value.isBlank()) {
-      return null;
-    }
-    try {
-      return Duration.ofSeconds(Long.parseLong(value.strip())).toMillis();
-    } catch (NumberFormatException _) {
-      return null;
-    }
   }
 }

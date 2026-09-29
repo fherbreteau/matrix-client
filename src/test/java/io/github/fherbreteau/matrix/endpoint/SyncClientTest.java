@@ -13,7 +13,7 @@ import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomEventFilter;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
-import io.github.fherbreteau.matrix.model.SyncTokenStore;
+import io.github.fherbreteau.matrix.store.SyncTokenStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;

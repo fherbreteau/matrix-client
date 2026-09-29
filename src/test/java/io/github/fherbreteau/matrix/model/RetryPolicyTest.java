@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import io.github.fherbreteau.matrix.retry.RetryPolicy;
 import org.junit.jupiter.api.Test;
 
 class RetryPolicyTest {

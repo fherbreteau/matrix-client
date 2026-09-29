@@ -7,7 +7,7 @@ import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomEventFilter;
-import io.github.fherbreteau.matrix.model.SyncTokenStore;
+import io.github.fherbreteau.matrix.store.SyncTokenStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
 import io.github.fherbreteau.matrix.transport.TransportTimeoutException;

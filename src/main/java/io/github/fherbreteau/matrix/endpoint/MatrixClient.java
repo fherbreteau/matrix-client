@@ -20,9 +20,6 @@ import io.github.fherbreteau.matrix.model.Presence;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.ReadMarkers;
-import io.github.fherbreteau.matrix.model.RequestAttempt;
-import io.github.fherbreteau.matrix.model.RequestObserver;
-import io.github.fherbreteau.matrix.model.RetryPolicy;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
@@ -30,15 +27,18 @@ import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
-import io.github.fherbreteau.matrix.model.SessionStore;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
-import io.github.fherbreteau.matrix.model.SyncTokenStore;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
-import io.github.fherbreteau.matrix.model.TransactionIdStore;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
+import io.github.fherbreteau.matrix.retry.RequestAttempt;
+import io.github.fherbreteau.matrix.retry.RequestObserver;
+import io.github.fherbreteau.matrix.retry.RetryPolicy;
+import io.github.fherbreteau.matrix.store.SessionStore;
+import io.github.fherbreteau.matrix.store.SyncTokenStore;
+import io.github.fherbreteau.matrix.store.TransactionIdStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
@@ -99,6 +99,7 @@ public final class MatrixClient {
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String ROOM_ID_FIELD = "room_id";
+  private static final String FILE_TYPE = "application/octet-stream";
 
   private final HttpTransport transport;
   private final String homeserverUrl;
@@ -1533,11 +1534,9 @@ public final class MatrixClient {
     if (filename != null) {
       path.append("?filename=").append(encode(filename));
     }
-    var response =
-        sendBinary(
-            new BinaryRequest(
-                "POST", homeserverUrl + "/" + path, authHeaders(), content, contentType),
-            path.toString());
+    var request =
+        new BinaryRequest("POST", homeserverUrl + "/" + path, authHeaders(), content, contentType);
+    var response = sendBinary(request, path.toString());
     throwIfError(response.statusCode(), asString(response), response.headers());
     JsonObject body = JsonParser.parse(asString(response)).asObject();
     JsonValue uri = body.get("content_uri");
@@ -1591,11 +1590,9 @@ public final class MatrixClient {
     if (fileName != null) {
       path.append('/').append(encode(fileName));
     }
-    var response =
-        sendBinary(
-            new BinaryRequest(
-                "GET", homeserverUrl + "/" + path, authHeaders(), null, "application/octet-stream"),
-            path.toString());
+    var request =
+        new BinaryRequest("GET", homeserverUrl + "/" + path, authHeaders(), null, FILE_TYPE);
+    var response = sendBinary(request, path.toString());
     throwIfError(response.statusCode(), asString(response), response.headers());
     if (maxBytes > 0 && response.contentLength() > maxBytes) {
       throw new MatrixServerException(
@@ -1643,15 +1640,9 @@ public final class MatrixClient {
     if (animated != null) {
       query.append("&animated=").append(animated);
     }
-    var response =
-        sendBinary(
-            new BinaryRequest(
-                "GET",
-                homeserverUrl + "/" + query,
-                authHeaders(),
-                null,
-                "application/octet-stream"),
-            query.toString());
+    var request =
+        new BinaryRequest("GET", homeserverUrl + "/" + query, authHeaders(), null, FILE_TYPE);
+    var response = sendBinary(request, query.toString());
     throwIfError(response.statusCode(), asString(response), response.headers());
     if (maxBytes > 0 && response.contentLength() > maxBytes) {
       throw new MatrixServerException(

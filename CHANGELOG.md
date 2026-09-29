@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️ Compatibility
+
+- **Public package relocation**: Event content and registry types move to `io.github.fherbreteau.matrix.model.events`; persistence interfaces and implementations move to `io.github.fherbreteau.matrix.store` and its subpackages; retry types move to `io.github.fherbreteau.matrix.retry`. Existing imports and compiled binaries using the previous package names must be updated.
+
 ### 🚀 Features
 
 - **Safe Retries and Request Observability**: Implemented issue #13 — added bounded configurable retries for idempotent requests, capped `Retry-After` handling, per-call POST replay opt-in, interruptible backoff, and redacted request-attempt observation without runtime dependencies (#13)

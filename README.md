@@ -24,7 +24,12 @@ module `io.github.fherbreteau.matrix`) and exports the following packages:
 | --- | --- |
 | `io.github.fherbreteau.matrix.transport` | HTTP layer built on `java.net.http.HttpClient` |
 | `io.github.fherbreteau.matrix.json` | Minimal JSON parser/serializer |
-| `io.github.fherbreteau.matrix.model` | Matrix data models |
+| `io.github.fherbreteau.matrix.model` | Core Matrix identifiers, room, sync, and response models |
+| `io.github.fherbreteau.matrix.model.events` | Typed event content models and registry |
+| `io.github.fherbreteau.matrix.store` | Injectable persistence interfaces |
+| `io.github.fherbreteau.matrix.store.file` | File-backed persistence implementations |
+| `io.github.fherbreteau.matrix.store.memory` | In-memory persistence implementations |
+| `io.github.fherbreteau.matrix.retry` | Retry policy and request-observation API |
 | `io.github.fherbreteau.matrix.endpoint` | Homeserver API endpoints / client entry point |
 | `io.github.fherbreteau.matrix.error` | Error types |
 
@@ -58,8 +63,8 @@ content return `UnknownEventContent`, preserving the raw content. Applications c
 for custom event types.
 
 ```java
-import io.github.fherbreteau.matrix.model.EventRegistry;
-import io.github.fherbreteau.matrix.model.MessageEventContent;
+import io.github.fherbreteau.matrix.model.events.EventRegistry;
+import io.github.fherbreteau.matrix.model.events.MessageEventContent;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 
 RoomEvent event = RoomEvent.from(response);
@@ -79,7 +84,7 @@ continues to use its separate opt-in `SyncLoop` policy.
 
 ```java
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
-import io.github.fherbreteau.matrix.model.RetryPolicy;
+import io.github.fherbreteau.matrix.retry.RetryPolicy;
 
 MatrixClient client = MatrixClient.builder("https://matrix.example.org")
     .retryPolicy(RetryPolicy.defaults())
@@ -98,9 +103,9 @@ stores without adding a database dependency:
 
 ```java
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
-import io.github.fherbreteau.matrix.model.FileSessionStore;
-import io.github.fherbreteau.matrix.model.FileSyncTokenStore;
-import io.github.fherbreteau.matrix.model.FileTransactionIdStore;
+import io.github.fherbreteau.matrix.store.file.FileSessionStore;
+import io.github.fherbreteau.matrix.store.file.FileSyncTokenStore;
+import io.github.fherbreteau.matrix.store.file.FileTransactionIdStore;
 import java.nio.file.Path;
 
 MatrixClient client = MatrixClient.builder("https://matrix.example.org")

@@ -69,7 +69,8 @@ class RoomTest {
     RoomEvent event =
         RoomEvent.from(
             JsonParser.parse(
-                "{\"type\":\"org.example.custom\",\"content\":{\"x\":1},\"unsigned\":{\"age\":5}}"));
+                "{\"type\":\"org.example.custom\",\"content\":{\"x\":1},"
+                    + "\"unsigned\":{\"age\":5}}"));
     assertThat(event).extracting(RoomEvent::type).isEqualTo("org.example.custom");
     assertThat(event.content().asObject().get("x").asDouble()).isEqualTo(1.0);
   }

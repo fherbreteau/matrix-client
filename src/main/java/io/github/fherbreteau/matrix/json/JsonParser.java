@@ -139,6 +139,9 @@ public final class JsonParser {
           default -> throw error("Invalid escape character: " + e);
         }
       } else {
+        if (c < 0x20) {
+          throw error("Unescaped control character in string");
+        }
         sb.append(c);
       }
     }

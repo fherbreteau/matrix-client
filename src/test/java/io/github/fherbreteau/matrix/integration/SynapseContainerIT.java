@@ -28,7 +28,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
@@ -208,7 +210,7 @@ class SynapseContainerIT {
         "org.example.integration." + UUID.randomUUID().toString().replace('-', '_');
     MatrixFilter filter =
         MatrixFilter.builder()
-            .accountData(EventFilter.builder().types(java.util.List.of(accountDataType)).build())
+            .accountData(EventFilter.builder().types(List.of(accountDataType)).build())
             .build();
     String filterId = client.createFilter(filter);
     assertThat(filterId).isNotBlank();
@@ -285,7 +287,7 @@ class SynapseContainerIT {
             + "  account:\n    per_second: 100\n    burst_count: 100\n"
             + "  failed_attempts:\n    per_second: 100\n    burst_count: 100\n",
         StandardCharsets.UTF_8,
-        java.nio.file.StandardOpenOption.APPEND);
+        StandardOpenOption.APPEND);
   }
 
   @SuppressWarnings("resource")
@@ -376,7 +378,7 @@ class SynapseContainerIT {
       return;
     }
     try (var paths = Files.walk(dataDirectory)) {
-      for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+      for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
         Files.deleteIfExists(path);
       }
     }

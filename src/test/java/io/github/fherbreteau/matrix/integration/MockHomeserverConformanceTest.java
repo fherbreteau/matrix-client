@@ -100,9 +100,7 @@ class MockHomeserverConformanceTest {
                   + " down\",\"org.example.retry\":true}",
               9_000L));
       MatrixClient client =
-          MatrixClient.builder(server.baseUrl())
-              .retryPolicy(io.github.fherbreteau.matrix.retry.RetryPolicy.disabled())
-              .build();
+          MatrixClient.builder(server.baseUrl()).retryPolicy(RetryPolicy.disabled()).build();
       client.login(new PasswordCredentials("@alice:example.org", "unused"));
 
       RateLimitedException exception =

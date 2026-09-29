@@ -77,7 +77,7 @@ class SynapseContainerIT {
         try {
           client.leaveRoom(moderationRoom);
           client.forget(moderationRoom);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException _) {
           Thread.onSpinWait();
         }
       }
@@ -234,11 +234,9 @@ class SynapseContainerIT {
   void rejectsInvalidCredentialsWithoutLeakingThePassword() {
     MatrixClient unauthenticatedClient =
         MatrixClient.builder(homeserverUrl()).retryPolicy(RetryPolicy.disabled()).build();
-    assertThatThrownBy(
-            () ->
-                unauthenticatedClient.login(
-                    new PasswordCredentials(
-                        "@integration:localhost", "invalid-integration-password")))
+    PasswordCredentials invalidCredentials =
+        new PasswordCredentials("@integration:localhost", "invalid-integration-password");
+    assertThatThrownBy(() -> login(unauthenticatedClient, invalidCredentials))
         .isInstanceOf(AuthenticationException.class)
         .hasMessageNotContaining("invalid-integration-password");
   }
@@ -341,6 +339,10 @@ class SynapseContainerIT {
               + "): "
               + details);
     }
+  }
+
+  private static void login(MatrixClient client, PasswordCredentials credentials) {
+    client.login(credentials);
   }
 
   private static MatrixClient loginAsOtherUser() {

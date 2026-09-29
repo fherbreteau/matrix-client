@@ -106,9 +106,7 @@ class MockHomeserverConformanceTest {
       client.login(new PasswordCredentials("@alice:example.org", "unused"));
 
       RateLimitedException exception =
-          assertThatExceptionOfType(RateLimitedException.class)
-              .isThrownBy(() -> client.whoami())
-              .actual();
+          assertThatExceptionOfType(RateLimitedException.class).isThrownBy(client::whoami).actual();
 
       assertThat(exception.getRetryAfterMs()).isEqualTo(9_000L);
       assertThat(exception.getFields()).containsKey("org.example.retry");

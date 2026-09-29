@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.json.JsonObject;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.RequestAttempt;
 import io.github.fherbreteau.matrix.model.RetryPolicy;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
@@ -85,8 +86,8 @@ class RequestReliabilityTest {
                       503, "{\"errcode\":\"M_UNAVAILABLE\",\"error\":\"later\"}");
                 })
             .build();
-
-    assertThatThrownBy(() -> client.post("_matrix/client/v3/custom", new JsonObject()))
+    JsonValue content = new JsonObject();
+    assertThatThrownBy(() -> client.post("_matrix/client/v3/custom", content))
         .isInstanceOf(MatrixServerException.class);
     assertThat(attempts.get()).isOne();
   }

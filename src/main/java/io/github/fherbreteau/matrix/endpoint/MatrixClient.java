@@ -54,6 +54,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,6 +81,8 @@ import java.util.UUID;
  */
 public final class MatrixClient {
 
+  private static final String BEARER_PREFIX = "Bearer ";
+  private static final String SYNC_URI = "_matrix/client/v3/sync";
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
   private static final String NO_SESSION_MESSAGE = "No authenticated session";
   private static final String USER_PATH = "_matrix/client/v3/user/";
@@ -1407,7 +1410,7 @@ public final class MatrixClient {
       query.put("filter", inlineFilterJson);
     }
     SyncResponse response =
-        SyncResponse.from(authenticated("GET", appendQuery("_matrix/client/v3/sync", query), null));
+        SyncResponse.from(authenticated("GET", appendQuery(SYNC_URI, query), null));
     syncTokenStore.save(response.nextBatch());
     return response;
   }
@@ -1459,8 +1462,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public SyncResponse sync(SyncOptions options) {
-    JsonValue response =
-        authenticated("GET", appendQuery("_matrix/client/v3/sync", options.toQuery()), null);
+    JsonValue response = authenticated("GET", appendQuery(SYNC_URI, options.toQuery()), null);
     SyncResponse parsed = SyncResponse.from(response);
     syncTokenStore.save(parsed.nextBatch());
     return parsed;
@@ -1685,43 +1687,25 @@ public final class MatrixClient {
         sessionStore
             .current()
             .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
-    return Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken());
+    return Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken());
   }
 
   private BinaryResponse sendBinary(BinaryRequest request, String path) {
-    UUID correlationId = UUID.randomUUID();
-    long started = System.nanoTime();
-    Integer statusCode = null;
+    var context =
+        new AttemptContext(UUID.randomUUID(), request.method(), path, 1, System.nanoTime());
     try {
       BinaryResponse response = mediaTransport.send(request);
-      statusCode = response.statusCode();
       RequestAttempt.Outcome outcome =
-          statusCode >= 200 && statusCode < 300
+          response.statusCode() >= 200 && response.statusCode() < 300
               ? RequestAttempt.Outcome.SUCCEEDED
               : RequestAttempt.Outcome.FAILED;
-      observe(correlationId, request.method(), path, 1, statusCode, started, null, outcome);
+      observe(context, response.statusCode(), null, outcome);
       return response;
     } catch (TransportInterruptedException exception) {
-      observe(
-          correlationId,
-          request.method(),
-          path,
-          1,
-          statusCode,
-          started,
-          null,
-          RequestAttempt.Outcome.INTERRUPTED);
+      observe(context, null, null, RequestAttempt.Outcome.INTERRUPTED);
       throw exception;
     } catch (RuntimeException exception) {
-      observe(
-          correlationId,
-          request.method(),
-          path,
-          1,
-          statusCode,
-          started,
-          null,
-          RequestAttempt.Outcome.FAILED);
+      observe(context, null, null, RequestAttempt.Outcome.FAILED);
       throw exception;
     }
   }
@@ -1826,71 +1810,60 @@ public final class MatrixClient {
     boolean safeToRetry =
         (retryPolicy.retries(method) || explicitlyIdempotent) && !isSyncPath(path);
     for (int attempt = 1; ; attempt++) {
-      long started = System.nanoTime();
-      Integer statusCode = null;
-      try {
-        HttpTransport.Response response = transport.send(request);
-        statusCode = response.statusCode();
-        if (statusCode < 200 || statusCode >= 300) {
-          throw MatrixServerException.fromResponse(
-              statusCode, parseOrNull(response.body()), response.headers());
+      AttemptContext context =
+          new AttemptContext(correlationId, method, path, attempt, System.nanoTime());
+      HttpTransport.Response response = send(request, context, safeToRetry);
+      if (response != null) {
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+          MatrixServerException failure =
+              MatrixServerException.fromResponse(
+                  response.statusCode(), parseOrNull(response.body()), response.headers());
+          retryOrThrow(failure, context, response.statusCode(), safeToRetry);
+          response = null;
         }
-        JsonValue result =
-            response.body() == null || response.body().isBlank()
-                ? new JsonObject()
-                : JsonParser.parse(response.body());
-        observe(
-            correlationId,
-            method,
-            path,
-            attempt,
-            statusCode,
-            started,
-            null,
-            RequestAttempt.Outcome.SUCCEEDED);
-        return result;
-      } catch (TransportInterruptedException exception) {
-        observe(
-            correlationId,
-            method,
-            path,
-            attempt,
-            statusCode,
-            started,
-            null,
-            RequestAttempt.Outcome.INTERRUPTED);
-        throw exception;
-      } catch (MatrixServerException
-          | TransportTimeoutException
-          | UncheckedTransportException exception) {
-        Duration retryDelay = retryDelay(exception, attempt, safeToRetry);
-        boolean retry = retryDelay != null;
-        observe(
-            correlationId,
-            method,
-            path,
-            attempt,
-            statusCode,
-            started,
-            retryDelay,
-            retry ? RequestAttempt.Outcome.RETRYING : RequestAttempt.Outcome.FAILED);
-        if (!retry) {
-          throw exception;
+        if (response != null) {
+          return parseResponse(response, context);
         }
-        sleepBeforeRetry(retryDelay);
-      } catch (RuntimeException exception) {
-        observe(
-            correlationId,
-            method,
-            path,
-            attempt,
-            statusCode,
-            started,
-            null,
-            RequestAttempt.Outcome.FAILED);
-        throw exception;
       }
     }
+  }
+
+  private JsonValue parseResponse(HttpTransport.Response response, AttemptContext context) {
+    try {
+      JsonValue result =
+          response.body() == null || response.body().isBlank()
+              ? new JsonObject()
+              : JsonParser.parse(response.body());
+      observe(context, response.statusCode(), null, RequestAttempt.Outcome.SUCCEEDED);
+      return result;
+    } catch (RuntimeException exception) {
+      observe(context, response.statusCode(), null, RequestAttempt.Outcome.FAILED);
+      throw exception;
+    }
+  }
+
+  private HttpTransport.Response send(
+      Request request, AttemptContext context, boolean safeToRetry) {
+    try {
+      return transport.send(request);
+    } catch (TransportInterruptedException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.INTERRUPTED);
+      throw exception;
+    } catch (TransportTimeoutException | UncheckedTransportException exception) {
+      retryOrThrow(exception, context, null, safeToRetry);
+      throw exception;
+    }
+  }
+
+  private void retryOrThrow(
+      RuntimeException failure, AttemptContext context, Integer statusCode, boolean safeToRetry) {
+    Duration delay = retryDelay(failure, context.attempt(), safeToRetry);
+    if (delay == null) {
+      observe(context, statusCode, null, RequestAttempt.Outcome.FAILED);
+      throw failure;
+    }
+    observe(context, statusCode, delay, RequestAttempt.Outcome.RETRYING);
+    sleepBeforeRetry(delay);
   }
 
   private Duration retryDelay(RuntimeException failure, int attempt, boolean safeToRetry) {
@@ -1910,7 +1883,7 @@ public final class MatrixClient {
   }
 
   private static boolean isSyncPath(String path) {
-    return path.equals("_matrix/client/v3/sync") || path.startsWith("_matrix/client/v3/sync?");
+    return path.equals(SYNC_URI) || path.startsWith("_matrix/client/v3/sync?");
   }
 
   private void sleepBeforeRetry(Duration delay) {
@@ -1929,25 +1902,24 @@ public final class MatrixClient {
   }
 
   private void observe(
-      UUID correlationId,
-      String method,
-      String path,
-      int attempt,
+      AttemptContext context,
       Integer statusCode,
-      long started,
       Duration retryDelay,
       RequestAttempt.Outcome outcome) {
     requestObserver.onAttempt(
         new RequestAttempt(
-            correlationId,
-            method,
-            sanitizeEndpoint(path),
-            attempt,
+            context.correlationId(),
+            context.method(),
+            sanitizeEndpoint(context.path()),
+            context.attempt(),
             statusCode,
-            Duration.ofNanos(Math.max(0, System.nanoTime() - started)),
+            Duration.ofNanos(Math.max(0, System.nanoTime() - context.started())),
             retryDelay,
             outcome));
   }
+
+  private record AttemptContext(
+      UUID correlationId, String method, String path, int attempt, long started) {}
 
   private static String sanitizeEndpoint(String path) {
     int query = path.indexOf('?');
@@ -1972,15 +1944,15 @@ public final class MatrixClient {
         mediaIdentifiersToHide = 2;
       }
     }
-    return sanitized.length() == 0 ? "/" : sanitized.toString();
+    return sanitized.isEmpty() ? "/" : sanitized.toString();
   }
 
   private static boolean isSensitiveSegment(String segment) {
     return segment.startsWith("%40")
         || segment.startsWith("%21")
         || segment.startsWith("%24")
-        || segment.toLowerCase(java.util.Locale.ROOT).contains("token")
-        || segment.toLowerCase(java.util.Locale.ROOT).contains("secret");
+        || segment.toLowerCase(Locale.ROOT).contains("token")
+        || segment.toLowerCase(Locale.ROOT).contains("secret");
   }
 
   private JsonValue authenticated(String method, String path, JsonValue body) {
@@ -1993,7 +1965,7 @@ public final class MatrixClient {
           method,
           path,
           body,
-          Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken()),
+          Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken()),
           false);
     } catch (MatrixServerException e) {
       if (isTokenError(e)) {
@@ -2014,7 +1986,7 @@ public final class MatrixClient {
           method,
           path,
           body,
-          Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken()),
+          Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken()),
           explicitlyIdempotent);
     } catch (MatrixServerException e) {
       if (isTokenError(e)) {

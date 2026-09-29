@@ -9,6 +9,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.PublicRoom;
@@ -319,12 +320,10 @@ class ClientServerOperationsTest {
             .transport(stub -> new Response(200, "{}"))
             .build();
     assertThatThrownBy(client::whoami).isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(
-            () ->
-                client.sendEvent(
-                    RoomId.of("!a:b"), "m.room.message", JsonParser.parse("{}"), "txn"))
+    RoomId roomId = RoomId.of("!a:b");
+    JsonValue content = JsonParser.parse("{}");
+    assertThatThrownBy(() -> client.sendEvent(roomId, "m.room.message", content, "txn"))
         .isInstanceOf(AuthenticationException.class);
-    var roomId = RoomId.of("!a:b");
     assertThatThrownBy(() -> client.getRoomState(roomId))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> client.leaveRoom(roomId)).isInstanceOf(AuthenticationException.class);

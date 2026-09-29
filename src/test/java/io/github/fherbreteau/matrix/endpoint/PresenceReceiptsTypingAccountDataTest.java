@@ -70,7 +70,8 @@ class PresenceReceiptsTypingAccountDataTest {
                     new Response(200, LOGIN_OK),
                     new Response(
                         200,
-                        "{\"presence\":\"unavailable\",\"status_msg\":\"brb\",\"last_active_ago\":50}"),
+                        "{\"presence\":\"unavailable\",\"status_msg\":\"brb\","
+                            + "\"last_active_ago\":50}"),
                     new Response(200, "{}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
@@ -192,7 +193,8 @@ class PresenceReceiptsTypingAccountDataTest {
     client.setRoomAccountData(roomId, "org.example.color", JsonParser.parse("{\"color\":\"red\"}"));
     assertThat(requests.get(2).url())
         .endsWith(
-            "/_matrix/client/v3/user/%40alice%3Amatrix.org/rooms/%21a%3Ab/account_data/org.example.color");
+            "/_matrix/client/v3/user/%40alice%3Amatrix.org/rooms/"
+                + "%21a%3Ab/account_data/org.example.color");
   }
 
   @Test

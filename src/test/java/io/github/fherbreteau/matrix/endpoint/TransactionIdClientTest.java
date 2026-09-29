@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.model.EventId;
-import io.github.fherbreteau.matrix.model.FileTransactionIdStore;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.store.file.FileTransactionIdStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.nio.file.Path;

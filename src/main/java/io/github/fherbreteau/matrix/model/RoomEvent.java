@@ -2,6 +2,7 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import io.github.fherbreteau.matrix.model.events.EventRegistry;
 
 /**
  * An event inside a room as delivered by the homeserver, following the {@code ClientEvent} format:

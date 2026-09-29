@@ -1,5 +1,7 @@
 package io.github.fherbreteau.matrix.model;
 
+import io.github.fherbreteau.matrix.model.events.EventContent;
+
 /**
  * A Matrix room-event envelope paired with typed or raw content.
  *

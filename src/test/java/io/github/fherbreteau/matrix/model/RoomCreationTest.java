@@ -48,7 +48,8 @@ class RoomCreationTest {
         .contains("\"power_level_content_override\":{\"ban\":50}")
         .contains("\"invite\":[\"@bob:matrix.org\",\"@carol:matrix.org\"]")
         .contains(
-            "\"invite_3pid\":[{\"id_server\":\"id.example.org\",\"id_access_token\":\"tok\",\"medium\":\"email\",\"address\":\"a@b.c\"}]");
+            "\"invite_3pid\":[{\"id_server\":\"id.example.org\","
+                + "\"id_access_token\":\"tok\",\"medium\":\"email\",\"address\":\"a@b.c\"}]");
   }
 
   @Test

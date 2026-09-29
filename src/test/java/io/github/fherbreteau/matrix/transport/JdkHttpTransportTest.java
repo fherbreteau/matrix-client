@@ -227,6 +227,21 @@ class JdkHttpTransportTest {
   }
 
   @Test
+  void mapsIoExceptionWithoutExposingQueryValues() {
+    var transport = new JdkHttpTransport(new FailingHttpClient());
+    var request =
+        new HttpTransport.Request("GET", "https://x/path?access_token=secret", Map.of(), null);
+    var exception =
+        assertThatExceptionOfType(UncheckedTransportException.class)
+            .isThrownBy(() -> transport.send(request))
+            .actual();
+    assertThat(exception)
+        .hasMessage("HTTP request failed: GET https://x/path")
+        .hasMessageNotContaining("access_token")
+        .hasMessageNotContaining("secret");
+  }
+
+  @Test
   void mapsTimeoutException() {
     var transport = new JdkHttpTransport(new TimingOutHttpClient());
     var request = new HttpTransport.Request("GET", "https://x", Map.of(), null);

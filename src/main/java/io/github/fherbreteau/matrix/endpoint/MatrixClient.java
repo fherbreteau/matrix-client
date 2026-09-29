@@ -20,6 +20,9 @@ import io.github.fherbreteau.matrix.model.Presence;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.ReadMarkers;
+import io.github.fherbreteau.matrix.model.RequestAttempt;
+import io.github.fherbreteau.matrix.model.RequestObserver;
+import io.github.fherbreteau.matrix.model.RetryPolicy;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
@@ -41,13 +44,19 @@ import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
+import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
+import io.github.fherbreteau.matrix.transport.TransportTimeoutException;
+import io.github.fherbreteau.matrix.transport.UncheckedTransportException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,6 +81,8 @@ import java.util.UUID;
  */
 public final class MatrixClient {
 
+  private static final String BEARER_PREFIX = "Bearer ";
+  private static final String SYNC_URI = "_matrix/client/v3/sync";
   private static final String M_MISSING_TOKEN = "M_MISSING_TOKEN";
   private static final String NO_SESSION_MESSAGE = "No authenticated session";
   private static final String USER_PATH = "_matrix/client/v3/user/";
@@ -97,6 +108,9 @@ public final class MatrixClient {
   private final MediaTransport mediaTransport;
   private final SyncTokenStore syncTokenStore;
   private final TransactionIdStore transactionIdStore;
+  private final RetryPolicy retryPolicy;
+  private final RequestObserver requestObserver;
+  private final RetrySleeper retrySleeper;
 
   private MatrixClient(Builder builder) {
     this.transport = builder.transport;
@@ -104,6 +118,9 @@ public final class MatrixClient {
     this.sessionStore = builder.sessionStore;
     this.syncTokenStore = builder.syncTokenStore;
     this.transactionIdStore = builder.transactionIdStore;
+    this.retryPolicy = builder.retryPolicy;
+    this.requestObserver = builder.requestObserver;
+    this.retrySleeper = builder.retrySleeper;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
       this.homeserverUrl = discovery.homeserverUrl();
@@ -890,7 +907,8 @@ public final class MatrixClient {
                     + encode(eventType)
                     + "/"
                     + encode(transactionId),
-                content)
+                content,
+                true)
             .asObject()
             .get(EVENT_ID_FIELD)
             .asString();
@@ -1003,7 +1021,8 @@ public final class MatrixClient {
                         + encode(eventId.value())
                         + "/"
                         + encode(transactionId),
-                    body)
+                    body,
+                    true)
                 .asObject()
                 .get(EVENT_ID_FIELD)
                 .asString());
@@ -1391,7 +1410,7 @@ public final class MatrixClient {
       query.put("filter", inlineFilterJson);
     }
     SyncResponse response =
-        SyncResponse.from(authenticated("GET", appendQuery("_matrix/client/v3/sync", query), null));
+        SyncResponse.from(authenticated("GET", appendQuery(SYNC_URI, query), null));
     syncTokenStore.save(response.nextBatch());
     return response;
   }
@@ -1443,8 +1462,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public SyncResponse sync(SyncOptions options) {
-    JsonValue response =
-        authenticated("GET", appendQuery("_matrix/client/v3/sync", options.toQuery()), null);
+    JsonValue response = authenticated("GET", appendQuery(SYNC_URI, options.toQuery()), null);
     SyncResponse parsed = SyncResponse.from(response);
     syncTokenStore.save(parsed.nextBatch());
     return parsed;
@@ -1516,10 +1534,11 @@ public final class MatrixClient {
       path.append("?filename=").append(encode(filename));
     }
     var response =
-        mediaTransport.send(
+        sendBinary(
             new BinaryRequest(
-                "POST", homeserverUrl + "/" + path, authHeaders(), content, contentType));
-    throwIfError(response.statusCode(), asString(response));
+                "POST", homeserverUrl + "/" + path, authHeaders(), content, contentType),
+            path.toString());
+    throwIfError(response.statusCode(), asString(response), response.headers());
     JsonObject body = JsonParser.parse(asString(response)).asObject();
     JsonValue uri = body.get("content_uri");
     if (uri == null || !uri.isString()) {
@@ -1573,14 +1592,11 @@ public final class MatrixClient {
       path.append('/').append(encode(fileName));
     }
     var response =
-        mediaTransport.send(
+        sendBinary(
             new BinaryRequest(
-                "GET",
-                homeserverUrl + "/" + path,
-                authHeaders(),
-                null,
-                "application/octet-stream"));
-    throwIfError(response.statusCode(), asString(response));
+                "GET", homeserverUrl + "/" + path, authHeaders(), null, "application/octet-stream"),
+            path.toString());
+    throwIfError(response.statusCode(), asString(response), response.headers());
     if (maxBytes > 0 && response.contentLength() > maxBytes) {
       throw new MatrixServerException(
           response.statusCode(), "M_TOO_LARGE", "Media exceeds the configured maximum size");
@@ -1628,14 +1644,15 @@ public final class MatrixClient {
       query.append("&animated=").append(animated);
     }
     var response =
-        mediaTransport.send(
+        sendBinary(
             new BinaryRequest(
                 "GET",
                 homeserverUrl + "/" + query,
                 authHeaders(),
                 null,
-                "application/octet-stream"));
-    throwIfError(response.statusCode(), asString(response));
+                "application/octet-stream"),
+            query.toString());
+    throwIfError(response.statusCode(), asString(response), response.headers());
     if (maxBytes > 0 && response.contentLength() > maxBytes) {
       throw new MatrixServerException(
           response.statusCode(), "M_TOO_LARGE", "Thumbnail exceeds the configured maximum size");
@@ -1670,14 +1687,34 @@ public final class MatrixClient {
         sessionStore
             .current()
             .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
-    return Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken());
+    return Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken());
   }
 
-  private void throwIfError(int statusCode, String body) {
+  private BinaryResponse sendBinary(BinaryRequest request, String path) {
+    var context =
+        new AttemptContext(UUID.randomUUID(), request.method(), path, 1, System.nanoTime());
+    try {
+      BinaryResponse response = mediaTransport.send(request);
+      RequestAttempt.Outcome outcome =
+          response.statusCode() >= 200 && response.statusCode() < 300
+              ? RequestAttempt.Outcome.SUCCEEDED
+              : RequestAttempt.Outcome.FAILED;
+      observe(context, response.statusCode(), null, outcome);
+      return response;
+    } catch (TransportInterruptedException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.INTERRUPTED);
+      throw exception;
+    } catch (RuntimeException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.FAILED);
+      throw exception;
+    }
+  }
+
+  private void throwIfError(int statusCode, String body, Map<String, String> headers) {
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    throw MatrixServerException.fromResponse(statusCode, parseOrNull(body), null);
+    throw MatrixServerException.fromResponse(statusCode, parseOrNull(body), headers);
   }
 
   private static String asString(BinaryResponse response) {
@@ -1715,7 +1752,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public JsonValue get(String path) {
-    return request("GET", path, null);
+    return request("GET", path, null, Map.of(), false);
   }
 
   /**
@@ -1728,7 +1765,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public JsonValue post(String path, JsonValue body) {
-    return request("POST", path, body);
+    return request("POST", path, body, Map.of(), false);
   }
 
   /**
@@ -1742,22 +1779,180 @@ public final class MatrixClient {
    *     specification</a>
    */
   public JsonValue request(String method, String path, JsonValue body) {
-    return request(method, path, body, Map.of());
+    return request(method, path, body, Map.of(), false);
+  }
+
+  /**
+   * Performs an HTTP request with per-call opt-in to replay a non-idempotent operation.
+   *
+   * @param method the HTTP method
+   * @param path the endpoint path relative to the homeserver URL
+   * @param body the JSON request body, or {@code null} for none
+   * @param idempotent whether repeating this operation is safe
+   * @return the parsed JSON response
+   * @see <a href="https://spec.matrix.org/latest/client-server-api/#rate-limiting">Matrix
+   *     specification</a>
+   */
+  public JsonValue request(String method, String path, JsonValue body, boolean idempotent) {
+    return request(method, path, body, Map.of(), idempotent);
   }
 
   private JsonValue request(
-      String method, String path, JsonValue body, Map<String, String> headers) {
-    String requestBody = body == null ? null : body.toJson();
-    Request request = new Request(method, homeserverUrl + "/" + path, headers, requestBody);
-    HttpTransport.Response response = transport.send(request);
-    if (response.statusCode() < 200 || response.statusCode() >= 300) {
-      throw MatrixServerException.fromResponse(
-          response.statusCode(), parseOrNull(response.body()), response.headers());
+      String method,
+      String path,
+      JsonValue body,
+      Map<String, String> headers,
+      boolean explicitlyIdempotent) {
+    Request request =
+        new Request(
+            method, homeserverUrl + "/" + path, headers, body == null ? null : body.toJson());
+    UUID correlationId = UUID.randomUUID();
+    boolean safeToRetry =
+        (retryPolicy.retries(method) || explicitlyIdempotent) && !isSyncPath(path);
+    for (int attempt = 1; ; attempt++) {
+      AttemptContext context =
+          new AttemptContext(correlationId, method, path, attempt, System.nanoTime());
+      HttpTransport.Response response = send(request, context, safeToRetry);
+      if (response != null) {
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+          MatrixServerException failure =
+              MatrixServerException.fromResponse(
+                  response.statusCode(), parseOrNull(response.body()), response.headers());
+          retryOrThrow(failure, context, response.statusCode(), safeToRetry);
+          response = null;
+        }
+        if (response != null) {
+          return parseResponse(response, context);
+        }
+      }
     }
-    if (response.body() == null || response.body().isBlank()) {
-      return new JsonObject();
+  }
+
+  private JsonValue parseResponse(HttpTransport.Response response, AttemptContext context) {
+    try {
+      JsonValue result =
+          response.body() == null || response.body().isBlank()
+              ? new JsonObject()
+              : JsonParser.parse(response.body());
+      observe(context, response.statusCode(), null, RequestAttempt.Outcome.SUCCEEDED);
+      return result;
+    } catch (RuntimeException exception) {
+      observe(context, response.statusCode(), null, RequestAttempt.Outcome.FAILED);
+      throw exception;
     }
-    return JsonParser.parse(response.body());
+  }
+
+  private HttpTransport.Response send(
+      Request request, AttemptContext context, boolean safeToRetry) {
+    try {
+      return transport.send(request);
+    } catch (TransportInterruptedException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.INTERRUPTED);
+      throw exception;
+    } catch (TransportTimeoutException | UncheckedTransportException exception) {
+      retryOrThrow(exception, context, null, safeToRetry);
+      throw exception;
+    }
+  }
+
+  private void retryOrThrow(
+      RuntimeException failure, AttemptContext context, Integer statusCode, boolean safeToRetry) {
+    Duration delay = retryDelay(failure, context.attempt(), safeToRetry);
+    if (delay == null) {
+      observe(context, statusCode, null, RequestAttempt.Outcome.FAILED);
+      throw failure;
+    }
+    observe(context, statusCode, delay, RequestAttempt.Outcome.RETRYING);
+    sleepBeforeRetry(delay);
+  }
+
+  private Duration retryDelay(RuntimeException failure, int attempt, boolean safeToRetry) {
+    if (!safeToRetry || attempt > retryPolicy.maxRetries() || !isRetryableFailure(failure)) {
+      return null;
+    }
+    Long retryAfterMs =
+        failure instanceof RateLimitedException rateLimited ? rateLimited.getRetryAfterMs() : null;
+    return Duration.ofMillis(retryPolicy.delayMs(attempt, retryAfterMs));
+  }
+
+  private static boolean isRetryableFailure(RuntimeException failure) {
+    return (failure instanceof MatrixServerException serverException
+            && serverException.isRetryable())
+        || failure instanceof TransportTimeoutException
+        || failure instanceof UncheckedTransportException;
+  }
+
+  private static boolean isSyncPath(String path) {
+    return path.equals(SYNC_URI) || path.startsWith("_matrix/client/v3/sync?");
+  }
+
+  private void sleepBeforeRetry(Duration delay) {
+    if (Thread.currentThread().isInterrupted()) {
+      throw new TransportInterruptedException("Retry interrupted", new InterruptedException());
+    }
+    try {
+      retrySleeper.sleep(delay);
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      throw new TransportInterruptedException("Retry interrupted", exception);
+    }
+    if (Thread.currentThread().isInterrupted()) {
+      throw new TransportInterruptedException("Retry interrupted", new InterruptedException());
+    }
+  }
+
+  private void observe(
+      AttemptContext context,
+      Integer statusCode,
+      Duration retryDelay,
+      RequestAttempt.Outcome outcome) {
+    requestObserver.onAttempt(
+        new RequestAttempt(
+            context.correlationId(),
+            context.method(),
+            sanitizeEndpoint(context.path()),
+            context.attempt(),
+            statusCode,
+            Duration.ofNanos(Math.max(0, System.nanoTime() - context.started())),
+            retryDelay,
+            outcome));
+  }
+
+  private record AttemptContext(
+      UUID correlationId, String method, String path, int attempt, long started) {}
+
+  private static String sanitizeEndpoint(String path) {
+    int query = path.indexOf('?');
+    String endpoint = query < 0 ? path : path.substring(0, query);
+    String[] segments = endpoint.split("/");
+    var sanitized = new StringBuilder();
+    int mediaIdentifiersToHide = 0;
+    for (String segment : segments) {
+      if (segment.isEmpty()) {
+        continue;
+      }
+      sanitized.append('/');
+      if (mediaIdentifiersToHide > 0) {
+        sanitized.append('*');
+        mediaIdentifiersToHide--;
+      } else if (isSensitiveSegment(segment)) {
+        sanitized.append('*');
+      } else {
+        sanitized.append(segment);
+      }
+      if ("download".equals(segment) || "thumbnail".equals(segment)) {
+        mediaIdentifiersToHide = 2;
+      }
+    }
+    return sanitized.isEmpty() ? "/" : sanitized.toString();
+  }
+
+  private static boolean isSensitiveSegment(String segment) {
+    return segment.startsWith("%40")
+        || segment.startsWith("%21")
+        || segment.startsWith("%24")
+        || segment.toLowerCase(Locale.ROOT).contains("token")
+        || segment.toLowerCase(Locale.ROOT).contains("secret");
   }
 
   private JsonValue authenticated(String method, String path, JsonValue body) {
@@ -1770,7 +1965,29 @@ public final class MatrixClient {
           method,
           path,
           body,
-          Map.of(Request.AUTHORIZATION_HEADER, "Bearer " + session.accessToken()));
+          Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken()),
+          false);
+    } catch (MatrixServerException e) {
+      if (isTokenError(e)) {
+        throw new AuthenticationException(e.getErrcode(), e.getMessage());
+      }
+      throw e;
+    }
+  }
+
+  private JsonValue authenticated(
+      String method, String path, JsonValue body, boolean explicitlyIdempotent) {
+    Session session =
+        sessionStore
+            .current()
+            .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
+    try {
+      return request(
+          method,
+          path,
+          body,
+          Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken()),
+          explicitlyIdempotent);
     } catch (MatrixServerException e) {
       if (isTokenError(e)) {
         throw new AuthenticationException(e.getErrcode(), e.getMessage());
@@ -1820,6 +2037,9 @@ public final class MatrixClient {
     private MediaTransport mediaTransport = MediaTransport.create();
     private SyncTokenStore syncTokenStore = SyncTokenStore.inMemory();
     private TransactionIdStore transactionIdStore = TransactionIdStore.inMemory();
+    private RetryPolicy retryPolicy = RetryPolicy.defaults();
+    private RequestObserver requestObserver = RequestObserver.noop();
+    private RetrySleeper retrySleeper = RetrySleeper.threadSleeper();
     private boolean discover;
     private boolean validateVersions;
 
@@ -1887,6 +2107,33 @@ public final class MatrixClient {
      */
     public Builder transactionIdStore(TransactionIdStore transactionIdStore) {
       this.transactionIdStore = transactionIdStore;
+      return this;
+    }
+
+    /**
+     * Sets automatic retry limits for idempotent requests; defaults to two retries.
+     *
+     * @param retryPolicy the retry policy
+     * @return this builder for chaining
+     */
+    public Builder retryPolicy(RetryPolicy retryPolicy) {
+      this.retryPolicy = Objects.requireNonNull(retryPolicy, "retryPolicy");
+      return this;
+    }
+
+    /**
+     * Sets an observer for redacted request attempt metadata.
+     *
+     * @param requestObserver the observer
+     * @return this builder for chaining
+     */
+    public Builder requestObserver(RequestObserver requestObserver) {
+      this.requestObserver = Objects.requireNonNull(requestObserver, "requestObserver");
+      return this;
+    }
+
+    Builder retrySleeper(RetrySleeper retrySleeper) {
+      this.retrySleeper = Objects.requireNonNull(retrySleeper, "retrySleeper");
       return this;
     }
 

@@ -1,9 +1,7 @@
 package io.github.fherbreteau.matrix.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.FileTransactionIdStore;
@@ -40,11 +38,8 @@ class TransactionIdClientTest {
     var roomId = RoomId.of("!room:matrix.org");
     var content = JsonParser.parse("{\"body\":\"hello\"}");
 
-    assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(
-            () -> client.sendMessageEventWithKey(roomId, "m.room.message", content, "op-1"));
-    String firstTransaction = transactionId(requests.get(1).url());
     EventId eventId = client.sendMessageEventWithKey(roomId, "m.room.message", content, "op-1");
+    String firstTransaction = transactionId(requests.get(1).url());
     String retryTransaction = transactionId(requests.get(2).url());
 
     assertThat(eventId.value()).isEqualTo("$event:matrix.org");
@@ -108,10 +103,8 @@ class TransactionIdClientTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "secret"));
     var roomId = RoomId.of("!room:matrix.org");
     var eventId = EventId.of("$event:matrix.org");
-    assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.redact(roomId, eventId, "reason"));
-    String firstTransaction = transactionId(requests.get(1).url());
     client.redact(roomId, eventId, "reason");
+    String firstTransaction = transactionId(requests.get(1).url());
     assertThat(transactionId(requests.get(2).url())).isEqualTo(firstTransaction);
     assertThat(store.find("redact\n!room:matrix.org\n$event:matrix.org")).isEmpty();
   }

@@ -319,6 +319,11 @@ class ClientServerOperationsTest {
             .transport(stub -> new Response(200, "{}"))
             .build();
     assertThatThrownBy(client::whoami).isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(
+            () ->
+                client.sendEvent(
+                    RoomId.of("!a:b"), "m.room.message", JsonParser.parse("{}"), "txn"))
+        .isInstanceOf(AuthenticationException.class);
     var roomId = RoomId.of("!a:b");
     assertThatThrownBy(() -> client.getRoomState(roomId))
         .isInstanceOf(AuthenticationException.class);

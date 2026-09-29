@@ -69,6 +69,28 @@ if (typed.content() instanceof MessageEventContent message) {
 }
 ```
 
+## Request reliability
+
+Idempotent HTTP methods use bounded retries by default: two retries with exponential backoff starting at
+250 ms and capped at 2 seconds. `Retry-After` is honored up to 30 seconds. POST is not retried unless a
+call explicitly declares it safe to repeat. Transaction-ID message sends and redactions are explicitly
+replay-safe. Interrupting a calling thread cancels the retry wait and the request is not retried. Sync
+continues to use its separate opt-in `SyncLoop` policy.
+
+```java
+import io.github.fherbreteau.matrix.endpoint.MatrixClient;
+import io.github.fherbreteau.matrix.model.RetryPolicy;
+
+MatrixClient client = MatrixClient.builder("https://matrix.example.org")
+    .retryPolicy(RetryPolicy.defaults())
+    .requestObserver(attempt -> metrics.record(attempt.method(), attempt.statusCode()))
+    .build();
+```
+
+Attempt observations include a correlation ID, sanitized endpoint, status, duration, retry delay and
+outcome; they never include request headers, body or query values. Observer implementations should
+return quickly and must not throw. Disable automatic retries with `RetryPolicy.disabled()`.
+
 ## Persistence
 
 Session and sync-token state remain in-memory by default. Applications can opt into file-backed

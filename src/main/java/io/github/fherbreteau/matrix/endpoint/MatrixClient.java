@@ -294,9 +294,9 @@ public final class MatrixClient {
       throw e;
     } catch (MatrixServerException e) {
       String message = e.getMessage();
-      if (credentials instanceof PasswordCredentials passwordCredentials) {
-        message = message.replace(passwordCredentials.password(), "***");
-        message = message.replace(passwordCredentials.identifier(), "***");
+      if (credentials instanceof PasswordCredentials(String identifier, String password)) {
+        message = message.replace(password, "***");
+        message = message.replace(identifier, "***");
       }
       throw new AuthenticationException(e.getErrcode(), message);
     }

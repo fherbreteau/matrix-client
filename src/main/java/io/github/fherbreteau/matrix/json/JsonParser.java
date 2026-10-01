@@ -121,27 +121,34 @@ public final class JsonParser {
       if (c == '"') {
         return sb.toString();
       }
-      if (c == '\\') {
-        if (pos >= input.length()) {
-          throw error("Unterminated escape sequence");
-        }
-        char e = input.charAt(pos++);
-        switch (e) {
-          case '"' -> sb.append('"');
-          case '\\' -> sb.append('\\');
-          case '/' -> sb.append('/');
-          case 'b' -> sb.append('\b');
-          case 'f' -> sb.append('\f');
-          case 'n' -> sb.append('\n');
-          case 'r' -> sb.append('\r');
-          case 't' -> sb.append('\t');
-          case 'u' -> appendUnicodeEscape(sb);
-          default -> throw error("Invalid escape character: " + e);
-        }
-      } else {
-        sb.append(c);
-      }
+      appendStringCharacter(c, sb);
     }
+  }
+
+  private void appendStringCharacter(char c, StringBuilder sb) {
+    if (c == '\\') {
+      if (pos >= input.length()) {
+        throw error("Unterminated escape sequence");
+      }
+      char e = input.charAt(pos++);
+      switch (e) {
+        case '"' -> sb.append('"');
+        case '\\' -> sb.append('\\');
+        case '/' -> sb.append('/');
+        case 'b' -> sb.append('\b');
+        case 'f' -> sb.append('\f');
+        case 'n' -> sb.append('\n');
+        case 'r' -> sb.append('\r');
+        case 't' -> sb.append('\t');
+        case 'u' -> appendUnicodeEscape(sb);
+        default -> throw error("Invalid escape character: " + e);
+      }
+      return;
+    }
+    if (c < 0x20) {
+      throw error("Unescaped control character in string");
+    }
+    sb.append(c);
   }
 
   private void appendUnicodeEscape(StringBuilder sb) {

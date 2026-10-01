@@ -94,6 +94,17 @@ class JsonParserTest {
   }
 
   @Test
+  void rejectsUnescapedControlCharactersAndParsesEscapedForms() {
+    for (char control = 0; control < 0x20; control++) {
+      String invalid = "\"before" + control + "after\"";
+      assertThatThrownBy(() -> JsonParser.parse(invalid))
+          .isInstanceOf(JsonParseException.class)
+          .hasMessageContaining("Unescaped control character");
+    }
+    assertThat(JsonParser.parse("\"\\u0000\\n\\t\"").asString()).isEqualTo("\u0000\n\t");
+  }
+
+  @Test
   void parsesSurrogatePairs() {
     assertThat(JsonParser.parse("\"\\uD83D\\uDE00\""))
         .extracting(JsonValue::asString)

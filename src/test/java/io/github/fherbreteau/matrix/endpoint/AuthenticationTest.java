@@ -98,6 +98,29 @@ class AuthenticationTest {
   }
 
   @Test
+  void loginErrorRedactsCredentialsEchoedByTheHomeserver() {
+    String password = "top-secret-password";
+    String identifier = "@alice:matrix.org";
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                stub ->
+                    new Response(
+                        403,
+                        "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"Rejected "
+                            + identifier
+                            + " with password "
+                            + password
+                            + "\"}"))
+            .build();
+    var credentials = new PasswordCredentials(identifier, password);
+    assertThatThrownBy(() -> client.login(credentials))
+        .isInstanceOf(AuthenticationException.class)
+        .hasMessageNotContaining(password)
+        .hasMessageNotContaining(identifier);
+  }
+
+  @Test
   void rateLimitedLoginIsNotSwallowed() {
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")

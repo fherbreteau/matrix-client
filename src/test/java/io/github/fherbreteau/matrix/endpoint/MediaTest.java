@@ -19,7 +19,6 @@ import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -117,7 +116,7 @@ class MediaTest {
   @Test
   void uploadsFileWithoutBufferingAndEnforcesKnownLength() throws IOException {
     Path file = Files.createTempFile("matrix-media", ".bin");
-    try (InputStream input = Files.newInputStream(file)) {
+    try (var _ = Files.newInputStream(file)) {
       byte[] payload = "file-content".getBytes(StandardCharsets.UTF_8);
       Files.write(file, payload);
       var requests = new ArrayList<BinaryRequest>();
@@ -146,7 +145,7 @@ class MediaTest {
   @Test
   void rejectsOversizedFileUploadBeforeSending() throws IOException {
     Path file = Files.createTempFile("matrix-media", ".bin");
-    try (InputStream input = Files.newInputStream(file)) {
+    try (var _ = Files.newInputStream(file)) {
       Files.write(file, new byte[10]);
       var requests = new ArrayList<BinaryRequest>();
       MatrixClient client =

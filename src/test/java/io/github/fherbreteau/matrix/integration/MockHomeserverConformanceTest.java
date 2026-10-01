@@ -44,18 +44,22 @@ class MockHomeserverConformanceTest {
               roomId, "m.room.message", MessageBody.text("hello fixture").toJson());
       var events = client.getRoomState(roomId);
 
-      assertThat(roomId.value()).isEqualTo("!room:example.org");
-      assertThat(eventId.value()).isEqualTo("$event:example.org");
-      assertThat(events).hasSize(1);
-      assertThat(events.getFirst().type()).isEqualTo("org.example.custom");
-      assertThat(events.getFirst().raw().asObject().get("content").asObject().get("x").asLong())
-          .isEqualTo(1);
-      assertThat(server.requests()).hasSize(4);
-      assertThat(server.requests().get(1).authorization()).isEqualTo("Bearer fixture-secret");
-      assertThat(server.requests().get(1).body()).contains("fixture room");
-      assertThat(server.requests().getFirst().toString()).doesNotContain("fixture-secret");
-      assertThat(server.requests().get(2).method()).isEqualTo("PUT");
-      assertThat(server.requests().get(2).body()).contains("hello fixture");
+      server.assertWithDiagnostics(
+          () -> {
+            assertThat(roomId.value()).isEqualTo("!room:example.org");
+            assertThat(eventId.value()).isEqualTo("$event:example.org");
+            assertThat(events).hasSize(1);
+            assertThat(events.getFirst().type()).isEqualTo("org.example.custom");
+            assertThat(
+                    events.getFirst().raw().asObject().get("content").asObject().get("x").asLong())
+                .isEqualTo(1);
+            assertThat(server.requests()).hasSize(4);
+            assertThat(server.requests().get(1).authorization()).isEqualTo("Bearer fixture-secret");
+            assertThat(server.requests().get(1).body()).contains("fixture room");
+            assertThat(server.requests().getFirst().toString()).doesNotContain("fixture-secret");
+            assertThat(server.requests().get(2).method()).isEqualTo("PUT");
+            assertThat(server.requests().get(2).body()).contains("hello fixture");
+          });
     }
   }
 
@@ -74,17 +78,20 @@ class MockHomeserverConformanceTest {
       var event = client.getRoomEvent(RoomId.of("!room:example.org"), EventId.of("$e"));
       var typed = event.withTypedContent(new EventRegistry());
 
-      assertThat(typed.content()).isInstanceOf(MessageEventContent.Unknown.class);
-      assertThat(
-              typed
-                  .envelope()
-                  .raw()
-                  .asObject()
-                  .get("content")
-                  .asObject()
-                  .get("org.example.ext")
-                  .asBoolean())
-          .isTrue();
+      server.assertWithDiagnostics(
+          () -> {
+            assertThat(typed.content()).isInstanceOf(MessageEventContent.Unknown.class);
+            assertThat(
+                    typed
+                        .envelope()
+                        .raw()
+                        .asObject()
+                        .get("content")
+                        .asObject()
+                        .get("org.example.ext")
+                        .asBoolean())
+                .isTrue();
+          });
     }
   }
 
@@ -106,9 +113,12 @@ class MockHomeserverConformanceTest {
       RateLimitedException exception =
           assertThatExceptionOfType(RateLimitedException.class).isThrownBy(client::whoami).actual();
 
-      assertThat(exception.getRetryAfterMs()).isEqualTo(9_000L);
-      assertThat(exception.getFields()).containsKey("org.example.retry");
-      assertThat(server.lastRequest().redactedDescription()).doesNotContain("fixture-secret");
+      server.assertWithDiagnostics(
+          () -> {
+            assertThat(exception.getRetryAfterMs()).isEqualTo(9_000L);
+            assertThat(exception.getFields()).containsKey("org.example.retry");
+            assertThat(server.lastRequest().redactedDescription()).doesNotContain("fixture-secret");
+          });
     }
   }
 
@@ -122,10 +132,34 @@ class MockHomeserverConformanceTest {
 
       var response = client.sync(SyncOptions.defaults());
 
-      assertThat(response.nextBatch()).isEqualTo("opaque-token-1");
-      assertThat(client.syncToken()).contains("opaque-token-1");
-      assertThat(server.lastRequest().path()).isEqualTo("/_matrix/client/v3/sync");
-      assertThat(server.lastRequest().query()).isNull();
+      server.assertWithDiagnostics(
+          () -> {
+            assertThat(response.nextBatch()).isEqualTo("opaque-token-1");
+            assertThat(client.syncToken()).contains("opaque-token-1");
+            assertThat(server.lastRequest().path()).isEqualTo("/_matrix/client/v3/sync");
+            assertThat(server.lastRequest().query()).isNull();
+          });
+    }
+  }
+
+  @Test
+  void assertionDiagnosticsIncludeExchangeMetadataWithoutSecrets() {
+    try (var server = new MockMatrixHomeserver()) {
+      server.enqueue(200, LOGIN_RESPONSE);
+      server.enqueue(new HttpTransport.Response(200, "{\"value\":\"response-secret\"}"));
+      MatrixClient client = MatrixClient.builder(server.baseUrl()).build();
+      client.login(new PasswordCredentials("@alice:example.org", "request-password"));
+      client.get("_matrix/client/v3/example?access_token=query-secret");
+
+      assertThatExceptionOfType(AssertionError.class)
+          .isThrownBy(
+              () -> server.assertWithDiagnostics(() -> assertThat("actual").isEqualTo("expected")))
+          .withMessageContaining("POST /_matrix/client/v3/login")
+          .withMessageContaining("status=200")
+          .withMessageNotContaining("request-password")
+          .withMessageNotContaining("response-secret")
+          .withMessageNotContaining("query-secret")
+          .withMessageNotContaining("fixture-secret");
     }
   }
 
@@ -146,10 +180,13 @@ class MockHomeserverConformanceTest {
       } catch (Exception exception) {
         throw new AssertionError(exception);
       }
-      assertThat(server.requests().get(1).method()).isEqualTo("POST");
-      assertThat(server.requests().get(1).body()).isEqualTo("upload bytes");
-      assertThat(server.requests().get(2).path())
-          .isEqualTo("/_matrix/client/v1/media/download/example.org/media-1");
+      server.assertWithDiagnostics(
+          () -> {
+            assertThat(server.requests().get(1).method()).isEqualTo("POST");
+            assertThat(server.requests().get(1).body()).isEqualTo("upload bytes");
+            assertThat(server.requests().get(2).path())
+                .isEqualTo("/_matrix/client/v1/media/download/example.org/media-1");
+          });
     }
   }
 }

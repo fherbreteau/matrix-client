@@ -335,12 +335,7 @@ class JdkMediaTransportTest {
   void uploadStreamSingleByteReadEnforcesLimit() {
     var limited =
         JdkMediaTransport.limitedUploadStream(new ByteArrayInputStream(new byte[] {1, 2}), 1);
-    assertThatThrownBy(
-            () -> {
-              limited.read();
-              limited.read();
-            })
-        .isInstanceOf(MediaSizeLimitException.class);
+    assertThatThrownBy(() -> limited.readNBytes(2)).isInstanceOf(MediaSizeLimitException.class);
   }
 
   @Test

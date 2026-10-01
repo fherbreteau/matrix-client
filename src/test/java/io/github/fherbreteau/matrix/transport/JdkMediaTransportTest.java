@@ -120,13 +120,25 @@ class JdkMediaTransportTest {
 
   @Test
   void parsesRetryAfterHeader() {
+    assertRetryAfter("7", 7000L);
+  }
+
+  @Test
+  void parsesHttpDateRetryAfterHeader() {
+    String retryAt =
+        java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME.format(
+            java.time.Instant.now().plusSeconds(60).atZone(java.time.ZoneOffset.UTC));
+    assertRetryAfter(retryAt, null);
+  }
+
+  private static void assertRetryAfter(String retryAt, Long expected) {
     try (JdkMediaTransportTestClient testClient =
         new JdkMediaTransportTestClient() {
           @Override
           public <T> HttpResponse<T> send(
               HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) {
             @SuppressWarnings("unchecked")
-            HttpResponse<T> response = (HttpResponse<T>) new StubRetryResponse();
+            HttpResponse<T> response = (HttpResponse<T>) new StubRetryResponse(retryAt);
             return response;
           }
         }) {
@@ -135,7 +147,11 @@ class JdkMediaTransportTest {
       var response =
           transport.send(
               new MediaTransport.BinaryRequest("GET", "https://m/x", Map.of(), null, "a/b"));
-      assertThat(response.retryAfterMs()).isEqualTo(7000L);
+      if (expected != null) {
+        assertThat(response.retryAfterMs()).isEqualTo(expected);
+      } else {
+        assertThat(response.retryAfterMs()).isBetween(0L, 60_000L);
+      }
     }
   }
 
@@ -205,6 +221,13 @@ class JdkMediaTransportTest {
   }
 
   private static final class StubRetryResponse implements HttpResponse<byte[]> {
+
+    private final String retryAfter;
+
+    private StubRetryResponse(String retryAfter) {
+      this.retryAfter = retryAfter;
+    }
+
     @Override
     public int statusCode() {
       return 200;
@@ -222,7 +245,7 @@ class JdkMediaTransportTest {
 
     @Override
     public HttpHeaders headers() {
-      return HttpHeaders.of(Map.of("Retry-After", List.of("7")), (name, value) -> true);
+      return HttpHeaders.of(Map.of("Retry-After", List.of(retryAfter)), (name, value) -> true);
     }
 
     @Override
@@ -302,6 +325,37 @@ class JdkMediaTransportTest {
         new MediaTransport.BinaryRequest("GET", "http://localhost:1/x", Map.of(), null, "a/b");
     assertThatThrownBy(() -> transport.send(request))
         .isInstanceOf(UncheckedTransportException.class);
+  }
+
+  @Test
+  void binaryRequestDescriptionRedactsQueryAndFragment() {
+    var request =
+        new MediaTransport.BinaryRequest(
+            "GET",
+            "https://media.example.org/path?access_token=secret#private",
+            Map.of(),
+            null,
+            "application/octet-stream");
+    assertThat(request.toString())
+        .contains("https://media.example.org/path")
+        .doesNotContain("access_token", "secret", "private", "#");
+  }
+
+  @Test
+  void mapsIoExceptionWithoutExposingQueryValues() {
+    var transport = new JdkMediaTransport(HttpTransportConfig.builder().build());
+    var request =
+        new MediaTransport.BinaryRequest(
+            "GET",
+            "http://localhost:1/path?access_token=secret",
+            Map.of(),
+            null,
+            "application/octet-stream");
+    assertThatThrownBy(() -> transport.send(request))
+        .isInstanceOf(UncheckedTransportException.class)
+        .hasMessageContaining("http://localhost:1/path")
+        .hasMessageNotContaining("access_token")
+        .hasMessageNotContaining("secret");
   }
 
   @Test

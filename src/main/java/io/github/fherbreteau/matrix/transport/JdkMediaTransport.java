@@ -6,7 +6,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -103,30 +102,26 @@ public final class JdkMediaTransport implements MediaTransport {
       HttpResponse<byte[]> response =
           client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
       Long retryAfterMs =
-          response
-              .headers()
-              .firstValue("Retry-After")
-              .map(JdkMediaTransport::parseRetryAfter)
-              .orElse(null);
+          response.headers().firstValue("Retry-After").map(RetryAfterParser::parse).orElse(null);
       return new BinaryResponse(
           response.statusCode(), lowerCaseHeaders(response), response.body(), retryAfterMs);
     } catch (HttpTimeoutException e) {
       throw new TransportTimeoutException(
-          "HTTP request timed out: " + request.method() + " " + request.url(), e);
+          "HTTP request timed out: "
+              + request.method()
+              + " "
+              + UrlRedaction.redactQueryAndFragment(request.url()),
+          e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new TransportInterruptedException("HTTP request interrupted", e);
     } catch (IOException e) {
       throw new UncheckedTransportException(
-          "HTTP request failed: " + request.method() + " " + request.url(), e);
-    }
-  }
-
-  private static Long parseRetryAfter(String value) {
-    try {
-      return Duration.ofSeconds(Long.parseLong(value.strip())).toMillis();
-    } catch (NumberFormatException _) {
-      return null;
+          "HTTP request failed: "
+              + request.method()
+              + " "
+              + UrlRedaction.redactQueryAndFragment(request.url()),
+          e);
     }
   }
 

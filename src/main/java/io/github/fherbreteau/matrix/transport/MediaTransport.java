@@ -88,7 +88,11 @@ public interface MediaTransport {
 
     @Override
     public String toString() {
-      var sb = new StringBuilder(method).append(' ').append(url).append(" contentType=");
+      var sb =
+          new StringBuilder(method)
+              .append(' ')
+              .append(UrlRedaction.redactQueryAndFragment(url))
+              .append(" contentType=");
       sb.append(contentType);
       if (!headers.isEmpty()) {
         sb.append(" headers={");

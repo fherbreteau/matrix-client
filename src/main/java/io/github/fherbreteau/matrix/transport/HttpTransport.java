@@ -33,7 +33,11 @@ public interface HttpTransport {
 
     @Override
     public String toString() {
-      var sb = new StringBuilder(method).append(' ').append(url).append(" headers=");
+      var sb =
+          new StringBuilder(method)
+              .append(' ')
+              .append(UrlRedaction.redactQueryAndFragment(url))
+              .append(" headers=");
       if (headers.isEmpty()) {
         sb.append("{}");
       } else {

@@ -32,6 +32,11 @@ class HomeserverDiscoveryTest {
         .isThrownBy(() -> HomeserverDiscovery.normalize("ftp://matrix.example.org"));
     assertThatIllegalArgumentException()
         .isThrownBy(() -> HomeserverDiscovery.normalize("https://ex ample.org"));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () -> HomeserverDiscovery.normalize("https://matrix.example.org?access_token=x"));
+    assertThatIllegalArgumentException()
+        .isThrownBy(() -> HomeserverDiscovery.normalize("https://matrix.example.org#fragment"));
   }
 
   @Test

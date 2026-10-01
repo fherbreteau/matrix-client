@@ -69,6 +69,9 @@ public final class HomeserverDiscovery {
           || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
         throw new IllegalArgumentException("baseUrl must use the http or https scheme: " + baseUrl);
       }
+      if (uri.getRawQuery() != null || uri.getRawFragment() != null) {
+        throw new IllegalArgumentException("baseUrl must not contain a query or fragment");
+      }
       return url;
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("baseUrl is not a valid URI: " + baseUrl, e);

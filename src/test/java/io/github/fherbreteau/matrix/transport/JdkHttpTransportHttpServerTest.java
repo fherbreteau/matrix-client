@@ -253,6 +253,16 @@ class JdkHttpTransportHttpServerTest {
   }
 
   @Test
+  void requestDescriptionRedactsQueryAndFragment() {
+    var request =
+        new HttpTransport.Request(
+            "GET", "https://matrix.example.org/path?access_token=secret#private", Map.of(), null);
+    assertThat(request.toString())
+        .contains("https://matrix.example.org/path")
+        .doesNotContain("access_token", "secret", "private", "#");
+  }
+
+  @Test
   void handlesNullHeadersGracefully() {
     var request = new HttpTransport.Request("GET", "https://x", null, null);
     assertThat(request).extracting(Request::headers, map(String.class, Object.class)).isEmpty();

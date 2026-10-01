@@ -328,6 +328,37 @@ class JdkMediaTransportTest {
   }
 
   @Test
+  void binaryRequestDescriptionRedactsQueryAndFragment() {
+    var request =
+        new MediaTransport.BinaryRequest(
+            "GET",
+            "https://media.example.org/path?access_token=secret#private",
+            Map.of(),
+            null,
+            "application/octet-stream");
+    assertThat(request.toString())
+        .contains("https://media.example.org/path")
+        .doesNotContain("access_token", "secret", "private", "#");
+  }
+
+  @Test
+  void mapsIoExceptionWithoutExposingQueryValues() {
+    var transport = new JdkMediaTransport(HttpTransportConfig.builder().build());
+    var request =
+        new MediaTransport.BinaryRequest(
+            "GET",
+            "http://localhost:1/path?access_token=secret",
+            Map.of(),
+            null,
+            "application/octet-stream");
+    assertThatThrownBy(() -> transport.send(request))
+        .isInstanceOf(UncheckedTransportException.class)
+        .hasMessageContaining("http://localhost:1/path")
+        .hasMessageNotContaining("access_token")
+        .hasMessageNotContaining("secret");
+  }
+
+  @Test
   void headersAreExposedCaseInsensitively() {
     var response =
         new MediaTransport.BinaryResponse(

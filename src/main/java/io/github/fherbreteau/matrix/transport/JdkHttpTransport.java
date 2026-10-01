@@ -105,13 +105,21 @@ public final class JdkHttpTransport implements HttpTransport {
           RetryAfterParser.parse(response.headers().firstValue("Retry-After").orElse(null)));
     } catch (HttpTimeoutException e) {
       throw new TransportTimeoutException(
-          "HTTP request timed out: " + request.method() + " " + request.url(), e);
+          "HTTP request timed out: "
+              + request.method()
+              + " "
+              + UrlRedaction.redactQueryAndFragment(request.url()),
+          e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new TransportInterruptedException("HTTP request interrupted", e);
     } catch (IOException e) {
       throw new UncheckedTransportException(
-          "HTTP request failed: " + request.method() + " " + request.url(), e);
+          "HTTP request failed: "
+              + request.method()
+              + " "
+              + UrlRedaction.redactQueryAndFragment(request.url()),
+          e);
     }
   }
 

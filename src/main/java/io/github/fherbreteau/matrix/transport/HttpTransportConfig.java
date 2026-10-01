@@ -15,6 +15,7 @@ public final class HttpTransportConfig {
   private final boolean followRedirects;
   private final ProxySelector proxy;
   private final String accessToken;
+  private final long maxMediaUploadBytes;
 
   private HttpTransportConfig(Builder builder) {
     this.connectTimeout = builder.connectTimeout;
@@ -22,6 +23,7 @@ public final class HttpTransportConfig {
     this.followRedirects = builder.followRedirects;
     this.proxy = builder.proxy;
     this.accessToken = builder.accessToken;
+    this.maxMediaUploadBytes = builder.maxMediaUploadBytes;
   }
 
   /**
@@ -78,6 +80,15 @@ public final class HttpTransportConfig {
     return accessToken;
   }
 
+  /**
+   * Returns the maximum media upload size, or zero when no client-side limit is configured.
+   *
+   * @return the maximum media upload size in bytes, or zero for no limit
+   */
+  public long maxMediaUploadBytes() {
+    return maxMediaUploadBytes;
+  }
+
   /** Builder for {@link HttpTransportConfig}. */
   public static final class Builder {
 
@@ -86,6 +97,7 @@ public final class HttpTransportConfig {
     private boolean followRedirects = true;
     private ProxySelector proxy;
     private String accessToken;
+    private long maxMediaUploadBytes;
 
     private Builder() {}
 
@@ -142,6 +154,20 @@ public final class HttpTransportConfig {
      */
     public Builder accessToken(String accessToken) {
       this.accessToken = accessToken;
+      return this;
+    }
+
+    /**
+     * Sets the maximum number of bytes accepted for media uploads; zero disables the limit.
+     *
+     * @param maxMediaUploadBytes the maximum media upload size in bytes, or zero for no limit
+     * @return this builder for chaining
+     */
+    public Builder maxMediaUploadBytes(long maxMediaUploadBytes) {
+      if (maxMediaUploadBytes < 0) {
+        throw new IllegalArgumentException("maxMediaUploadBytes must not be negative");
+      }
+      this.maxMediaUploadBytes = maxMediaUploadBytes;
       return this;
     }
 

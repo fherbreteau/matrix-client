@@ -3,7 +3,9 @@ package io.github.fherbreteau.matrix.transport;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ProxySelector;
@@ -80,7 +82,7 @@ class JdkMediaTransportTest {
             assertThat(request.headers().firstValue("Content-Type")).contains("image/png");
             assertThat(request.headers().firstValue("Authorization")).contains("Bearer tok");
             @SuppressWarnings("unchecked")
-            HttpResponse<T> response = (HttpResponse<T>) new StubResponse(new byte[] {1, 2, 3});
+            HttpResponse<T> response = (HttpResponse<T>) new StubResponse();
             return response;
           }
 
@@ -220,7 +222,7 @@ class JdkMediaTransportTest {
     }
   }
 
-  private static final class StubRetryResponse implements HttpResponse<byte[]> {
+  private static final class StubRetryResponse implements HttpResponse<InputStream> {
 
     private final String retryAfter;
 
@@ -239,7 +241,7 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public Optional<HttpResponse<byte[]>> previousResponse() {
+    public Optional<HttpResponse<InputStream>> previousResponse() {
       throw new UnsupportedOperationException();
     }
 
@@ -249,8 +251,8 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public byte[] body() {
-      return new byte[0];
+    public InputStream body() {
+      return InputStream.nullInputStream();
     }
 
     @Override
@@ -314,6 +316,61 @@ class JdkMediaTransportTest {
   }
 
   @Test
+  void transportConfigEnforcesUploadLimit() {
+    var config = HttpTransportConfig.builder().maxMediaUploadBytes(1).build();
+    var transport = new JdkMediaTransport(config);
+    var request =
+        new MediaTransport.StreamingBinaryRequest(
+            "POST",
+            "https://m/upload",
+            Map.of(),
+            new ByteArrayInputStream(new byte[2]),
+            java.util.OptionalLong.of(2),
+            "application/octet-stream");
+    assertThatThrownBy(() -> transport.send(request, 0, 0))
+        .isInstanceOf(MediaSizeLimitException.class);
+  }
+
+  @Test
+  void uploadStreamSingleByteReadEnforcesLimit() {
+    var limited =
+        JdkMediaTransport.limitedUploadStream(new ByteArrayInputStream(new byte[] {1, 2}), 1);
+    assertThatThrownBy(
+            () -> {
+              limited.read();
+              limited.read();
+            })
+        .isInstanceOf(MediaSizeLimitException.class);
+  }
+
+  @Test
+  void uploadStreamAtLimitReturnsEndOfStream() throws IOException {
+    var limited =
+        JdkMediaTransport.limitedUploadStream(new ByteArrayInputStream(new byte[] {1}), 1);
+    assertThat(limited.read()).isEqualTo(1);
+    assertThat(limited.read()).isEqualTo(-1);
+  }
+
+  @Test
+  void configSupportsMediaUploadLimit() {
+    var config = HttpTransportConfig.builder().maxMediaUploadBytes(1024).build();
+    assertThat(config.maxMediaUploadBytes()).isEqualTo(1024);
+  }
+
+  @Test
+  void configRejectsNegativeMediaUploadLimit() {
+    var builder = HttpTransportConfig.builder();
+    assertThatThrownBy(() -> builder.maxMediaUploadBytes(-1))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void sizeLimitExceptionReportsTheConfiguredLimit() {
+    assertThat(new MediaSizeLimitException(10))
+        .hasMessage("Media transfer exceeds the configured maximum size of 10 bytes");
+  }
+
+  @Test
   void createReturnsADefaultTransport() {
     assertThat(MediaTransport.create()).isInstanceOf(JdkMediaTransport.class);
   }
@@ -367,12 +424,7 @@ class JdkMediaTransportTest {
     assertThat(response.header("CONTENT-TYPE")).isEqualTo("image/png");
   }
 
-  private static final class StubResponse implements HttpResponse<byte[]> {
-    private final byte[] body;
-
-    private StubResponse(byte[] body) {
-      this.body = body;
-    }
+  private static final class StubResponse implements HttpResponse<InputStream> {
 
     @Override
     public int statusCode() {
@@ -385,18 +437,20 @@ class JdkMediaTransportTest {
     }
 
     @Override
-    public Optional<HttpResponse<byte[]>> previousResponse() {
+    public Optional<HttpResponse<InputStream>> previousResponse() {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public HttpHeaders headers() {
-      return HttpHeaders.of(Map.of("Content-Type", List.of("image/png")), (name, value) -> true);
+      return HttpHeaders.of(
+          Map.of("Content-Type", List.of("image/png"), "Content-Length", List.of("3")),
+          (name, value) -> true);
     }
 
     @Override
-    public byte[] body() {
-      return body;
+    public InputStream body() {
+      return new java.io.ByteArrayInputStream(new byte[] {1, 2, 3});
     }
 
     @Override

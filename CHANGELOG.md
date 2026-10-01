@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixes
 
+- **Parse HTTP-date Retry-After Headers**: Parse both delta-seconds and HTTP-date forms into JSON and media transport response metadata (#35, #43).
+
 - **Validate Homeserver Base URLs**: Reject query and fragment components that would misroute discovery requests (#36, #44).
 
 - **Redact Query Values in HTTP Diagnostics**: Omit query strings and fragments from request descriptions and transport failure messages for JSON and media requests (#37, #45).

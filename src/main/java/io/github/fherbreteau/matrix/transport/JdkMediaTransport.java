@@ -6,7 +6,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -103,11 +102,7 @@ public final class JdkMediaTransport implements MediaTransport {
       HttpResponse<byte[]> response =
           client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
       Long retryAfterMs =
-          response
-              .headers()
-              .firstValue("Retry-After")
-              .map(JdkMediaTransport::parseRetryAfter)
-              .orElse(null);
+          response.headers().firstValue("Retry-After").map(RetryAfterParser::parse).orElse(null);
       return new BinaryResponse(
           response.statusCode(), lowerCaseHeaders(response), response.body(), retryAfterMs);
     } catch (HttpTimeoutException e) {
@@ -127,14 +122,6 @@ public final class JdkMediaTransport implements MediaTransport {
               + " "
               + UrlRedaction.redactQueryAndFragment(request.url()),
           e);
-    }
-  }
-
-  private static Long parseRetryAfter(String value) {
-    try {
-      return Duration.ofSeconds(Long.parseLong(value.strip())).toMillis();
-    } catch (NumberFormatException _) {
-      return null;
     }
   }
 

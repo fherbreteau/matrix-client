@@ -140,6 +140,26 @@ class JdkHttpTransportHttpServerTest {
   }
 
   @Test
+  void parsesHttpDateRetryAfterHeader() {
+    String retryAt =
+        java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME.format(
+            java.time.Instant.now().plusSeconds(60).atZone(java.time.ZoneOffset.UTC));
+    String base =
+        startServer(
+            exchange -> {
+              exchange.getResponseHeaders().set("Retry-After", retryAt);
+              byte[] bytes = "{}".getBytes(StandardCharsets.UTF_8);
+              exchange.sendResponseHeaders(429, bytes.length);
+              exchange.getResponseBody().write(bytes);
+              exchange.close();
+            });
+    var transport = noProxyTransport(HttpTransportConfig.builder());
+    var response =
+        transport.send(new HttpTransport.Request("GET", base + "/limited", Map.of(), null));
+    assertThat(response.retryAfterMs()).isBetween(0L, 60_000L);
+  }
+
+  @Test
   void followsRedirectsWhenConfigured() {
     String base =
         startServer(

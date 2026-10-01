@@ -40,13 +40,13 @@ import io.github.fherbreteau.matrix.retry.RetryPolicy;
 import io.github.fherbreteau.matrix.store.SessionStore;
 import io.github.fherbreteau.matrix.store.SyncTokenStore;
 import io.github.fherbreteau.matrix.store.TransactionIdStore;
+import io.github.fherbreteau.matrix.transport.BinaryResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.JdkMediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaSizeLimitException;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
-import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
 import io.github.fherbreteau.matrix.transport.MediaTransport.StreamingBinaryRequest;
 import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
 import io.github.fherbreteau.matrix.transport.TransportTimeoutException;
@@ -1599,7 +1599,9 @@ public final class MatrixClient {
    *     specification</a>
    */
   public MxcUri uploadMedia(Path file, String contentType, String filename) throws IOException {
-    return uploadMedia(Files.newInputStream(file), Files.size(file), contentType, filename);
+    try (InputStream input = Files.newInputStream(file)) {
+      return uploadMedia(input, Files.size(file), contentType, filename);
+    }
   }
 
   private MxcUri parseUploadResponse(BinaryResponse response) {

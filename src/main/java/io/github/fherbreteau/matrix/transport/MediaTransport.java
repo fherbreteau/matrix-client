@@ -260,23 +260,21 @@ public interface MediaTransport {
   }
 
   /**
-   * A binary HTTP response: the raw body as an {@link InputStream} so callers can stream large
-   * media instead of buffering it in memory. Callers must close the stream.
+   * Backwards-compatible response type for media transport implementations.
    *
    * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
    *     specification</a>
    */
+  @SuppressWarnings("java:S9398")
   final class BinaryResponse extends io.github.fherbreteau.matrix.transport.BinaryResponse {
 
     /**
-     * Creates a binary response containing the media transfer result.
+     * Creates a response from byte-array content.
      *
      * @param statusCode the HTTP response status
-     * @param headers the response headers
-     * @param body the downloaded media bytes
-     * @param retryAfterMs the optional parsed rate-limit delay, in milliseconds
-     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
-     *     specification</a>
+     * @param headers response headers
+     * @param body response bytes
+     * @param retryAfterMs optional retry delay
      */
     public BinaryResponse(
         int statusCode, Map<String, String> headers, byte[] body, Long retryAfterMs) {
@@ -284,15 +282,13 @@ public interface MediaTransport {
     }
 
     /**
-     * Creates a binary response containing the media transfer result.
+     * Creates a response from a streaming body.
      *
      * @param statusCode the HTTP response status
-     * @param headers the response headers
-     * @param body the downloaded media bytes
-     * @param contentLength the downloaded media length
-     * @param retryAfterMs the optional parsed rate-limit delay, in milliseconds
-     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
-     *     specification</a>
+     * @param headers response headers
+     * @param body response stream
+     * @param contentLength response length, or a negative value if unknown
+     * @param retryAfterMs optional retry delay
      */
     public BinaryResponse(
         int statusCode,

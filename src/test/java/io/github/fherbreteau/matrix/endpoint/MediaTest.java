@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -114,8 +115,8 @@ class MediaTest {
 
   @Test
   void uploadsFileWithoutBufferingAndEnforcesKnownLength() throws IOException {
-    var file = Files.createTempFile("matrix-media", ".bin");
-    try {
+    Path file = Files.createTempFile("matrix-media", ".bin");
+    try (var cleanup = Files.newInputStream(file)) {
       byte[] payload = "file-content".getBytes(StandardCharsets.UTF_8);
       Files.write(file, payload);
       var requests = new ArrayList<BinaryRequest>();
@@ -138,15 +139,13 @@ class MediaTest {
       assertThat(client.uploadMedia(file, "text/plain", "file.txt"))
           .hasToString("mxc://matrix.org/file");
       assertThat(requests.getFirst().body()).isEqualTo(payload);
-    } finally {
-      Files.deleteIfExists(file);
     }
   }
 
   @Test
   void rejectsOversizedFileUploadBeforeSending() throws IOException {
-    var file = Files.createTempFile("matrix-media", ".bin");
-    try {
+    Path file = Files.createTempFile("matrix-media", ".bin");
+    try (var cleanup = Files.newInputStream(file)) {
       Files.write(file, new byte[10]);
       var requests = new ArrayList<BinaryRequest>();
       MatrixClient client =
@@ -164,8 +163,6 @@ class MediaTest {
           .isInstanceOf(MatrixServerException.class)
           .hasMessageContaining("maximum size of 5 bytes");
       assertThat(requests).isEmpty();
-    } finally {
-      Files.deleteIfExists(file);
     }
   }
 
@@ -206,8 +203,9 @@ class MediaTest {
                         null))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    byte[] payload = new byte[10];
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.uploadMedia(new byte[10], "text/plain", null))
+        .isThrownBy(() -> client.uploadMedia(payload, "text/plain", null))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_TOO_LARGE");
@@ -215,8 +213,8 @@ class MediaTest {
 
   @Test
   void rejectsNegativeUploadLimit() {
-    assertThatThrownBy(
-            () -> MatrixClient.builder("https://matrix.example.org").maxMediaUploadBytes(-1))
+    var builder = MatrixClient.builder("https://matrix.example.org");
+    assertThatThrownBy(() -> builder.maxMediaUploadBytes(-1))
         .isInstanceOf(IllegalArgumentException.class);
   }
 

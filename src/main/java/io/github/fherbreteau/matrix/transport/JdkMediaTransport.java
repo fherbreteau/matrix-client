@@ -76,7 +76,7 @@ public final class JdkMediaTransport implements MediaTransport {
   }
 
   @Override
-  public MediaTransport.BinaryResponse send(MediaTransport.BinaryRequest request) {
+  public BinaryResponse send(BinaryRequest request) {
     return send(
         new StreamingBinaryRequest(
             request.method(),
@@ -90,8 +90,7 @@ public final class JdkMediaTransport implements MediaTransport {
   }
 
   @Override
-  public MediaTransport.BinaryResponse send(
-      MediaTransport.BinaryRequest request, long maxResponseBytes) {
+  public BinaryResponse send(BinaryRequest request, long maxResponseBytes) {
     return send(
         new StreamingBinaryRequest(
             request.method(),
@@ -105,7 +104,7 @@ public final class JdkMediaTransport implements MediaTransport {
   }
 
   @Override
-  public MediaTransport.BinaryResponse send(
+  public BinaryResponse send(
       StreamingBinaryRequest request, long maxUploadBytes, long maxResponseBytes) {
     OptionalLong contentLength = request.contentLength();
     long uploadLimit = maxUploadBytes > 0 ? maxUploadBytes : config.maxMediaUploadBytes();
@@ -160,7 +159,7 @@ public final class JdkMediaTransport implements MediaTransport {
       }
       Long retryAfterMs =
           response.headers().firstValue("Retry-After").map(RetryAfterParser::parse).orElse(null);
-      return new MediaTransport.BinaryResponse(
+      return new BinaryResponse(
           response.statusCode(), lowerCaseHeaders(response), body, contentLength, retryAfterMs);
     } catch (HttpTimeoutException e) {
       throw new TransportTimeoutException(

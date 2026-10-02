@@ -14,6 +14,7 @@ import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
+import io.github.fherbreteau.matrix.transport.TransportException;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
@@ -150,23 +151,51 @@ class MatrixClientTest {
   }
 
   @Test
-  void discoveryFallsBackToExplicitUrl() {
-    var stub = HttpTransportStub.failing();
+  void discoveryAllowsExplicitUrlWhenWellKnownIsNotFound() {
+    var stub = HttpTransportStub.responding(404, "{}");
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org").transport(stub).discover().build();
     assertThat(client.getHomeserverUrl()).isEqualTo("https://matrix.example.org");
     assertThat(client.getDiscovery())
-        .extracting(DiscoveredHomeserver::usedFallback)
-        .isEqualTo(true);
+        .extracting(DiscoveredHomeserver::outcome, DiscoveredHomeserver::usedFallback)
+        .containsExactly(DiscoveryOutcome.IGNORE, true);
     assertThat(client.getCapabilities()).isNull();
   }
 
   @Test
-  void unsupportedVersionsResponseFailsFastAtBuildTime() {
-    var stub = HttpTransportStub.failing();
+  void non200DiscoveryResponseDoesNotSilentlyFallBack() {
+    var stub = HttpTransportStub.responding(500, "{}");
+    var builder = MatrixClient.builder("https://matrix.example.org").transport(stub).discover();
+    assertThatThrownBy(builder::build)
+        .isInstanceOf(DiscoveryException.class)
+        .hasMessageContaining("HTTP 500");
+  }
+
+  @Test
+  void discoveryFailureIsNotSilentlyReplacedByTheExplicitUrl() {
+    var stub =
+        (HttpTransport)
+            request -> {
+              throw new TransportException("discovery failed");
+            };
+    var builder = MatrixClient.builder("https://matrix.example.org").transport(stub).discover();
+    assertThatThrownBy(builder::build)
+        .isInstanceOf(DiscoveryException.class)
+        .hasMessageContaining("Well-known request failed");
+  }
+
+  @Test
+  void ignoredDiscoveryAllowsExplicitUrlAndSeparateVersionValidation() {
+    var stub = HttpTransportStub.responding(404, "{}");
+    stub.enqueue(new HttpTransport.Response(200, "{\"versions\":[\"v1.19\"]}"));
     MatrixClient client =
-        MatrixClient.builder("https://matrix.example.org").transport(stub).discover().build();
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub)
+            .discover()
+            .validateVersions()
+            .build();
     assertThat(client.getHomeserverUrl()).isEqualTo("https://matrix.example.org");
+    assertThat(client.getCapabilities().supports("v1.19")).isTrue();
   }
 
   @Test

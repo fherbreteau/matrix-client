@@ -10,6 +10,7 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountOperationResponse;
 import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.AuthMetadata;
+import io.github.fherbreteau.matrix.model.AuthenticationApi;
 import io.github.fherbreteau.matrix.model.Credentials;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
@@ -316,7 +317,8 @@ public final class MatrixClient {
       body.put("refresh_token", true);
     }
     try {
-      Session session = Session.from(post("_matrix/client/v3/login", body));
+      Session session =
+          Session.from(post("_matrix/client/v3/login", body), AuthenticationApi.LEGACY);
       sessionStore.save(session);
       return session;
     } catch (RateLimitedException e) {
@@ -399,7 +401,7 @@ public final class MatrixClient {
     }
     RegistrationResponse response = RegistrationResponse.from(post(path, registration.toJson()));
     if (response.accessToken() != null) {
-      sessionStore.save(Session.from(response.raw()));
+      sessionStore.save(Session.from(response.raw(), AuthenticationApi.LEGACY));
     }
     return response;
   }
@@ -417,6 +419,19 @@ public final class MatrixClient {
   }
 
   /**
+   * Returns the OAuth account-management URL when advertised by the homeserver.
+   *
+   * @return the account-management URL, or {@code null} if it is not advertised
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1auth_metadata">Matrix
+   *     specification</a>
+   */
+  public String getAccountManagementUri() {
+    JsonValue value = getAuthMetadata().get("account_management_uri");
+    return value != null && value.isString() ? value.asString() : null;
+  }
+
+  /**
    * Changes the current account password using User-Interactive Authentication.
    *
    * @param request the new password and UI-auth response fields
@@ -425,6 +440,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void changePassword(AccountRequest request) {
+    ensureLegacyAccountApi();
     authenticatedUiAuth("POST", "_matrix/client/v3/account/password", request.toJson());
   }
 
@@ -438,6 +454,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public AccountOperationResponse deactivateAccount(AccountRequest request) {
+    ensureLegacyAccountApi();
     AccountOperationResponse response =
         AccountOperationResponse.from(
             authenticatedUiAuth("POST", "_matrix/client/v3/account/deactivate", request.toJson()));
@@ -455,6 +472,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidResponse getThreePids() {
+    ensureLegacyAccountApi();
     return ThreePidResponse.from(authenticated("GET", "_matrix/client/v3/account/3pid", null));
   }
 
@@ -467,6 +485,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void addThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
     authenticatedUiAuth("POST", "_matrix/client/v3/account/3pid/add", request.toJson());
   }
 
@@ -479,6 +498,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void bindThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
     authenticated("POST", "_matrix/client/v3/account/3pid/bind", request.toJson());
   }
 
@@ -492,6 +512,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public AccountOperationResponse deleteThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
     return AccountOperationResponse.from(
         authenticated("POST", "_matrix/client/v3/account/3pid/delete", request.toJson()));
   }
@@ -507,6 +528,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public AccountOperationResponse unbindThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
     return AccountOperationResponse.from(
         authenticated("POST", "_matrix/client/v3/account/3pid/unbind", request.toJson()));
   }
@@ -521,6 +543,10 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidTokenResponse requestRegistrationEmailToken(ThreePidTokenRequest request) {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(
+          "Registration token requests require the legacy authentication API");
+    }
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/register/email/requestToken", request.toJson()));
   }
@@ -535,6 +561,10 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidTokenResponse requestRegistrationMsisdnToken(ThreePidTokenRequest request) {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(
+          "Registration token requests require the legacy authentication API");
+    }
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/register/msisdn/requestToken", request.toJson()));
   }
@@ -549,6 +579,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidTokenResponse requestThreePidEmailToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/account/3pid/email/requestToken", request.toJson()));
   }
@@ -563,6 +594,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidTokenResponse requestThreePidMsisdnToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/account/3pid/msisdn/requestToken", request.toJson()));
   }
@@ -577,6 +609,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidTokenResponse requestPasswordResetEmailToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/account/password/email/requestToken", request.toJson()));
   }
@@ -591,8 +624,46 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreePidTokenResponse requestPasswordResetMsisdnToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/account/password/msisdn/requestToken", request.toJson()));
+  }
+
+  /**
+   * Returns whether the authenticated session was obtained through the OAuth API.
+   *
+   * @return {@code true} when the current session is OAuth-issued
+   * @throws AuthenticationException if there is no authenticated session
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#authentication-api-discovery">Matrix
+   *     specification</a>
+   */
+  public boolean usesOauthSession() {
+    return sessionStore
+        .current()
+        .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE))
+        .usesOauth();
+  }
+
+  /**
+   * Returns OAuth authentication metadata, or empty when the homeserver does not support OAuth. A
+   * 404 response with {@code M_UNRECOGNIZED} means OAuth is unsupported.
+   *
+   * @return OAuth metadata when supported
+   * @throws MatrixServerException if metadata retrieval fails for another reason
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1auth_metadata">Matrix
+   *     specification</a>
+   */
+  public Optional<AuthMetadata> findAuthMetadata() {
+    try {
+      return Optional.of(getAuthMetadata());
+    } catch (MatrixServerException exception) {
+      if (exception.getStatusCode() == 404 && "M_UNRECOGNIZED".equals(exception.getErrcode())) {
+        return Optional.empty();
+      }
+      throw exception;
+    }
   }
 
   /**
@@ -2325,6 +2396,17 @@ public final class MatrixClient {
         || segment.startsWith("%24")
         || segment.toLowerCase(Locale.ROOT).contains("token")
         || segment.toLowerCase(Locale.ROOT).contains("secret");
+  }
+
+  private void ensureLegacyAccountApi() {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(accountManagementMessage());
+    }
+  }
+
+  private String accountManagementMessage() {
+    return "Account management for OAuth sessions must use the homeserver account-management URL; "
+        + "check getAuthMetadata() for account_management_uri and supported actions";
   }
 
   private JsonValue authenticatedUiAuth(String method, String path, JsonValue body) {

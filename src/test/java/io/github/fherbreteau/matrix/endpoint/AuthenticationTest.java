@@ -13,6 +13,7 @@ import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.model.AccountRequest;
+import io.github.fherbreteau.matrix.model.AuthenticationApi;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RegistrationRequest;
 import io.github.fherbreteau.matrix.model.Session;
@@ -815,6 +816,121 @@ class AuthenticationTest {
   void matrixServerExceptionReturnsNullWhenUiAuthChallengeIsAbsent() {
     var exception = new MatrixServerException(400, "M_BAD_JSON", "bad");
     assertThat(exception.getUserInteractiveAuthChallenge()).isNull();
+  }
+
+  @Test
+  void oauthSessionProvenanceIsPreservedAcrossRefreshAndFilePersistence() {
+    Session legacy = Session.from(JsonParser.parse(LOGIN_OK));
+    Session oauth = Session.from(JsonParser.parse(LOGIN_OK), AuthenticationApi.OAUTH);
+    assertThat(legacy.authenticationApi()).isEqualTo(AuthenticationApi.LEGACY);
+    assertThat(oauth.usesOauth()).isTrue();
+    assertThat(oauth.withAuthenticationApi(null).authenticationApi())
+        .isEqualTo(AuthenticationApi.LEGACY);
+    assertThatThrownBy(
+            () ->
+                MatrixClient.builder("https://matrix.example.org")
+                    .transport(stub -> new Response(200, "{}"))
+                    .build()
+                    .usesOauthSession())
+        .isInstanceOf(AuthenticationException.class);
+    Session legacyConstructorSession =
+        new Session("@legacy:example.org", "access", null, null, null, null, null);
+    assertThat(legacyConstructorSession.authenticationApi()).isEqualTo(AuthenticationApi.LEGACY);
+    Session nullProvenanceSession =
+        new Session("@legacy:example.org", "access", null, null, null, null, null, null);
+    assertThat(nullProvenanceSession.authenticationApi()).isEqualTo(AuthenticationApi.LEGACY);
+    var sessionStore = new InMemorySessionStore();
+    sessionStore.save(oauth);
+    var client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{}"))
+            .sessionStore(sessionStore)
+            .build();
+    assertThat(client.usesOauthSession()).isTrue();
+    Session refreshed =
+        Session.fromRefresh(
+            oauth, JsonParser.parse("{\"access_token\":\"next\",\"refresh_token\":\"refresh\"}"));
+    assertThat(refreshed.authenticationApi()).isEqualTo(AuthenticationApi.OAUTH);
+  }
+
+  @Test
+  void oauthSessionCannotUseLegacyAccountManagementEndpoints() {
+    var store = new InMemorySessionStore();
+    store.save(Session.from(JsonParser.parse(LOGIN_OK), AuthenticationApi.OAUTH));
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new Response(200, "{}"), requests))
+            .sessionStore(store)
+            .build();
+    var request = AccountRequest.builder().newPassword("next").build();
+    assertThatThrownBy(() -> client.changePassword(request))
+        .isInstanceOf(UnsupportedOperationException.class)
+        .hasMessageContaining("account-management URL");
+    assertThatThrownBy(() -> client.deactivateAccount(AccountRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> client.getThreePids())
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> client.addThreePid(AccountRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> client.bindThreePid(AccountRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> client.deleteThreePid(AccountRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> client.unbindThreePid(AccountRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(
+            () -> client.requestRegistrationEmailToken(ThreePidTokenRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(
+            () -> client.requestRegistrationMsisdnToken(ThreePidTokenRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(
+            () -> client.requestThreePidEmailToken(ThreePidTokenRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(
+            () -> client.requestThreePidMsisdnToken(ThreePidTokenRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(
+            () -> client.requestPasswordResetEmailToken(ThreePidTokenRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(
+            () -> client.requestPasswordResetMsisdnToken(ThreePidTokenRequest.builder().build()))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThat(requests).isEmpty();
+  }
+
+  @Test
+  void authMetadataHelperReturnsAccountManagementUri() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                stub ->
+                    new Response(
+                        200, "{\"account_management_uri\":\"https://account.example.org/\"}"))
+            .build();
+    assertThat(client.getAccountManagementUri()).isEqualTo("https://account.example.org/");
+  }
+
+  @Test
+  void authMetadataHelperReturnsNullWhenAccountManagementUriIsNotAdvertised() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{\"issuer\":\"https://issuer.example.org\"}"))
+            .build();
+    assertThat(client.getAccountManagementUri()).isNull();
+  }
+
+  @Test
+  void authMetadata404MeansOAuthIsUnsupported() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                request ->
+                    new Response(
+                        404, "{\"errcode\":\"M_UNRECOGNIZED\",\"error\":\"Not supported\"}"))
+            .build();
+    assertThat(client.findAuthMetadata()).isEmpty();
   }
 
   private static HttpTransportStub recording(Response response, List<Request> requests) {

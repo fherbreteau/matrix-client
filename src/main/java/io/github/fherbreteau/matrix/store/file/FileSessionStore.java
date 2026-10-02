@@ -1,6 +1,7 @@
 package io.github.fherbreteau.matrix.store.file;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
+import io.github.fherbreteau.matrix.model.AuthenticationApi;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.store.SessionStore;
 import java.nio.file.Path;
@@ -31,6 +32,7 @@ public final class FileSessionStore implements SessionStore {
   private static final String REFRESH_TOKEN = "refresh_token";
   private static final String USER_ID = "user_id";
   private static final String ACCESS_TOKEN = "access_token";
+  private static final String AUTHENTICATION_API = "authentication_api";
 
   private final AtomicJsonFile file;
   private final ReentrantLock lock = new ReentrantLock();
@@ -51,6 +53,7 @@ public final class FileSessionStore implements SessionStore {
       var object = new JsonObject();
       object.put(USER_ID, session.userId());
       object.put(ACCESS_TOKEN, session.accessToken());
+      object.put(AUTHENTICATION_API, session.authenticationApi().name());
       AtomicJsonFile.putNullable(object, REFRESH_TOKEN, session.refreshToken());
       AtomicJsonFile.putNullable(object, EXPIRES_IN_MS, session.expiresInMs());
       AtomicJsonFile.putNullable(object, DEVICE_ID, session.deviceId());
@@ -77,10 +80,23 @@ public final class FileSessionStore implements SessionStore {
               AtomicJsonFile.longValue(object, EXPIRES_IN_MS),
               AtomicJsonFile.string(object, DEVICE_ID),
               AtomicJsonFile.string(object, HOME_SERVER),
-              object);
+              object,
+              authenticationApi(object));
       return Optional.of(session);
     } finally {
       lock.unlock();
+    }
+  }
+
+  private static AuthenticationApi authenticationApi(JsonObject object) {
+    String api = AtomicJsonFile.string(object, AUTHENTICATION_API);
+    if (api == null) {
+      return AuthenticationApi.LEGACY;
+    }
+    try {
+      return AuthenticationApi.valueOf(api);
+    } catch (IllegalArgumentException exception) {
+      throw new IllegalStateException("Persistence file has invalid authentication_api", exception);
     }
   }
 

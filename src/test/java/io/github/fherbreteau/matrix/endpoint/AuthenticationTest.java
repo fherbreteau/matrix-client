@@ -755,6 +755,62 @@ class AuthenticationTest {
             });
   }
 
+  @Test
+  void typedAccountModelsRejectMalformedRequiredFields() {
+    var empty = JsonParser.parse("{}");
+    assertThatThrownBy(
+            () -> io.github.fherbreteau.matrix.model.RegistrationAvailability.from(empty))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> io.github.fherbreteau.matrix.model.RegistrationTokenValidity.from(empty))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> io.github.fherbreteau.matrix.model.RegistrationResponse.from(empty))
+        .isInstanceOf(DiscoveryException.class);
+    assertThatThrownBy(() -> io.github.fherbreteau.matrix.model.ThreePidTokenResponse.from(empty))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> io.github.fherbreteau.matrix.model.AccountOperationResponse.from(empty))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> io.github.fherbreteau.matrix.model.ThreePidResponse.from(empty))
+        .isInstanceOf(IllegalArgumentException.class);
+    var threepidsWithoutRequiredFields = JsonParser.parse("{\"threepids\":[{}]}");
+    assertThatThrownBy(
+            () ->
+                io.github.fherbreteau.matrix.model.ThreePidResponse.from(
+                    threepidsWithoutRequiredFields))
+        .isInstanceOf(IllegalArgumentException.class);
+    var invalidFlow = JsonParser.parse("{\"flows\":[{}]}");
+    assertThatThrownBy(
+            () -> io.github.fherbreteau.matrix.model.UserInteractiveAuthChallenge.from(invalidFlow))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void registrationKindAndDeactivationFailureBehaveAsSpecified() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport =
+        recording(new Response(200, "{\"user_id\":\"@alice:example.org\"}"), requests);
+    transport.enqueue(new Response(200, LOGIN_OK));
+    transport.enqueue(new Response(500, "{\"errcode\":\"M_UNKNOWN\",\"error\":\"retry\"}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    client.register(RegistrationRequest.builder().build(), "guest");
+    assertThat(requests.getFirst().url()).endsWith("/_matrix/client/v3/register?kind=guest");
+    var invalidKind = "service";
+    assertThatThrownBy(() -> client.register(RegistrationRequest.builder().build(), invalidKind))
+        .isInstanceOf(IllegalArgumentException.class);
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    assertThatThrownBy(() -> client.deactivateAccount(AccountRequest.builder().build()))
+        .isInstanceOf(MatrixServerException.class);
+    assertThat(client.getSession()).isPresent();
+  }
+
+  @Test
+  void matrixServerExceptionReturnsNullWhenUiAuthChallengeIsAbsent() {
+    var exception = new MatrixServerException(400, "M_BAD_JSON", "bad");
+    assertThat(exception.getUserInteractiveAuthChallenge()).isNull();
+  }
+
   private static HttpTransportStub recording(Response response, List<Request> requests) {
     var stub = new HttpTransportStub();
     stub.enqueue(response);

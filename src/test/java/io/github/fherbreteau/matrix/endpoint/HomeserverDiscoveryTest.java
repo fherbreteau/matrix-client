@@ -85,8 +85,8 @@ class HomeserverDiscoveryTest {
 
   @Test
   void discoveryRejectsBaseWithoutHostname() {
-    assertThatThrownBy(
-            () -> HomeserverDiscovery.discover(HttpTransportStub.recording(), "https:opaque-base"))
+    var transport = HttpTransportStub.recording();
+    assertThatThrownBy(() -> HomeserverDiscovery.discover(transport, "https:opaque-base"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("must contain a hostname");
   }

@@ -68,6 +68,14 @@ class HomeserverDiscoveryTest {
   }
 
   @Test
+  void discoversOverHttpsUsingHostnameOnly() {
+    var transport = HttpTransportStub.recording();
+    HomeserverDiscovery.discover(transport, "http://matrix.example.org:8448/base/path");
+    assertThat(transport.lastUrl())
+        .isEqualTo("https://matrix.example.org/.well-known/matrix/client");
+  }
+
+  @Test
   void fallsBackWhenWellKnownFails() {
     var transport = HttpTransportStub.failing();
     var discovered = HomeserverDiscovery.discover(transport, "https://matrix.example.org");

@@ -984,16 +984,17 @@ class AuthenticationTest {
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org").transport(transport).build();
     client.login(new PasswordCredentials("@alice:matrix.org", "p"));
-    assertThatThrownBy(() -> client.deleteDevice(DeviceId.of("D1")))
+    DeviceId firstDevice = DeviceId.of("D1");
+    assertThatThrownBy(() -> client.deleteDevice(firstDevice))
         .isInstanceOf(MatrixServerException.class)
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getUserInteractiveAuthChallenge)
         .isNotNull();
     JsonValue auth = JsonParser.parse("{\"type\":\"m.login.password\",\"session\":\"s\"}");
-    client.deleteDevice(DeviceId.of("D1"), auth);
-    client.deleteDevice(DeviceId.of("D2"));
-    DeleteDevicesRequest bulk =
-        DeleteDevicesRequest.of(List.of(DeviceId.of("D1"), DeviceId.of("D2")));
+    client.deleteDevice(firstDevice, auth);
+    DeviceId secondDevice = DeviceId.of("D2");
+    client.deleteDevice(secondDevice);
+    DeleteDevicesRequest bulk = DeleteDevicesRequest.of(List.of(firstDevice, secondDevice));
     assertThat(bulk.toJson().asObject().get("devices").asArray().size()).isEqualTo(2);
     client.deleteDevices(bulk.withAuth(auth));
     assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/devices/D1");
@@ -1012,11 +1013,12 @@ class AuthenticationTest {
             .transport(recording(new Response(200, "{}"), requests))
             .sessionStore(sessionStore)
             .build();
-    assertThatThrownBy(() -> client.deleteDevice(DeviceId.of("D1")))
+    DeviceId deviceId = DeviceId.of("D1");
+    assertThatThrownBy(() -> client.deleteDevice(deviceId))
         .isInstanceOf(UnsupportedOperationException.class)
         .hasMessageContaining("account-management URL");
-    assertThatThrownBy(
-            () -> client.deleteDevices(DeleteDevicesRequest.of(List.of(DeviceId.of("D1")))))
+    DeleteDevicesRequest deletionRequest = DeleteDevicesRequest.of(List.of(deviceId));
+    assertThatThrownBy(() -> client.deleteDevices(deletionRequest))
         .isInstanceOf(UnsupportedOperationException.class);
     assertThat(requests).isEmpty();
   }

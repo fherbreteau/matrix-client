@@ -7,6 +7,7 @@ import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.model.AccountRequest;
+import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
 import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
 import io.github.fherbreteau.matrix.model.Direction;
@@ -258,9 +259,7 @@ class SynapseContainerIT {
   void listsInspectsAndUpdatesTheCurrentDevice() {
     var session = client.getSession().orElseThrow();
     DeviceId deviceId = DeviceId.of(session.deviceId());
-    assertThat(client.getDevices().devices())
-        .extracting(device -> device.deviceId())
-        .contains(deviceId);
+    assertThat(client.getDevices().devices()).extracting(Device::deviceId).contains(deviceId);
     assertThat(client.getDevice(deviceId).deviceId()).isEqualTo(deviceId);
     String displayName = "Synapse integration " + UUID.randomUUID();
     client.updateDevice(deviceId, DeviceUpdateRequest.displayName(displayName));

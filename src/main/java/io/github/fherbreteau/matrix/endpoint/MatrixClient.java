@@ -119,6 +119,8 @@ public final class MatrixClient {
   private static final String CONTENT_TYPE_HEADER = "content-type";
   private static final String CONTENT_DISPOSITION_HEADER = "content-disposition";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String DEVICES_PATH = "_matrix/client/v3/devices/";
+  private static final String HTTP_DELETE = "DELETE";
   private static final String DIR_QUERY_PARAM = "&dir=";
   private static final String LIMIT_QUERY_PARAM = "&limit=";
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
@@ -658,8 +660,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public Device getDevice(DeviceId deviceId) {
-    return Device.from(
-        authenticated("GET", "_matrix/client/v3/devices/" + encode(deviceId.value()), null));
+    return Device.from(authenticated("GET", DEVICES_PATH + encode(deviceId.value()), null));
   }
 
   /**
@@ -673,7 +674,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void updateDevice(DeviceId deviceId, DeviceUpdateRequest update) {
-    authenticated("PUT", "_matrix/client/v3/devices/" + encode(deviceId.value()), update.toJson());
+    authenticated("PUT", DEVICES_PATH + encode(deviceId.value()), update.toJson());
   }
 
   /**
@@ -703,7 +704,7 @@ public final class MatrixClient {
   public void deleteDevice(DeviceId deviceId, JsonValue auth) {
     ensureDeviceDeletionSupportedBySession();
     JsonObject body = auth == null ? null : new JsonObject().put("auth", auth);
-    authenticatedUiAuth("DELETE", "_matrix/client/v3/devices/" + encode(deviceId.value()), body);
+    authenticatedUiAuth(HTTP_DELETE, DEVICES_PATH + encode(deviceId.value()), body);
   }
 
   /**
@@ -1535,7 +1536,8 @@ public final class MatrixClient {
    */
   public void setProfileField(UserId userId, String keyName, String value) {
     if (value == null) {
-      authenticated("DELETE", PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName), null);
+      authenticated(
+          HTTP_DELETE, PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName), null);
       return;
     }
     authenticated(
@@ -1603,7 +1605,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void deleteRoomAlias(RoomAlias roomAlias) {
-    authenticated("DELETE", DIRECTORY_PATH + encode(roomAlias.value()), null);
+    authenticated(HTTP_DELETE, DIRECTORY_PATH + encode(roomAlias.value()), null);
   }
 
   /**

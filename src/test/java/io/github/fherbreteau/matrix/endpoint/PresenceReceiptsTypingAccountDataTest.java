@@ -114,8 +114,9 @@ class PresenceReceiptsTypingAccountDataTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(request -> new Response(200, "{}"))
             .build();
-    assertThatThrownBy(
-            () -> client.sendReceipt(RoomId.of("!a:b"), "m.fully_read", EventId.of("$e1"), null))
+    RoomId roomId = RoomId.of("!a:b");
+    EventId eventId = EventId.of("$e1");
+    assertThatThrownBy(() -> client.sendReceipt(roomId, "m.fully_read", eventId, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("receiptType must be m.read or m.read.private");
   }

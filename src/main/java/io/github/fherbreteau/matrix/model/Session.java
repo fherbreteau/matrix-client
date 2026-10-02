@@ -18,9 +18,77 @@ public record Session(
     Long expiresInMs,
     String deviceId,
     String homeserver,
-    JsonValue raw) {
+    JsonValue raw,
+    AuthenticationApi authenticationApi) {
 
   private static final String REFRESH_TOKEN_FIELD = "refresh_token";
+
+  /**
+   * Creates a legacy-authenticated session when provenance is omitted by older callers.
+   *
+   * @param userId the authenticated user ID
+   * @param accessToken the access token
+   * @param refreshToken the refresh token, if issued
+   * @param expiresInMs access-token lifetime in milliseconds, if reported
+   * @param deviceId the device ID, if reported
+   * @param homeserver the homeserver name, if reported
+   * @param raw the complete response JSON
+   * @param authenticationApi the API that issued the access token
+   */
+  public Session {
+    authenticationApi = authenticationApi == null ? AuthenticationApi.LEGACY : authenticationApi;
+  }
+
+  /**
+   * Creates a session using legacy authentication, retaining compatibility with existing session
+   * constructors and previously persisted sessions.
+   *
+   * @param userId the authenticated user ID
+   * @param accessToken the access token
+   * @param refreshToken the refresh token, if issued
+   * @param expiresInMs access-token lifetime in milliseconds, if reported
+   * @param deviceId the device ID, if reported
+   * @param homeserver the homeserver name, if reported
+   * @param raw the complete response JSON
+   */
+  public Session(
+      String userId,
+      String accessToken,
+      String refreshToken,
+      Long expiresInMs,
+      String deviceId,
+      String homeserver,
+      JsonValue raw) {
+    this(
+        userId,
+        accessToken,
+        refreshToken,
+        expiresInMs,
+        deviceId,
+        homeserver,
+        raw,
+        AuthenticationApi.LEGACY);
+  }
+
+  /**
+   * Returns whether account changes must be delegated to OAuth account management.
+   *
+   * @return whether this session was issued by the OAuth API
+   */
+  public boolean usesOauth() {
+    return authenticationApi == AuthenticationApi.OAUTH;
+  }
+
+  /**
+   * Returns a copy of this session with the specified authentication API provenance.
+   *
+   * @param api the API that issued the access token
+   * @return a copy carrying the specified provenance
+   */
+  public Session withAuthenticationApi(AuthenticationApi api) {
+    return new Session(
+        userId, accessToken, refreshToken, expiresInMs, deviceId, homeserver, raw, api);
+  }
 
   /**
    * Returns whether the access token can be renewed with {@code POST /_matrix/client/v3/refresh},
@@ -36,6 +104,18 @@ public record Session(
    * @throws DiscoveryException if the response is missing the access token or user ID
    */
   public static Session from(JsonValue body) {
+    return from(body, AuthenticationApi.LEGACY);
+  }
+
+  /**
+   * Parses an authentication response and records the API that issued its access token.
+   *
+   * @param body the parsed authentication response
+   * @param authenticationApi the authentication API that issued the token
+   * @return the resulting session
+   * @throws DiscoveryException if the response is missing the access token or user ID
+   */
+  public static Session from(JsonValue body, AuthenticationApi authenticationApi) {
     if (body == null || !body.isObject()) {
       throw new DiscoveryException("Login response must be a JSON object");
     }
@@ -52,7 +132,8 @@ public record Session(
         longValue(obj, "expires_in_ms"),
         stringValue(obj, "device_id"),
         stringValue(obj, "home_server"),
-        body);
+        body,
+        authenticationApi);
   }
 
   /**
@@ -81,7 +162,8 @@ public record Session(
         longValue(obj, "expires_in_ms"),
         previous.deviceId(),
         previous.homeserver(),
-        body);
+        body,
+        previous.authenticationApi());
   }
 
   private static String stringValue(JsonObject obj, String name) {

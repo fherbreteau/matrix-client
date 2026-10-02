@@ -3,6 +3,7 @@ package io.github.fherbreteau.matrix.store;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.model.AuthenticationApi;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.store.file.FileMediaMetadataStore;
 import io.github.fherbreteau.matrix.store.file.FileSessionStore;
@@ -68,6 +69,27 @@ class PersistenceStoreTest {
     assertThat(restored)
         .extracting(Session::userId, Session::deviceId)
         .containsExactly("@b:x", null);
+  }
+
+  @Test
+  void fileSessionStorePreservesAuthenticationApiAndDefaultsOldFilesToLegacy() throws Exception {
+    Path path = tempDir.resolve("oauth-session.json");
+    var store = new FileSessionStore(path);
+    Session oauthSession =
+        Session.from(
+            JsonParser.parse("{\"user_id\":\"@oauth:x\",\"access_token\":\"token\"}"),
+            AuthenticationApi.OAUTH);
+    store.save(oauthSession);
+    assertThat(new FileSessionStore(path).current())
+        .get()
+        .extracting(Session::authenticationApi)
+        .isEqualTo(AuthenticationApi.OAUTH);
+
+    Files.writeString(path, "{\"user_id\":\"@legacy:x\",\"access_token\":\"legacy-token\"}");
+    assertThat(new FileSessionStore(path).current())
+        .get()
+        .extracting(Session::authenticationApi)
+        .isEqualTo(AuthenticationApi.LEGACY);
   }
 
   @Test

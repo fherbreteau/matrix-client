@@ -7,6 +7,10 @@ import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import io.github.fherbreteau.matrix.model.AccountOperationResponse;
+import io.github.fherbreteau.matrix.model.AccountRequest;
+import io.github.fherbreteau.matrix.model.AuthMetadata;
+import io.github.fherbreteau.matrix.model.AuthenticationApi;
 import io.github.fherbreteau.matrix.model.Credentials;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
@@ -21,6 +25,10 @@ import io.github.fherbreteau.matrix.model.Presence;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.ReadMarkers;
+import io.github.fherbreteau.matrix.model.RegistrationAvailability;
+import io.github.fherbreteau.matrix.model.RegistrationRequest;
+import io.github.fherbreteau.matrix.model.RegistrationResponse;
+import io.github.fherbreteau.matrix.model.RegistrationTokenValidity;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
@@ -30,6 +38,9 @@ import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
+import io.github.fherbreteau.matrix.model.ThreePidResponse;
+import io.github.fherbreteau.matrix.model.ThreePidTokenRequest;
+import io.github.fherbreteau.matrix.model.ThreePidTokenResponse;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
@@ -306,7 +317,8 @@ public final class MatrixClient {
       body.put("refresh_token", true);
     }
     try {
-      Session session = Session.from(post("_matrix/client/v3/login", body));
+      Session session =
+          Session.from(post("_matrix/client/v3/login", body), AuthenticationApi.LEGACY);
       sessionStore.save(session);
       return session;
     } catch (RateLimitedException e) {
@@ -318,6 +330,339 @@ public final class MatrixClient {
         message = message.replace(identifier, "***");
       }
       throw new AuthenticationException(e.getErrcode(), message);
+    }
+  }
+
+  /**
+   * Checks whether a username is available for registration.
+   *
+   * @param username the desired username
+   * @return the availability and raw response fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3registeravailable">Matrix
+   *     specification</a>
+   */
+  public RegistrationAvailability isUsernameAvailable(String username) {
+    return RegistrationAvailability.from(
+        get(
+            appendQuery(
+                "_matrix/client/v3/register/available",
+                new JsonObject().put("username", username))));
+  }
+
+  /**
+   * Checks whether a registration token is currently valid.
+   *
+   * @param token the registration token
+   * @return the validity and raw response fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1registermloginregistration_tokenvalidity">Matrix
+   *     specification</a>
+   */
+  public RegistrationTokenValidity isRegistrationTokenValid(String token) {
+    return RegistrationTokenValidity.from(
+        get(
+            appendQuery(
+                "_matrix/client/v1/register/m.login.registration_token/validity",
+                new JsonObject().put("token", token))));
+  }
+
+  /**
+   * Registers a user. The request may be repeated with additional UI-auth fields after a {@link
+   * MatrixServerException} challenge.
+   *
+   * @param registration the registration parameters, including any UI-auth response
+   * @return the registered user and optional login credentials
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register">Matrix
+   *     specification</a>
+   */
+  public RegistrationResponse register(RegistrationRequest registration) {
+    return register(registration, null);
+  }
+
+  /**
+   * Registers a user with the specified account kind.
+   *
+   * @param registration the registration parameters, including any UI-auth response
+   * @param kind account kind, either {@code user} or {@code guest}, or {@code null} for the default
+   * @return the registered user and optional login credentials
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3register">Matrix
+   *     specification</a>
+   */
+  public RegistrationResponse register(RegistrationRequest registration, String kind) {
+    String path = "_matrix/client/v3/register";
+    if (kind != null) {
+      if (!"user".equals(kind) && !"guest".equals(kind)) {
+        throw new IllegalArgumentException("kind must be user or guest");
+      }
+      path = appendQuery(path, new JsonObject().put("kind", kind));
+    }
+    RegistrationResponse response = RegistrationResponse.from(post(path, registration.toJson()));
+    if (response.accessToken() != null) {
+      sessionStore.save(Session.from(response.raw(), AuthenticationApi.LEGACY));
+    }
+    return response;
+  }
+
+  /**
+   * Retrieves OAuth authentication and account-management metadata.
+   *
+   * @return the metadata, preserving unknown fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1auth_metadata">Matrix
+   *     specification</a>
+   */
+  public AuthMetadata getAuthMetadata() {
+    return AuthMetadata.from(get("_matrix/client/v1/auth_metadata"));
+  }
+
+  /**
+   * Returns the OAuth account-management URL when advertised by the homeserver.
+   *
+   * @return the account-management URL, or {@code null} if it is not advertised
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1auth_metadata">Matrix
+   *     specification</a>
+   */
+  public String getAccountManagementUri() {
+    JsonValue value = getAuthMetadata().get("account_management_uri");
+    return value != null && value.isString() ? value.asString() : null;
+  }
+
+  /**
+   * Changes the current account password using User-Interactive Authentication.
+   *
+   * @param request the new password and UI-auth response fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3accountpassword">Matrix
+   *     specification</a>
+   */
+  public void changePassword(AccountRequest request) {
+    ensureLegacyAccountApi();
+    authenticatedUiAuth("POST", "_matrix/client/v3/account/password", request.toJson());
+  }
+
+  /**
+   * Deactivates the current account using User-Interactive Authentication.
+   *
+   * @param request the deactivation and UI-auth fields
+   * @return the identity-server unbind result and raw response
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3accountdeactivate">Matrix
+   *     specification</a>
+   */
+  public AccountOperationResponse deactivateAccount(AccountRequest request) {
+    ensureLegacyAccountApi();
+    AccountOperationResponse response =
+        AccountOperationResponse.from(
+            authenticatedUiAuth("POST", "_matrix/client/v3/account/deactivate", request.toJson()));
+    sessionStore.clear();
+    syncTokenStore.clear();
+    return response;
+  }
+
+  /**
+   * Returns third-party identifiers associated with the current account.
+   *
+   * @return the associated identifiers and raw fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3account3pid">Matrix
+   *     specification</a>
+   */
+  public ThreePidResponse getThreePids() {
+    ensureLegacyAccountApi();
+    return ThreePidResponse.from(authenticated("GET", "_matrix/client/v3/account/3pid", null));
+  }
+
+  /**
+   * Adds a previously validated third-party identifier to the current account.
+   *
+   * @param request the identifier-verification session and UI-auth fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3account3pidadd">Matrix
+   *     specification</a>
+   */
+  public void addThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
+    authenticatedUiAuth("POST", "_matrix/client/v3/account/3pid/add", request.toJson());
+  }
+
+  /**
+   * Binds an identifier to an identity server.
+   *
+   * @param request the identifier-verification and identity-server fields
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3account3pidbind">Matrix
+   *     specification</a>
+   */
+  public void bindThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
+    authenticated("POST", "_matrix/client/v3/account/3pid/bind", request.toJson());
+  }
+
+  /**
+   * Removes a third-party identifier from the current account.
+   *
+   * @param request the identifier and optional identity-server fields
+   * @return the identity-server unbind result and raw response
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3account3piddelete">Matrix
+   *     specification</a>
+   */
+  public AccountOperationResponse deleteThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
+    return AccountOperationResponse.from(
+        authenticated("POST", "_matrix/client/v3/account/3pid/delete", request.toJson()));
+  }
+
+  /**
+   * Removes an identifier binding from an identity server without removing its homeserver
+   * association.
+   *
+   * @param request the identifier and optional identity-server fields
+   * @return the identity-server unbind result and raw response
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3account3pidunbind">Matrix
+   *     specification</a>
+   */
+  public AccountOperationResponse unbindThreePid(AccountRequest request) {
+    ensureLegacyAccountApi();
+    return AccountOperationResponse.from(
+        authenticated("POST", "_matrix/client/v3/account/3pid/unbind", request.toJson()));
+  }
+
+  /**
+   * Requests an email verification token for registration.
+   *
+   * @param request the email token request parameters
+   * @return the session ID and optional submit URL
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3registeremailrequesttoken">Matrix
+   *     specification</a>
+   */
+  public ThreePidTokenResponse requestRegistrationEmailToken(ThreePidTokenRequest request) {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(
+          "Registration token requests require the legacy authentication API");
+    }
+    return ThreePidTokenResponse.from(
+        post("_matrix/client/v3/register/email/requestToken", request.toJson()));
+  }
+
+  /**
+   * Requests an MSISDN verification token for registration.
+   *
+   * @param request the phone token request parameters
+   * @return the session ID and optional submit URL
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3registermsisdnrequesttoken">Matrix
+   *     specification</a>
+   */
+  public ThreePidTokenResponse requestRegistrationMsisdnToken(ThreePidTokenRequest request) {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(
+          "Registration token requests require the legacy authentication API");
+    }
+    return ThreePidTokenResponse.from(
+        post("_matrix/client/v3/register/msisdn/requestToken", request.toJson()));
+  }
+
+  /**
+   * Requests a token to add an email address to the current account.
+   *
+   * @param request the email token request parameters
+   * @return the session ID and optional submit URL
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3account3pidemailrequesttoken">Matrix
+   *     specification</a>
+   */
+  public ThreePidTokenResponse requestThreePidEmailToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
+    return ThreePidTokenResponse.from(
+        post("_matrix/client/v3/account/3pid/email/requestToken", request.toJson()));
+  }
+
+  /**
+   * Requests a token to add an MSISDN to the current account.
+   *
+   * @param request the phone token request parameters
+   * @return the session ID and optional submit URL
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3account3pidmsisdnrequesttoken">Matrix
+   *     specification</a>
+   */
+  public ThreePidTokenResponse requestThreePidMsisdnToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
+    return ThreePidTokenResponse.from(
+        post("_matrix/client/v3/account/3pid/msisdn/requestToken", request.toJson()));
+  }
+
+  /**
+   * Requests an email token to reset the current account password.
+   *
+   * @param request the email token request parameters
+   * @return the session ID and optional submit URL
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3accountpasswordemailrequesttoken">Matrix
+   *     specification</a>
+   */
+  public ThreePidTokenResponse requestPasswordResetEmailToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
+    return ThreePidTokenResponse.from(
+        post("_matrix/client/v3/account/password/email/requestToken", request.toJson()));
+  }
+
+  /**
+   * Requests an MSISDN token to reset the current account password.
+   *
+   * @param request the phone token request parameters
+   * @return the session ID and optional submit URL
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3accountpasswordmsisdnrequesttoken">Matrix
+   *     specification</a>
+   */
+  public ThreePidTokenResponse requestPasswordResetMsisdnToken(ThreePidTokenRequest request) {
+    ensureLegacyAccountApi();
+    return ThreePidTokenResponse.from(
+        post("_matrix/client/v3/account/password/msisdn/requestToken", request.toJson()));
+  }
+
+  /**
+   * Returns whether the authenticated session was obtained through the OAuth API.
+   *
+   * @return {@code true} when the current session is OAuth-issued
+   * @throws AuthenticationException if there is no authenticated session
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#authentication-api-discovery">Matrix
+   *     specification</a>
+   */
+  public boolean usesOauthSession() {
+    return sessionStore
+        .current()
+        .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE))
+        .usesOauth();
+  }
+
+  /**
+   * Returns OAuth authentication metadata, or empty when the homeserver does not support OAuth. A
+   * 404 response with {@code M_UNRECOGNIZED} means OAuth is unsupported.
+   *
+   * @return OAuth metadata when supported
+   * @throws MatrixServerException if metadata retrieval fails for another reason
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1auth_metadata">Matrix
+   *     specification</a>
+   */
+  public Optional<AuthMetadata> findAuthMetadata() {
+    try {
+      return Optional.of(getAuthMetadata());
+    } catch (MatrixServerException exception) {
+      if (exception.getStatusCode() == 404 && "M_UNRECOGNIZED".equals(exception.getErrcode())) {
+        return Optional.empty();
+      }
+      throw exception;
     }
   }
 
@@ -2053,6 +2398,39 @@ public final class MatrixClient {
         || segment.toLowerCase(Locale.ROOT).contains("secret");
   }
 
+  private void ensureLegacyAccountApi() {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(accountManagementMessage());
+    }
+  }
+
+  private String accountManagementMessage() {
+    return "Account management for OAuth sessions must use the homeserver account-management URL; "
+        + "check getAuthMetadata() for account_management_uri and supported actions";
+  }
+
+  private JsonValue authenticatedUiAuth(String method, String path, JsonValue body) {
+    Session session =
+        sessionStore
+            .current()
+            .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE));
+    try {
+      return request(
+          method,
+          path,
+          body,
+          Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken()),
+          false);
+    } catch (RateLimitedException exception) {
+      throw exception;
+    } catch (MatrixServerException exception) {
+      if (isTokenError(exception)) {
+        throw new AuthenticationException(exception.getErrcode(), exception.getMessage());
+      }
+      throw exception;
+    }
+  }
+
   private JsonValue authenticated(String method, String path, JsonValue body) {
     Session session =
         sessionStore
@@ -2096,8 +2474,7 @@ public final class MatrixClient {
 
   private static boolean isTokenError(MatrixServerException e) {
     String errcode = e.getErrcode();
-    return e.getStatusCode() == 401
-        || "M_UNKNOWN_TOKEN".equals(errcode)
+    return "M_UNKNOWN_TOKEN".equals(errcode)
         || M_MISSING_TOKEN.equals(errcode)
         || "M_INVALID_TOKEN".equals(errcode);
   }

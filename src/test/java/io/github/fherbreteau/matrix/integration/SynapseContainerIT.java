@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventFilter;
 import io.github.fherbreteau.matrix.model.EventId;
@@ -16,6 +17,7 @@ import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.ReadMarkers;
+import io.github.fherbreteau.matrix.model.RegistrationRequest;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
@@ -234,6 +236,60 @@ class SynapseContainerIT {
   }
 
   @Test
+  void checksRegistrationAvailabilityAndRegistersUser() {
+    String localpart = "it-" + UUID.randomUUID().toString().replace('-', '_');
+    var availability = client.isUsernameAvailable(localpart);
+    assertThat(availability.available()).isTrue();
+    assertThat(client.isRegistrationTokenValid("invalid-" + localpart).valid()).isFalse();
+    var registration =
+        RegistrationRequest.builder()
+            .username(localpart)
+            .password(UUID.randomUUID().toString())
+            .inhibitLogin(true)
+            .build();
+    assertThatThrownBy(() -> client.register(registration))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("HTTP 401");
+  }
+
+  @Test
+  void changesPasswordWithInteractiveAuthenticationAndRestoresIt() {
+    String changedPassword = UUID.randomUUID().toString();
+    try {
+      var request =
+          "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\","
+              + "\"user\":\"@integration:localhost\"},\"password\":\"%s\"}".formatted(PASSWORD);
+      client.changePassword(
+          AccountRequest.builder()
+              .newPassword(changedPassword)
+              .logoutDevices(false)
+              .put("auth", JsonParser.parse(request))
+              .build());
+      MatrixClient changedPasswordClient =
+          MatrixClient.builder(homeserverUrl()).retryPolicy(RetryPolicy.disabled()).build();
+      var changedSession =
+          changedPasswordClient.login(
+              new PasswordCredentials("@integration:localhost", changedPassword));
+      assertThat(changedSession.userId()).isEqualTo("@integration:localhost");
+      changedPasswordClient.logout();
+    } finally {
+      var currentSession = client.getSession();
+      if (currentSession.isPresent()) {
+        var request =
+            "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\","
+                + "\"user\":\"@integration:localhost\"},\"password\":\"%s\"}"
+                    .formatted(changedPassword);
+        client.changePassword(
+            AccountRequest.builder()
+                .newPassword(PASSWORD)
+                .logoutDevices(false)
+                .put("auth", JsonParser.parse(request))
+                .build());
+      }
+    }
+  }
+
+  @Test
   void rejectsInvalidCredentialsWithoutLeakingThePassword() {
     MatrixClient unauthenticatedClient =
         MatrixClient.builder(homeserverUrl()).retryPolicy(RetryPolicy.disabled()).build();
@@ -274,19 +330,37 @@ class SynapseContainerIT {
   }
 
   private static void configureRegistrationSecret() throws IOException {
+    var matrixConfig =
+        """
+        enable_registration: true
+        enable_registration_without_verification: true
+        registration_shared_secret: "%s"
+        public_baseurl: "http://localhost:8008/"
+        default_room_version: "10"
+        allow_public_rooms_without_auth: true
+        presence:
+          enabled: true
+        rc_message:
+          per_second: 100
+          burst_count: 100
+        rc_registration:
+          per_second: 100
+          burst_count: 100
+        rc_login:
+          address:
+            per_second: 100
+            burst_count: 100
+          account:
+            per_second: 100
+            burst_count: 100
+          failed_attempts:
+            per_second: 100
+            burst_count: 100
+        """
+            .formatted(SHARED_SECRET);
     Files.writeString(
         dataDirectory.resolve("homeserver.yaml"),
-        "\nregistration_shared_secret: \""
-            + SHARED_SECRET
-            + "\"\npublic_baseurl: \"http://localhost:8008/\"\n"
-            + "default_room_version: \"10\"\n"
-            + "allow_public_rooms_without_auth: true\n"
-            + "presence:\n  enabled: true\n"
-            + "rc_message:\n  per_second: 100\n  burst_count: 100\n"
-            + "rc_registration:\n  per_second: 100\n  burst_count: 100\n"
-            + "rc_login:\n  address:\n    per_second: 100\n    burst_count: 100\n"
-            + "  account:\n    per_second: 100\n    burst_count: 100\n"
-            + "  failed_attempts:\n    per_second: 100\n    burst_count: 100\n",
+        "\n" + matrixConfig,
         StandardCharsets.UTF_8,
         StandardOpenOption.APPEND);
   }

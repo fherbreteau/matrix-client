@@ -140,6 +140,10 @@ public final class MatrixClient {
     this.retrySleeper = builder.retrySleeper;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
+      if (discovery.outcome() == DiscoveryOutcome.FAIL_PROMPT
+          || discovery.outcome() == DiscoveryOutcome.FAIL_ERROR) {
+        throw new DiscoveryException(discovery.failureReason());
+      }
       this.homeserverUrl = discovery.homeserverUrl();
     } else {
       this.discovery = null;

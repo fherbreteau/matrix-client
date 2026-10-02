@@ -12,9 +12,8 @@ import java.util.Map;
 
 /**
  * Homeserver discovery per the Matrix specification: resolves the authoritative homeserver URL from
- * {@code /.well-known/matrix/client}, with clear fallback rules — any discovery failure (transport
- * error, non-2xx response, malformed body, missing or invalid {@code base_url}) falls back to the
- * explicitly provided base URL.
+ * {@code /.well-known/matrix/client} and exposes the protocol outcome so callers can distinguish
+ * ignored discovery from failures requiring user input or termination.
  */
 @SuppressWarnings("java:S1075")
 public final class HomeserverDiscovery {
@@ -35,16 +34,136 @@ public final class HomeserverDiscovery {
    */
   public static DiscoveredHomeserver discover(HttpTransport transport, String baseUrl) {
     String normalizedBase = normalize(baseUrl);
-    JsonValue wellKnown = fetchWellKnown(transport, normalizedBase);
-    if (wellKnown == null) {
-      return new DiscoveredHomeserver(normalizedBase, null, null, true);
+    HttpTransport.Response response;
+    try {
+      response = fetchWellKnown(transport, normalizedBase);
+    } catch (TransportException | MatrixException exception) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          null,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "Well-known request failed");
     }
-    String homeserverUrl = extractUrl(wellKnown, "m.homeserver");
-    if (homeserverUrl == null) {
-      return new DiscoveredHomeserver(normalizedBase, null, wellKnown, true);
+    if (response.statusCode() == 404) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          null,
+          true,
+          DiscoveryOutcome.IGNORE,
+          "Well-known endpoint not found");
+    }
+    if (response.statusCode() != 200) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          null,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "Well-known endpoint returned HTTP " + response.statusCode());
+    }
+    if (response.body() == null || response.body().isBlank()) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          null,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "Well-known body is empty");
+    }
+    JsonValue wellKnown;
+    try {
+      wellKnown = JsonParser.parse(response.body());
+    } catch (IllegalArgumentException exception) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          null,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "Well-known body is not valid JSON");
+    }
+    if (!wellKnown.isObject()) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          wellKnown,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "Well-known body is not a JSON object");
+    }
+    JsonValue homeserverSection = wellKnown.asObject().get("m.homeserver");
+    if (homeserverSection == null || !homeserverSection.isObject()) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          wellKnown,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "m.homeserver is missing");
+    }
+    JsonValue baseUrlValue = homeserverSection.asObject().get("base_url");
+    if (baseUrlValue == null || !baseUrlValue.isString() || baseUrlValue.asString().isBlank()) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          wellKnown,
+          false,
+          DiscoveryOutcome.FAIL_PROMPT,
+          "m.homeserver.base_url is missing or invalid");
+    }
+    String homeserverUrl;
+    try {
+      homeserverUrl = normalize(baseUrlValue.asString().strip());
+    } catch (IllegalArgumentException exception) {
+      return new DiscoveredHomeserver(
+          normalizedBase,
+          null,
+          wellKnown,
+          false,
+          DiscoveryOutcome.FAIL_ERROR,
+          "m.homeserver.base_url is not a valid URL");
+    }
+    JsonValue identityServer = wellKnown.asObject().get("m.identity_server");
+    String identityServerUrl = null;
+    if (identityServer != null) {
+      if (!identityServer.isObject()) {
+        return new DiscoveredHomeserver(
+            homeserverUrl,
+            null,
+            wellKnown,
+            false,
+            DiscoveryOutcome.FAIL_PROMPT,
+            "m.identity_server is invalid");
+      }
+      JsonValue identityUrlValue = identityServer.asObject().get("base_url");
+      if (identityUrlValue == null
+          || !identityUrlValue.isString()
+          || identityUrlValue.asString().isBlank()) {
+        return new DiscoveredHomeserver(
+            homeserverUrl,
+            null,
+            wellKnown,
+            false,
+            DiscoveryOutcome.FAIL_PROMPT,
+            "m.identity_server.base_url is missing");
+      }
+      try {
+        identityServerUrl = normalize(identityUrlValue.asString().strip());
+      } catch (IllegalArgumentException exception) {
+        return new DiscoveredHomeserver(
+            homeserverUrl,
+            null,
+            wellKnown,
+            false,
+            DiscoveryOutcome.FAIL_ERROR,
+            "m.identity_server.base_url is not a valid URL");
+      }
     }
     return new DiscoveredHomeserver(
-        homeserverUrl, extractUrl(wellKnown, "m.identity_server"), wellKnown, false);
+        homeserverUrl, identityServerUrl, wellKnown, false, DiscoveryOutcome.DISCOVERED, null);
   }
 
   /**
@@ -78,45 +197,9 @@ public final class HomeserverDiscovery {
     }
   }
 
-  private static JsonValue fetchWellKnown(HttpTransport transport, String normalizedBase) {
+  private static HttpTransport.Response fetchWellKnown(
+      HttpTransport transport, String normalizedBase) {
     Request request = new Request("GET", normalizedBase + WELL_KNOWN_PATH, Map.of(), null);
-    HttpTransport.Response response;
-    try {
-      response = transport.send(request);
-    } catch (TransportException | MatrixException _) {
-      return null;
-    }
-    if (response.statusCode() < 200 || response.statusCode() >= 300) {
-      return null;
-    }
-    if (response.body() == null || response.body().isBlank()) {
-      return null;
-    }
-    try {
-      JsonValue body = JsonParser.parse(response.body());
-      return body.isObject() ? body : null;
-    } catch (IllegalArgumentException _) {
-      return null;
-    }
-  }
-
-  private static String extractUrl(JsonValue wellKnown, String key) {
-    JsonValue section = wellKnown.asObject().get(key);
-    if (section == null || !section.isObject()) {
-      return null;
-    }
-    JsonValue baseUrlValue = section.asObject().get("base_url");
-    if (baseUrlValue == null || !baseUrlValue.isString()) {
-      return null;
-    }
-    String url = baseUrlValue.asString().strip();
-    if (url.isEmpty()) {
-      return null;
-    }
-    try {
-      return normalize(url);
-    } catch (IllegalArgumentException _) {
-      return null;
-    }
+    return transport.send(request);
   }
 }

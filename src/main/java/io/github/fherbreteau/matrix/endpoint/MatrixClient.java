@@ -140,6 +140,10 @@ public final class MatrixClient {
     this.retrySleeper = builder.retrySleeper;
     if (builder.discover) {
       this.discovery = HomeserverDiscovery.discover(builder.transport, builder.homeserverUrl);
+      if (discovery.outcome() == DiscoveryOutcome.FAIL_PROMPT
+          || discovery.outcome() == DiscoveryOutcome.FAIL_ERROR) {
+        throw new DiscoveryException(discovery.failureReason());
+      }
       this.homeserverUrl = discovery.homeserverUrl();
     } else {
       this.discovery = null;
@@ -1619,8 +1623,8 @@ public final class MatrixClient {
 
   /**
    * Downloads media from the content repository using the authenticated v1.11 endpoint. The
-   * response body streams through {@link MediaTransport.BinaryResponse#bodyStream()}; callers must
-   * close it.
+   * response body streams through {@link
+   * io.github.fherbreteau.matrix.transport.BinaryResponse#bodyStream()}; callers must close it.
    *
    * @param uri the {@code mxc://} URI of the media
    * @param maxBytes the maximum accepted media size in bytes; a larger response raises {@link

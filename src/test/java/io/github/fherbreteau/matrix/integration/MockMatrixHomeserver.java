@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 final class MockMatrixHomeserver implements AutoCloseable {
 
@@ -71,7 +73,7 @@ final class MockMatrixHomeserver implements AutoCloseable {
   private synchronized String diagnosticContext() {
     return "Mock homeserver exchanges:"
         + System.lineSeparator()
-        + java.util.stream.IntStream.range(0, requests.size())
+        + IntStream.range(0, requests.size())
             .mapToObj(
                 index ->
                     "["
@@ -82,7 +84,7 @@ final class MockMatrixHomeserver implements AutoCloseable {
                         + (index < capturedResponses.size()
                             ? capturedResponses.get(index).redactedDescription()
                             : "response pending"))
-            .collect(java.util.stream.Collectors.joining(System.lineSeparator()));
+            .collect(Collectors.joining(System.lineSeparator()));
   }
 
   private void handle(HttpExchange exchange) throws IOException {

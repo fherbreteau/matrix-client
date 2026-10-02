@@ -50,7 +50,7 @@ public final class HomeserverDiscovery {
     if (responseOutcome != null) {
       return responseOutcome;
     }
-    JsonValue wellKnown = parseWellKnown(normalizedBase, response.body());
+    JsonValue wellKnown = parseWellKnown(response.body());
     if (wellKnown == null || !wellKnown.isObject()) {
       return failed(
           normalizedBase,
@@ -96,7 +96,7 @@ public final class HomeserverDiscovery {
     return null;
   }
 
-  private static JsonValue parseWellKnown(String fallbackUrl, String body) {
+  private static JsonValue parseWellKnown(String body) {
     try {
       return JsonParser.parse(body);
     } catch (IllegalArgumentException _) {

@@ -78,8 +78,21 @@ public final class HomeserverDiscovery {
     }
   }
 
+  private static String wellKnownUrl(String normalizedBase) {
+    try {
+      URI uri = new URI(normalizedBase);
+      String host = uri.getHost();
+      if (host == null) {
+        throw new IllegalArgumentException("baseUrl must contain a hostname for discovery");
+      }
+      return new URI("https", null, host, -1, WELL_KNOWN_PATH, null, null).toString();
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("baseUrl is not a valid URI: " + normalizedBase, e);
+    }
+  }
+
   private static JsonValue fetchWellKnown(HttpTransport transport, String normalizedBase) {
-    Request request = new Request("GET", normalizedBase + WELL_KNOWN_PATH, Map.of(), null);
+    Request request = new Request("GET", wellKnownUrl(normalizedBase), Map.of(), null);
     HttpTransport.Response response;
     try {
       response = transport.send(request);

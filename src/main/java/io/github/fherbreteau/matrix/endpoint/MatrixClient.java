@@ -1279,7 +1279,8 @@ public final class MatrixClient {
             + encode(receiptType)
             + '/'
             + encode(eventId.value());
-    JsonValue body = threadId == null ? null : new JsonObject().put("thread_id", threadId);
+    JsonValue body =
+        threadId == null ? new JsonObject() : new JsonObject().put("thread_id", threadId);
     authenticated("POST", path, body);
   }
 

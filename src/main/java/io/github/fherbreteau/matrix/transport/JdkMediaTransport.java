@@ -1,5 +1,6 @@
 package io.github.fherbreteau.matrix.transport;
 
+import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -82,7 +83,7 @@ public final class JdkMediaTransport implements MediaTransport {
             request.method(),
             request.url(),
             request.headers(),
-            new java.io.ByteArrayInputStream(request.body()),
+            new ByteArrayInputStream(request.body()),
             OptionalLong.of(request.body().length),
             request.contentType()),
         0,
@@ -96,7 +97,7 @@ public final class JdkMediaTransport implements MediaTransport {
             request.method(),
             request.url(),
             request.headers(),
-            new java.io.ByteArrayInputStream(request.body()),
+            new ByteArrayInputStream(request.body()),
             OptionalLong.of(request.body().length),
             request.contentType()),
         0,

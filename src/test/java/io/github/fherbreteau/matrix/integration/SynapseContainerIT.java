@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -316,8 +317,8 @@ class SynapseContainerIT {
   private static void registerUser(String localpart, String password, boolean admin)
       throws IOException, InterruptedException {
     var command =
-        new java.util.ArrayList<>(
-            java.util.List.of(
+        new ArrayList<>(
+            List.of(
                 "register_new_matrix_user",
                 "-c",
                 "/data/homeserver.yaml",

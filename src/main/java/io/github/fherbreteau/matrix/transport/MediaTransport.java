@@ -1,7 +1,9 @@
 package io.github.fherbreteau.matrix.transport;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -46,7 +48,7 @@ public interface MediaTransport {
       try {
         response.close();
       } catch (IOException e) {
-        throw new java.io.UncheckedIOException(e);
+        throw new UncheckedIOException(e);
       }
       throw new MediaSizeLimitException(maxResponseBytes);
     }
@@ -80,7 +82,7 @@ public interface MediaTransport {
               request.method(), request.url(), request.headers(), content, request.contentType()),
           maxResponseBytes);
     } catch (IOException e) {
-      throw new java.io.UncheckedIOException(e);
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -133,7 +135,7 @@ public interface MediaTransport {
 
   private static byte[] readLimited(InputStream input, long maximumBytes) throws IOException {
     try (input;
-        var output = new java.io.ByteArrayOutputStream()) {
+        var output = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[8192];
       long total = 0;
       int count;
@@ -256,47 +258,6 @@ public interface MediaTransport {
         sb.append('}');
       }
       return sb.append(" body=").append(body.length).append(" bytes").toString();
-    }
-  }
-
-  /**
-   * Backwards-compatible response type for media transport implementations.
-   *
-   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
-   *     specification</a>
-   */
-  @SuppressWarnings("java:S9398")
-  final class BinaryResponse extends io.github.fherbreteau.matrix.transport.BinaryResponse {
-
-    /**
-     * Creates a response from byte-array content.
-     *
-     * @param statusCode the HTTP response status
-     * @param headers response headers
-     * @param body response bytes
-     * @param retryAfterMs optional retry delay
-     */
-    public BinaryResponse(
-        int statusCode, Map<String, String> headers, byte[] body, Long retryAfterMs) {
-      super(statusCode, headers, body, retryAfterMs);
-    }
-
-    /**
-     * Creates a response from a streaming body.
-     *
-     * @param statusCode the HTTP response status
-     * @param headers response headers
-     * @param body response stream
-     * @param contentLength response length, or a negative value if unknown
-     * @param retryAfterMs optional retry delay
-     */
-    public BinaryResponse(
-        int statusCode,
-        Map<String, String> headers,
-        InputStream body,
-        long contentLength,
-        Long retryAfterMs) {
-      super(statusCode, headers, body, contentLength, retryAfterMs);
     }
   }
 

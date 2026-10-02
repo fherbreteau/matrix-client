@@ -60,6 +60,7 @@ public final class JsonNumber implements JsonValue {
    *
    * @return the number as a {@code long}, truncating fractional values
    */
+  @Override
   public long asLong() {
     return value.longValue();
   }

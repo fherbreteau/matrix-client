@@ -12,6 +12,11 @@ import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.AuthMetadata;
 import io.github.fherbreteau.matrix.model.AuthenticationApi;
 import io.github.fherbreteau.matrix.model.Credentials;
+import io.github.fherbreteau.matrix.model.DeleteDevicesRequest;
+import io.github.fherbreteau.matrix.model.Device;
+import io.github.fherbreteau.matrix.model.DeviceId;
+import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
+import io.github.fherbreteau.matrix.model.DevicesResponse;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
@@ -114,6 +119,8 @@ public final class MatrixClient {
   private static final String CONTENT_TYPE_HEADER = "content-type";
   private static final String CONTENT_DISPOSITION_HEADER = "content-disposition";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String DEVICES_PATH = "_matrix/client/v3/devices/";
+  private static final String HTTP_DELETE = "DELETE";
   private static final String DIR_QUERY_PARAM = "&dir=";
   private static final String LIMIT_QUERY_PARAM = "&limit=";
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
@@ -627,6 +634,91 @@ public final class MatrixClient {
     ensureLegacyAccountApi();
     return ThreePidTokenResponse.from(
         post("_matrix/client/v3/account/password/msisdn/requestToken", request.toJson()));
+  }
+
+  /**
+   * Lists the devices registered for the current user.
+   *
+   * @return the devices and the raw response
+   * @throws AuthenticationException if there is no session or the token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3devices">Matrix
+   *     specification</a>
+   */
+  public DevicesResponse getDevices() {
+    return DevicesResponse.from(authenticated("GET", "_matrix/client/v3/devices", null));
+  }
+
+  /**
+   * Retrieves a device registered for the current user.
+   *
+   * @param deviceId the device identifier
+   * @return the device and raw response
+   * @throws AuthenticationException if there is no session or the token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3devicesdeviceid">Matrix
+   *     specification</a>
+   */
+  public Device getDevice(DeviceId deviceId) {
+    return Device.from(authenticated("GET", DEVICES_PATH + encode(deviceId.value()), null));
+  }
+
+  /**
+   * Updates an existing device's optional metadata.
+   *
+   * @param deviceId the device identifier
+   * @param update the fields to update
+   * @throws AuthenticationException if there is no session or the token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3devicesdeviceid">Matrix
+   *     specification</a>
+   */
+  public void updateDevice(DeviceId deviceId, DeviceUpdateRequest update) {
+    authenticated("PUT", DEVICES_PATH + encode(deviceId.value()), update.toJson());
+  }
+
+  /**
+   * Deletes one device using User-Interactive Authentication when required. OAuth-issued sessions
+   * must instead direct the user to the account-management UI.
+   *
+   * @param deviceId the device identifier
+   * @throws AuthenticationException if there is no session or the token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3devicesdeviceid">Matrix
+   *     specification</a>
+   */
+  public void deleteDevice(DeviceId deviceId) {
+    deleteDevice(deviceId, null);
+  }
+
+  /**
+   * Deletes one device, including the authentication response for a UI-auth retry when needed.
+   *
+   * @param deviceId the device identifier
+   * @param auth the optional UI-auth response
+   * @throws AuthenticationException if there is no session or the token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3devicesdeviceid">Matrix
+   *     specification</a>
+   */
+  public void deleteDevice(DeviceId deviceId, JsonValue auth) {
+    ensureDeviceDeletionSupportedBySession();
+    JsonObject body = auth == null ? null : new JsonObject().put("auth", auth);
+    authenticatedUiAuth(HTTP_DELETE, DEVICES_PATH + encode(deviceId.value()), body);
+  }
+
+  /**
+   * Deletes multiple devices using User-Interactive Authentication when required.
+   *
+   * @param request the device IDs and optional UI-auth response
+   * @throws AuthenticationException if there is no session or the token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3delete_devices">Matrix
+   *     specification</a>
+   */
+  public void deleteDevices(DeleteDevicesRequest request) {
+    ensureDeviceDeletionSupportedBySession();
+    authenticatedUiAuth("POST", "_matrix/client/v3/delete_devices", request.toJson());
   }
 
   /**
@@ -1444,7 +1536,8 @@ public final class MatrixClient {
    */
   public void setProfileField(UserId userId, String keyName, String value) {
     if (value == null) {
-      authenticated("DELETE", PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName), null);
+      authenticated(
+          HTTP_DELETE, PROFILE_PATH + encode(userId.value()) + "/" + encode(keyName), null);
       return;
     }
     authenticated(
@@ -1512,7 +1605,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void deleteRoomAlias(RoomAlias roomAlias) {
-    authenticated("DELETE", DIRECTORY_PATH + encode(roomAlias.value()), null);
+    authenticated(HTTP_DELETE, DIRECTORY_PATH + encode(roomAlias.value()), null);
   }
 
   /**
@@ -2396,6 +2489,14 @@ public final class MatrixClient {
         || segment.startsWith("%24")
         || segment.toLowerCase(Locale.ROOT).contains("token")
         || segment.toLowerCase(Locale.ROOT).contains("secret");
+  }
+
+  private void ensureDeviceDeletionSupportedBySession() {
+    if (sessionStore.current().filter(Session::usesOauth).isPresent()) {
+      throw new UnsupportedOperationException(
+          "Device deletion for OAuth sessions must use the homeserver account-management URL; "
+              + "check getAuthMetadata() for account_management_uri and supported actions");
+    }
   }
 
   private void ensureLegacyAccountApi() {

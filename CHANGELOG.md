@@ -13,8 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
-- **Bounded Streaming Media Transfers**: Add file and stream uploads, configurable upload limits, and streaming downloads that enforce size caps during transfer (#39).
-
 - **Project Bootstrap**: Created the initial Maven project structure for a lightweight Matrix client with no runtime third-party dependencies — Java 25 (latest LTS) with Java Platform Module System (`io.github.fherbreteau.matrix`), HTTP transport built on `java.net.http.HttpClient`, a minimal JSON parser/serializer, Matrix models, endpoints, error types, unit tests, and CI (#1, #16)
 
 - **Dependency-Free JSON Parser and Serializer**: Hardened the `io.github.fherbreteau.matrix.json` layer to fully implement issue #2 — RFC 8259-compliant strict parsing of objects, arrays, strings, numbers, booleans and null with exact numeric preservation via `BigDecimal` (`JsonNumber.asBigDecimal`, integral values beyond `double` precision stay exact), Unicode surrogate-pair handling in `\uXXXX` escapes with unpaired surrogates rejected, dedicated `JsonParseException` carrying the position of the offending character, deterministic order-preserving serialization, and richer object access for unknown Matrix fields (`getOrDefault`, `size`, `entrySet`, typed `put` overloads); comprehensive new tests cover valid and invalid JSON and Matrix-style nested payload round-trips (#17)
@@ -35,13 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Media Upload, Download, and Thumbnail APIs**: Implemented issue #9 — `uploadMedia` posts raw bytes with a configurable content type and optional filename to the content repository and parses the returned `content_uri` into a validated `MxcUri` (path-traversal-safe media IDs), `downloadMedia` uses the authenticated v1.11 endpoint and returns a `MediaDownload` streaming the body through an `AutoCloseable` `InputStream` with the `Content-Type`/`Content-Disposition` headers, `getThumbnail` requests thumbnails with `width`/`height`, the `ThumbnailMethod` enum (`scale`/`crop`) and the `animated` flag, `getMediaConfig` exposes the advertised `m.upload.size`, a new pluggable `MediaTransport` (JDK default, overridable via the builder) moves raw bytes, and configurable `maxBytes` limits raise `M_TOO_LARGE` instead of buffering unbounded responses; media methods and models link to their specification sections (#26)
 
+- **Filters and Optional Client-Server Sync**: Implemented issue #10 — typed `EventFilter`, `RoomEventFilter`, `MatrixFilter`, `SyncOptions` and `SyncResponse`/`SyncRoom` models preserve unknown filter fields and events; `MatrixClient` adds filter create/retrieve and `/sync` calls with saved opaque `next_batch` persistence through an injectable `SyncTokenStore` (in-memory default), optional inline or saved filters, long-poll timeout, `full_state`, `set_presence`, and v1.16 `use_state_after`; sync is opt-in and `SyncLoop` provides cancellation, configurable exponential retry/backoff, honors `Retry-After`, retries timeout/rate-limit/transient server errors, and stops on non-retryable client errors (#27)
+
+- **Pluggable Persistence and Transaction Safety**: Implemented issue #11 — introduced injectable `TransactionIdStore` and optional `MediaMetadataStore`, thread-safe in-memory defaults, and file-backed session, sync-token, transaction-ID and media-metadata stores. File persistence writes a same-directory temporary file and replaces it atomically when supported, restricts data files to owner read/write permissions on POSIX systems, and documents that power-loss durability is not guaranteed. Transaction mappings persist by application-supplied operation key for retry-safe message sends and redactions; file transactions coordinate threads and processes using file locks. No database/runtime dependency added
+
+- **Typed Event Registry with Raw Fallback**: Implemented issue #12 — `RoomEvent` retains the complete event envelope; typed models expose message content as a sealed hierarchy selected by `msgtype`, including non-null URL/encrypted media sources, plus membership and third-party-invite data, room name/topic translations, power-level maps and canonical aliases while preserving raw content and extension fields. Malformed nested media/JWK structures fall back to raw event content. The thread-safe `EventRegistry` supports custom parsers and falls back to raw content for unregistered types, malformed schemas and parser failures (#29)
+
 - **Safe Retries and Request Observability**: Implemented issue #13 — added bounded configurable retries for idempotent requests, capped `Retry-After` handling, per-call POST replay opt-in, interruptible backoff, and redacted request-attempt observation without runtime dependencies (#13, #31)
 
 - **Mock Homeserver and Opt-In Synapse Integration Tests**: Implemented issue #14 — added a reusable JDK HTTP mock fixture, a Docker-backed Synapse/Testcontainers suite exercising client methods end to end, and separate fast-unit versus integration Maven commands. Testcontainers is test-scoped; the Docker suite runs in a dedicated CI job (#14, #33)
 
-### 🐛 Fixes
+- **Bounded Streaming Media Transfers**: Add file and stream uploads, configurable upload limits, and streaming downloads that enforce size caps during transfer (#39).
 
 - **Validate Receipt Types**: Restrict `sendReceipt` to `m.read` and `m.read.private`; direct `m.fully_read` callers to the read-markers endpoint (#61).
+
+### 🐛 Fixes
 
 - **Spec Conformance Audit**: Audited every implemented feature against the Matrix specification (v1.19) and fixed the deviations found — `refresh()` now parses the refresh response correctly (it carries only new tokens: the user identity and device are carried over from the refreshed session and an omitted `refresh_token` keeps the previous one valid, per the rotation rules); `createRoom` serializes `invite` as an array of plain user-ID strings; `POST /publicRooms` is sent with authentication as the spec requires; the `state` field of `/messages` responses is parsed as an array of events (lazy-loading) instead of a string; profiles use the generic `GET/PUT/DELETE /profile/{userId}/{keyName}` endpoints (the pre-v1.16 `/displayname` and `/avatar_url` paths were removed from the spec) with null-safe field clearing; `whoami` exposes `is_guest` through a typed `WhoamiResponse`; rate-limit delays fall back to the deprecated `retry_after_ms` body field and parse HTTP-date `Retry-After` headers; the HTTP-server fixture tests pin an explicit no-proxy transport so local debugging proxies cannot intercept them (#24)
 
@@ -55,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Redact Credentials from Login Errors**: Remove submitted password and identifier values from server-provided authentication error messages (#38, #46).
 
+- **Send Empty JSON for Unthreaded Receipts**: Follow Matrix API Standards by sending `{}` when the optional receipt thread ID is omitted (#49).
+
+- **Use HTTPS Hostname for Well-Known Discovery**: Build discovery requests from the homeserver hostname over HTTPS, independent of the configured base URL scheme, port, and path (#50, #63).
+
+- **Expose Well-Known Discovery Outcomes**: Distinguish `IGNORE`, `FAIL_PROMPT`, `FAIL_ERROR`, and successful discovery so failures no longer silently select a fallback homeserver (#60, #65).
+
 ### 📚 Documentation
 
 - **Project Documentation**: Added `README.md` (dependency policy, build commands, minimal example), `AGENTS.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, and `SECURITY.md` (#1, #16)
@@ -63,9 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
-- **Sanitized Conformance Failure Diagnostics**: Attach redacted request and response metadata to mock-homeserver assertion failures without exposing credentials or bodies (#41, #48).
+- **Sync Coverage**: Added tests for initial/incremental sync, opaque-token persistence and recovery, malformed payload handling, filters (including `state_after`), rate-limit/timeout retry, non-retryable errors, listener failure, cancellation and configurable/default retry backoff (294 total tests) (#27)
 
 - **AssertJ Migration**: All test assertions migrated from JUnit 5 assertions to the AssertJ fluent style (`assertThat`/`assertThatExceptionOfType`), with AssertJ 3.27.7 added as a test-scoped dependency (#16)
+
+- **Sanitized Conformance Failure Diagnostics**: Attach redacted request and response metadata to mock-homeserver assertion failures without exposing credentials or bodies (#41, #48).
 
 ### 🔧 Build System
 
@@ -76,22 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Checkstyle Enforcement**: The Maven build now runs the same Checkstyle ruleset as vodozemac-java (`checkstyle.xml` + empty `checkstyle.suppression.xml`, Checkstyle 14.1.0 via maven-checkstyle-plugin 3.6.0) at the `validate` phase with 0 violations required — imports ordered with the `java` group first, no trailing whitespace, tabs, unused imports, naming and whitespace rules (#16)
 
 - **Google Java Style Enforcement**: The project follows the Google Java Style Guide, enforced for everyone by two gates — formatting via `google-java-format` (Spotify `fmt-maven-plugin` `fmt:check` bound to `validate`, apply with `mvn fmt:format`: 2-space indentation, 4-space continuation indent, 100-column limit, unused-import removal, import sorting) and the official Checkstyle `google_checks.xml` ruleset at severity `error` (import order, whitespace, naming, Javadoc requirements on public members) and Javadoc `JavadocMethod` enforcement: `@param` on every parameter and `@return` on every non-void public method are mandatory, with tag order enforced; the previous Eclipse formatter profile was removed and the codebase reformatted, with Javadoc added to all public members
-
-### 📚 Documentation
-
-- **Specification References in Javadoc**: Every endpoint method of `MatrixClient` now links to the section of the Matrix specification it implements (`@see <a href="https://spec.matrix.org/latest/client-server-api/...">Matrix specification</a>`), and `AGENTS.md`/`CONTRIBUTING.md` gained a Specification Conformance Rule requiring agents and contributors to check the latest published version of the specification before implementing or changing an endpoint, and to record intentional deviations in the Javadoc (#24); all `MatrixClient` endpoint methods and all model classes carry the specification link (verified against the live specification site: anchor-style links to the actual section identifiers, with identifier-format appendices pointing to `/latest/appendices/`), and the Specification Conformance Rule requires every new endpoint method and model class to carry one (#25)
-
-### 🚀 Features
-
-- **Filters and Optional Client-Server Sync**: Implemented issue #10 — typed `EventFilter`, `RoomEventFilter`, `MatrixFilter`, `SyncOptions` and `SyncResponse`/`SyncRoom` models preserve unknown filter fields and events; `MatrixClient` adds filter create/retrieve and `/sync` calls with saved opaque `next_batch` persistence through an injectable `SyncTokenStore` (in-memory default), optional inline or saved filters, long-poll timeout, `full_state`, `set_presence`, and v1.16 `use_state_after`; sync is opt-in and `SyncLoop` provides cancellation, configurable exponential retry/backoff, honors `Retry-After`, retries timeout/rate-limit/transient server errors, and stops on non-retryable client errors (#27)
-
-- **Pluggable Persistence and Transaction Safety**: Implemented issue #11 — introduced injectable `TransactionIdStore` and optional `MediaMetadataStore`, thread-safe in-memory defaults, and file-backed session, sync-token, transaction-ID and media-metadata stores. File persistence writes a same-directory temporary file and replaces it atomically when supported, restricts data files to owner read/write permissions on POSIX systems, and documents that power-loss durability is not guaranteed. Transaction mappings persist by application-supplied operation key for retry-safe message sends and redactions; file transactions coordinate threads and processes using file locks. No database/runtime dependency added
-
-- **Typed Event Registry with Raw Fallback**: Implemented issue #12 — `RoomEvent` retains the complete event envelope; typed models expose message content as a sealed hierarchy selected by `msgtype`, including non-null URL/encrypted media sources, plus membership and third-party-invite data, room name/topic translations, power-level maps and canonical aliases while preserving raw content and extension fields. Malformed nested media/JWK structures fall back to raw event content. The thread-safe `EventRegistry` supports custom parsers and falls back to raw content for unregistered types, malformed schemas and parser failures (#29)
-
-### 🧪 Testing
-
-- **Sync Coverage**: Added tests for initial/incremental sync, opaque-token persistence and recovery, malformed payload handling, filters (including `state_after`), rate-limit/timeout retry, non-retryable errors, listener failure, cancellation and configurable/default retry backoff (294 total tests) (#27)
 
 ## 🤝 Contributing to Changelog
 

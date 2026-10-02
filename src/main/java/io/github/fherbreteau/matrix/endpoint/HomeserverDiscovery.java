@@ -5,6 +5,7 @@ import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import io.github.fherbreteau.matrix.transport.TransportException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -34,7 +35,7 @@ public final class HomeserverDiscovery {
    */
   public static DiscoveredHomeserver discover(HttpTransport transport, String baseUrl) {
     String normalizedBase = normalize(baseUrl);
-    HttpTransport.Response response;
+    Response response;
     try {
       response = fetchWellKnown(transport, normalizedBase);
     } catch (TransportException | MatrixException _) {
@@ -77,8 +78,7 @@ public final class HomeserverDiscovery {
         null);
   }
 
-  private static DiscoveredHomeserver responseOutcome(
-      String fallbackUrl, HttpTransport.Response response) {
+  private static DiscoveredHomeserver responseOutcome(String fallbackUrl, Response response) {
     if (response.statusCode() == 404) {
       return new DiscoveredHomeserver(
           fallbackUrl, null, null, true, DiscoveryOutcome.IGNORE, "Well-known endpoint not found");
@@ -179,9 +179,21 @@ public final class HomeserverDiscovery {
     }
   }
 
-  private static HttpTransport.Response fetchWellKnown(
-      HttpTransport transport, String normalizedBase) {
-    Request request = new Request("GET", normalizedBase + WELL_KNOWN_PATH, Map.of(), null);
+  private static String wellKnownUrl(String normalizedBase) {
+    try {
+      URI uri = new URI(normalizedBase);
+      String host = uri.getHost();
+      if (host == null) {
+        throw new IllegalArgumentException("baseUrl must contain a hostname for discovery");
+      }
+      return new URI("https", null, host, -1, WELL_KNOWN_PATH, null, null).toString();
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("baseUrl is not a valid URI: " + normalizedBase, e);
+    }
+  }
+
+  private static Response fetchWellKnown(HttpTransport transport, String normalizedBase) {
+    Request request = new Request("GET", wellKnownUrl(normalizedBase), Map.of(), null);
     return transport.send(request);
   }
 }

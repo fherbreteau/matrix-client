@@ -90,6 +90,37 @@ class HomeserverDiscoveryTest {
     assertThat(discovered.wellKnown().asObject().get("org.example.unknown")).isNotNull();
   }
 
+  @ParameterizedTest
+  @MethodSource("discoveryBasesAndExpectedUrls")
+  void wellKnownRequestUsesHttpsHostnameOnly(String baseUrl, String expectedUrl) {
+    var transport = HttpTransportStub.recording();
+    HomeserverDiscovery.discover(transport, baseUrl);
+    assertThat(transport.lastUrl()).isEqualTo(expectedUrl);
+  }
+
+  static List<org.junit.jupiter.params.provider.Arguments> discoveryBasesAndExpectedUrls() {
+    return List.of(
+        org.junit.jupiter.params.provider.Arguments.of(
+            "http://matrix.example.org:8080/prefix",
+            "https://matrix.example.org/.well-known/matrix/client"),
+        org.junit.jupiter.params.provider.Arguments.of(
+            "http://matrix.example.org:8448/base/path",
+            "https://matrix.example.org/.well-known/matrix/client"),
+        org.junit.jupiter.params.provider.Arguments.of(
+            "https://matrix.example.org", "https://matrix.example.org/.well-known/matrix/client"),
+        org.junit.jupiter.params.provider.Arguments.of(
+            "https://matrix.example.org:443/prefix",
+            "https://matrix.example.org/.well-known/matrix/client"));
+  }
+
+  @Test
+  void discoveryRejectsBaseWithoutHostname() {
+    var transport = HttpTransportStub.recording();
+    assertThatThrownBy(() -> HomeserverDiscovery.discover(transport, "https:opaque-base"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("must contain a hostname");
+  }
+
   @Test
   void wellKnown404IsIgnored() {
     var transport = HttpTransportStub.responding(404, "{}");

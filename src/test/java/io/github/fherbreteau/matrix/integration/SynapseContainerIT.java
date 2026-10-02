@@ -256,16 +256,14 @@ class SynapseContainerIT {
   void changesPasswordWithInteractiveAuthenticationAndRestoresIt() {
     String changedPassword = UUID.randomUUID().toString();
     try {
+      var request =
+          "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\","
+              + "\"user\":\"@integration:localhost\"},\"password\":\"%s\"}".formatted(PASSWORD);
       client.changePassword(
           AccountRequest.builder()
               .newPassword(changedPassword)
               .logoutDevices(false)
-              .put(
-                  "auth",
-                  JsonParser.parse(
-                      "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"@integration:localhost\"},\"password\":\""
-                          + PASSWORD
-                          + "\"}"))
+              .put("auth", JsonParser.parse(request))
               .build());
       MatrixClient changedPasswordClient =
           MatrixClient.builder(homeserverUrl()).retryPolicy(RetryPolicy.disabled()).build();
@@ -277,16 +275,15 @@ class SynapseContainerIT {
     } finally {
       var currentSession = client.getSession();
       if (currentSession.isPresent()) {
+        var request =
+            "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\","
+                + "\"user\":\"@integration:localhost\"},\"password\":\"%s\"}"
+                    .formatted(changedPassword);
         client.changePassword(
             AccountRequest.builder()
                 .newPassword(PASSWORD)
                 .logoutDevices(false)
-                .put(
-                    "auth",
-                    JsonParser.parse(
-                        "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"@integration:localhost\"},\"password\":\""
-                            + changedPassword
-                            + "\"}"))
+                .put("auth", JsonParser.parse(request))
                 .build());
       }
     }
@@ -333,22 +330,37 @@ class SynapseContainerIT {
   }
 
   private static void configureRegistrationSecret() throws IOException {
+    var matrixConfig =
+        """
+        enable_registration: true
+        enable_registration_without_verification: true
+        registration_shared_secret: "%s"
+        public_baseurl: "http://localhost:8008/"
+        default_room_version: "10"
+        allow_public_rooms_without_auth: true
+        presence:
+          enabled: true
+        rc_message:
+          per_second: 100
+          burst_count: 100
+        rc_registration:
+          per_second: 100
+          burst_count: 100
+        rc_login:
+          address:
+            per_second: 100
+            burst_count: 100
+          account:
+            per_second: 100
+            burst_count: 100
+          failed_attempts:
+            per_second: 100
+            burst_count: 100
+        """
+            .formatted(SHARED_SECRET);
     Files.writeString(
         dataDirectory.resolve("homeserver.yaml"),
-        "\n"
-            + "enable_registration: true\n"
-            + "enable_registration_without_verification: true\n"
-            + "registration_shared_secret: \""
-            + SHARED_SECRET
-            + "\"\npublic_baseurl: \"http://localhost:8008/\"\n"
-            + "default_room_version: \"10\"\n"
-            + "allow_public_rooms_without_auth: true\n"
-            + "presence:\n  enabled: true\n"
-            + "rc_message:\n  per_second: 100\n  burst_count: 100\n"
-            + "rc_registration:\n  per_second: 100\n  burst_count: 100\n"
-            + "rc_login:\n  address:\n    per_second: 100\n    burst_count: 100\n"
-            + "  account:\n    per_second: 100\n    burst_count: 100\n"
-            + "  failed_attempts:\n    per_second: 100\n    burst_count: 100\n",
+        "\n" + matrixConfig,
         StandardCharsets.UTF_8,
         StandardOpenOption.APPEND);
   }

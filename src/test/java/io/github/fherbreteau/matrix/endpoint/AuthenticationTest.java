@@ -826,12 +826,11 @@ class AuthenticationTest {
     assertThat(oauth.usesOauth()).isTrue();
     assertThat(oauth.withAuthenticationApi(null).authenticationApi())
         .isEqualTo(AuthenticationApi.LEGACY);
-    assertThatThrownBy(
-            () ->
-                MatrixClient.builder("https://matrix.example.org")
-                    .transport(stub -> new Response(200, "{}"))
-                    .build()
-                    .usesOauthSession())
+    MatrixClient clientWithoutSession =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{}"))
+            .build();
+    assertThatThrownBy(clientWithoutSession::usesOauthSession)
         .isInstanceOf(AuthenticationException.class);
     Session legacyConstructorSession =
         new Session("@legacy:example.org", "access", null, null, null, null, null);
@@ -867,35 +866,30 @@ class AuthenticationTest {
     assertThatThrownBy(() -> client.changePassword(request))
         .isInstanceOf(UnsupportedOperationException.class)
         .hasMessageContaining("account-management URL");
-    assertThatThrownBy(() -> client.deactivateAccount(AccountRequest.builder().build()))
+    var accountRequest = AccountRequest.builder().build();
+    assertThatThrownBy(() -> client.deactivateAccount(accountRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> client.getThreePids())
+    assertThatThrownBy(client::getThreePids).isInstanceOf(UnsupportedOperationException.class);
+    assertThatThrownBy(() -> client.addThreePid(accountRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> client.addThreePid(AccountRequest.builder().build()))
+    assertThatThrownBy(() -> client.bindThreePid(accountRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> client.bindThreePid(AccountRequest.builder().build()))
+    assertThatThrownBy(() -> client.deleteThreePid(accountRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> client.deleteThreePid(AccountRequest.builder().build()))
+    assertThatThrownBy(() -> client.unbindThreePid(accountRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> client.unbindThreePid(AccountRequest.builder().build()))
+    var threePidTokenRequest = ThreePidTokenRequest.builder().build();
+    assertThatThrownBy(() -> client.requestRegistrationEmailToken(threePidTokenRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () -> client.requestRegistrationEmailToken(ThreePidTokenRequest.builder().build()))
+    assertThatThrownBy(() -> client.requestRegistrationMsisdnToken(threePidTokenRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () -> client.requestRegistrationMsisdnToken(ThreePidTokenRequest.builder().build()))
+    assertThatThrownBy(() -> client.requestThreePidEmailToken(threePidTokenRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () -> client.requestThreePidEmailToken(ThreePidTokenRequest.builder().build()))
+    assertThatThrownBy(() -> client.requestThreePidMsisdnToken(threePidTokenRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () -> client.requestThreePidMsisdnToken(ThreePidTokenRequest.builder().build()))
+    assertThatThrownBy(() -> client.requestPasswordResetEmailToken(threePidTokenRequest))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () -> client.requestPasswordResetEmailToken(ThreePidTokenRequest.builder().build()))
-        .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () -> client.requestPasswordResetMsisdnToken(ThreePidTokenRequest.builder().build()))
+    assertThatThrownBy(() -> client.requestPasswordResetMsisdnToken(threePidTokenRequest))
         .isInstanceOf(UnsupportedOperationException.class);
     assertThat(requests).isEmpty();
   }

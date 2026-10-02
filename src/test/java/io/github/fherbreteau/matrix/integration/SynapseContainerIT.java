@@ -17,6 +17,7 @@ import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.ReadMarkers;
+import io.github.fherbreteau.matrix.model.RegistrationRequest;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
@@ -235,6 +236,23 @@ class SynapseContainerIT {
   }
 
   @Test
+  void checksRegistrationAvailabilityAndRegistersUser() {
+    String localpart = "it-" + UUID.randomUUID().toString().replace('-', '_');
+    var availability = client.isUsernameAvailable(localpart);
+    assertThat(availability.available()).isTrue();
+    assertThat(client.isRegistrationTokenValid("invalid-" + localpart).valid()).isFalse();
+    var registration =
+        RegistrationRequest.builder()
+            .username(localpart)
+            .password(UUID.randomUUID().toString())
+            .inhibitLogin(true)
+            .build();
+    assertThatThrownBy(() -> client.register(registration))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("HTTP 401");
+  }
+
+  @Test
   void changesPasswordWithInteractiveAuthenticationAndRestoresIt() {
     String changedPassword = UUID.randomUUID().toString();
     try {
@@ -317,7 +335,10 @@ class SynapseContainerIT {
   private static void configureRegistrationSecret() throws IOException {
     Files.writeString(
         dataDirectory.resolve("homeserver.yaml"),
-        "\nregistration_shared_secret: \""
+        "\n"
+            + "enable_registration: true\n"
+            + "enable_registration_without_verification: true\n"
+            + "registration_shared_secret: \""
             + SHARED_SECRET
             + "\"\npublic_baseurl: \"http://localhost:8008/\"\n"
             + "default_room_version: \"10\"\n"

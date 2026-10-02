@@ -109,6 +109,18 @@ class PresenceReceiptsTypingAccountDataTest {
   }
 
   @Test
+  void receiptRejectsTypesOutsideTheReceiptEndpointContract() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(request -> new Response(200, "{}"))
+            .build();
+    assertThatThrownBy(
+            () -> client.sendReceipt(RoomId.of("!a:b"), "m.fully_read", EventId.of("$e1"), null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("receiptType must be m.read or m.read.private");
+  }
+
+  @Test
   void readMarkersSerializeOnlyTheSetFields() {
     var requests = new ArrayList<Request>();
     MatrixClient client =

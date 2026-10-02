@@ -1254,7 +1254,8 @@ public final class MatrixClient {
   }
 
   /**
-   * Sends a read receipt for an event in a room.
+   * Sends a read receipt for an event in a room. Use {@link #sendReadMarkers(RoomId, ReadMarkers)}
+   * to send {@code m.fully_read} markers.
    *
    * @param roomId the room containing the event
    * @param receiptType the receipt type: {@code m.read} or {@code m.read.private}
@@ -1268,6 +1269,9 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void sendReceipt(RoomId roomId, String receiptType, EventId eventId, String threadId) {
+    if (!"m.read".equals(receiptType) && !"m.read.private".equals(receiptType)) {
+      throw new IllegalArgumentException("receiptType must be m.read or m.read.private");
+    }
     var path =
         ROOMS_PATH
             + encode(roomId.value())

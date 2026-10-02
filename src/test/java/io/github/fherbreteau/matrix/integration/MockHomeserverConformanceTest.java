@@ -153,9 +153,7 @@ class MockHomeserverConformanceTest {
 
       assertThatExceptionOfType(AssertionError.class)
           .isThrownBy(
-              () ->
-                  server.assertWithDiagnostics(
-                      () -> assertThat("unexpected").as("probe").isEqualTo("expected")))
+              () -> server.assertWithDiagnostics(() -> assertThat(server.requests()).hasSize(1)))
           .withMessageContaining("POST /_matrix/client/v3/login")
           .withMessageContaining("status=200")
           .withMessageNotContaining("request-password")

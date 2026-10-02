@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
+- **Device Management APIs**: Add typed device listing, lookup, display-name updates, and single/bulk deletion with UI-auth retry support. Preserve unknown response fields and direct OAuth-session deletions to account management (#52).
+
 - **Registration and Account Lifecycle APIs**: Add typed registration, username/token checks, OAuth auth metadata, password changes, account deactivation, and third-party identifier management/token requests. User-Interactive Authentication challenges and unknown response fields remain inspectable; deprecated 3PID endpoints are not used.
 
 - **Project Bootstrap**: Created the initial Maven project structure for a lightweight Matrix client with no runtime third-party dependencies — Java 25 (latest LTS) with Java Platform Module System (`io.github.fherbreteau.matrix`), HTTP transport built on `java.net.http.HttpClient`, a minimal JSON parser/serializer, Matrix models, endpoints, error types, unit tests, and CI (#1, #16)

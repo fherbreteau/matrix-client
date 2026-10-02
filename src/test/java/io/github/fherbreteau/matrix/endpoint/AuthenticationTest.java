@@ -12,8 +12,14 @@ import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.AuthenticationApi;
+import io.github.fherbreteau.matrix.model.DeleteDevicesRequest;
+import io.github.fherbreteau.matrix.model.Device;
+import io.github.fherbreteau.matrix.model.DeviceId;
+import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
+import io.github.fherbreteau.matrix.model.DevicesResponse;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RegistrationRequest;
 import io.github.fherbreteau.matrix.model.Session;
@@ -925,6 +931,106 @@ class AuthenticationTest {
                         404, "{\"errcode\":\"M_UNRECOGNIZED\",\"error\":\"Not supported\"}"))
             .build();
     assertThat(client.findAuthMetadata()).isEmpty();
+  }
+
+  @Test
+  void deviceManagementListsFetchesAndUpdatesDevices() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport = recording(new Response(200, LOGIN_OK), requests);
+    transport.enqueue(
+        new Response(
+            200,
+            "{\"devices\":[{\"device_id\":\"D1\",\"display_name\":\"Phone\",\"last_seen_ip\":\"127.0.0.1\",\"last_seen_ts\":42,\"future\":true}],\"future\":1}"));
+    transport.enqueue(new Response(200, "{\"device_id\":\"D1\",\"display_name\":\"Phone\"}"));
+    transport.enqueue(new Response(200, "{}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    DevicesResponse devices = client.getDevices();
+    assertThat(devices.raw().asObject().has("future")).isTrue();
+    assertThat(devices.devices())
+        .singleElement()
+        .satisfies(
+            device -> {
+              assertThat(device.deviceId()).isEqualTo(DeviceId.of("D1"));
+              assertThat(device.displayName()).isEqualTo("Phone");
+              assertThat(device.lastSeenIp()).isEqualTo("127.0.0.1");
+              assertThat(device.lastSeenTs()).isEqualTo(42L);
+              assertThat(device.raw().asObject().get("future").asBoolean()).isTrue();
+            });
+    Device device = client.getDevice(DeviceId.of("D1"));
+    assertThat(device.deviceId()).isEqualTo(DeviceId.of("D1"));
+    client.updateDevice(DeviceId.of("D1"), DeviceUpdateRequest.displayName("New phone"));
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/devices");
+    assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/devices/D1");
+    assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/devices/D1");
+    assertThat(requests.getLast().body()).isEqualTo("{\"display_name\":\"New phone\"}");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
+  }
+
+  @Test
+  void deleteDeviceAndDeleteDevicesResubmitOnUiAuthChallenge() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport =
+        recording(
+            new Response(200, LOGIN_OK),
+            new Response(
+                401, "{\"flows\":[{\"stages\":[\"m.login.password\"]}],\"session\":\"s\"}"),
+            requests);
+    transport.enqueue(new Response(200, "{}"));
+    transport.enqueue(new Response(200, "{}"));
+    transport.enqueue(new Response(200, "{}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    assertThatThrownBy(() -> client.deleteDevice(DeviceId.of("D1")))
+        .isInstanceOf(MatrixServerException.class)
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getUserInteractiveAuthChallenge)
+        .isNotNull();
+    JsonValue auth = JsonParser.parse("{\"type\":\"m.login.password\",\"session\":\"s\"}");
+    client.deleteDevice(DeviceId.of("D1"), auth);
+    client.deleteDevice(DeviceId.of("D2"));
+    DeleteDevicesRequest bulk =
+        DeleteDevicesRequest.of(List.of(DeviceId.of("D1"), DeviceId.of("D2")));
+    assertThat(bulk.toJson().asObject().get("devices").asArray().size()).isEqualTo(2);
+    client.deleteDevices(bulk.withAuth(auth));
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/devices/D1");
+    assertThat(requests.get(2).body()).contains("m.login.password");
+    assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/delete_devices");
+    assertThat(requests.getLast().body()).contains("D1").contains("D2").contains("session");
+  }
+
+  @Test
+  void oauthSessionDeletionPointsToAccountManagementWithoutRequestingDeviceDelete() {
+    var sessionStore = new InMemorySessionStore();
+    sessionStore.save(Session.from(JsonParser.parse(LOGIN_OK), AuthenticationApi.OAUTH));
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new Response(200, "{}"), requests))
+            .sessionStore(sessionStore)
+            .build();
+    assertThatThrownBy(() -> client.deleteDevice(DeviceId.of("D1")))
+        .isInstanceOf(UnsupportedOperationException.class)
+        .hasMessageContaining("account-management URL");
+    assertThatThrownBy(
+            () -> client.deleteDevices(DeleteDevicesRequest.of(List.of(DeviceId.of("D1")))))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThat(requests).isEmpty();
+  }
+
+  @Test
+  void malformedDeviceResponsesAreRejected() {
+    assertThatThrownBy(() -> DevicesResponse.from(JsonParser.parse("{}")))
+        .isInstanceOf(DiscoveryException.class);
+    assertThatThrownBy(() -> Device.from(JsonParser.parse("{}")))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> Device.from(JsonParser.parse("{\"device_id\":\"\"}")))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new DeleteDevicesRequest(null))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   private static HttpTransportStub recording(Response response, List<Request> requests) {

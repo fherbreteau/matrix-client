@@ -12,12 +12,16 @@ import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
+import io.github.fherbreteau.matrix.transport.BinaryResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
-import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,6 +85,88 @@ class MediaTest {
   }
 
   @Test
+  void uploadsFromUnknownLengthStream() {
+    var requests = new ArrayList<BinaryRequest>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, LOGIN_OK))
+            .mediaTransport(
+                binary -> {
+                  requests.add(binary);
+                  return new BinaryResponse(
+                      200,
+                      Map.of(),
+                      "{\"content_uri\":\"mxc://matrix.org/stream\"}"
+                          .getBytes(StandardCharsets.UTF_8),
+                      null);
+                })
+            .maxMediaUploadBytes(16)
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    assertThat(
+            client.uploadMedia(
+                new ByteArrayInputStream("streamed".getBytes(StandardCharsets.UTF_8)),
+                -1,
+                "text/plain",
+                null))
+        .hasToString("mxc://matrix.org/stream");
+    assertThat(requests.getFirst().body()).isEqualTo("streamed".getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void uploadsFileWithoutBufferingAndEnforcesKnownLength() throws IOException {
+    Path file = Files.createTempFile("matrix-media", ".bin");
+    try (var _ = Files.newInputStream(file)) {
+      byte[] payload = "file-content".getBytes(StandardCharsets.UTF_8);
+      Files.write(file, payload);
+      var requests = new ArrayList<BinaryRequest>();
+      MatrixClient client =
+          MatrixClient.builder("https://matrix.example.org")
+              .transport(stub -> new Response(200, LOGIN_OK))
+              .mediaTransport(
+                  binary -> {
+                    requests.add(binary);
+                    return new BinaryResponse(
+                        200,
+                        Map.of(),
+                        "{\"content_uri\":\"mxc://matrix.org/file\"}"
+                            .getBytes(StandardCharsets.UTF_8),
+                        null);
+                  })
+              .maxMediaUploadBytes(64)
+              .build();
+      client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+      assertThat(client.uploadMedia(file, "text/plain", "file.txt"))
+          .hasToString("mxc://matrix.org/file");
+      assertThat(requests.getFirst().body()).isEqualTo(payload);
+    }
+  }
+
+  @Test
+  void rejectsOversizedFileUploadBeforeSending() throws IOException {
+    Path file = Files.createTempFile("matrix-media", ".bin");
+    try (var _ = Files.newInputStream(file)) {
+      Files.write(file, new byte[10]);
+      var requests = new ArrayList<BinaryRequest>();
+      MatrixClient client =
+          MatrixClient.builder("https://matrix.example.org")
+              .transport(stub -> new Response(200, LOGIN_OK))
+              .mediaTransport(
+                  binary -> {
+                    requests.add(binary);
+                    return new BinaryResponse(200, Map.of(), new byte[0], null);
+                  })
+              .maxMediaUploadBytes(5)
+              .build();
+      client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+      assertThatThrownBy(() -> client.uploadMedia(file, "application/octet-stream", null))
+          .isInstanceOf(MatrixServerException.class)
+          .hasMessageContaining("maximum size of 5 bytes");
+      assertThat(requests).isEmpty();
+    }
+  }
+
+  @Test
   void uploadWithoutFilenameOmitsTheQuery() {
     var requests = new ArrayList<BinaryRequest>();
     MatrixClient client =
@@ -117,11 +203,19 @@ class MediaTest {
                         null))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    byte[] payload = new byte[10];
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.uploadMedia(new byte[10], "text/plain", null))
+        .isThrownBy(() -> client.uploadMedia(payload, "text/plain", null))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_TOO_LARGE");
+  }
+
+  @Test
+  void rejectsNegativeUploadLimit() {
+    var builder = MatrixClient.builder("https://matrix.example.org");
+    assertThatThrownBy(() -> builder.maxMediaUploadBytes(-1))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

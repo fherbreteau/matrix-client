@@ -16,6 +16,9 @@ import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -142,8 +145,8 @@ class JdkHttpTransportHttpServerTest {
   @Test
   void parsesHttpDateRetryAfterHeader() {
     String retryAt =
-        java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME.format(
-            java.time.Instant.now().plusSeconds(60).atZone(java.time.ZoneOffset.UTC));
+        DateTimeFormatter.RFC_1123_DATE_TIME.format(
+            Instant.now().plusSeconds(60).atZone(ZoneOffset.UTC));
     String base =
         startServer(
             exchange -> {

@@ -1,12 +1,13 @@
 package io.github.fherbreteau.matrix.transport;
 
-import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 /**
  * A binary request/response exchange for media transfers: uploads stream a byte source with an
@@ -29,6 +30,151 @@ public interface MediaTransport {
    *     specification</a>
    */
   BinaryResponse send(BinaryRequest request);
+
+  /**
+   * Sends a binary request and enforces the response size limit.
+   *
+   * @param request the binary request
+   * @param maxResponseBytes maximum permitted response size, or zero for no limit
+   * @return the binary response
+   * @throws MediaSizeLimitException if the response exceeds the configured limit
+   */
+  default BinaryResponse send(BinaryRequest request, long maxResponseBytes) {
+    BinaryResponse response = send(request);
+    if (maxResponseBytes <= 0) {
+      return response;
+    }
+    if (response.contentLength() > maxResponseBytes) {
+      try {
+        response.close();
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+      throw new MediaSizeLimitException(maxResponseBytes);
+    }
+    return new BinaryResponse(
+        response.statusCode(),
+        response.headers(),
+        limited(response.bodyStream(), maxResponseBytes),
+        response.contentLength(),
+        response.retryAfterMs());
+  }
+
+  /**
+   * Sends a binary request with bounded upload and response sizes.
+   *
+   * @param request the binary request
+   * @param maxUploadBytes maximum permitted upload size, or zero for no limit
+   * @param maxResponseBytes maximum permitted response size, or zero for no limit
+   * @return the binary response
+   * @throws MediaSizeLimitException if either transfer exceeds its configured limit
+   */
+  default BinaryResponse send(
+      StreamingBinaryRequest request, long maxUploadBytes, long maxResponseBytes) {
+    try {
+      byte[] content = readLimited(request.body(), maxUploadBytes);
+      if (request.contentLength().isPresent()
+          && request.contentLength().getAsLong() != content.length) {
+        throw new IOException("Media source length did not match its declared content length");
+      }
+      return send(
+          new BinaryRequest(
+              request.method(), request.url(), request.headers(), content, request.contentType()),
+          maxResponseBytes);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  private static InputStream limited(InputStream input, long maximumBytes) {
+    return new InputStream() {
+      private long transferred;
+
+      @Override
+      public int read() throws IOException {
+        if (transferred >= maximumBytes) {
+          return verifyEnd(input);
+        }
+        int value = input.read();
+        if (value != -1) {
+          transferred++;
+        }
+        return value;
+      }
+
+      @Override
+      public int read(byte[] bytes, int offset, int length) throws IOException {
+        if (length == 0) {
+          return 0;
+        }
+        if (transferred >= maximumBytes) {
+          return verifyEnd(input);
+        }
+        int count = input.read(bytes, offset, (int) Math.min(length, maximumBytes - transferred));
+        if (count > 0) {
+          transferred += count;
+        }
+        return count;
+      }
+
+      @Override
+      public void close() throws IOException {
+        input.close();
+      }
+
+      private int verifyEnd(InputStream stream) throws IOException {
+        int extra = stream.read();
+        if (extra != -1) {
+          stream.close();
+          throw new MediaSizeLimitException(maximumBytes);
+        }
+        return -1;
+      }
+    };
+  }
+
+  private static byte[] readLimited(InputStream input, long maximumBytes) throws IOException {
+    try (input;
+        var output = new ByteArrayOutputStream()) {
+      byte[] buffer = new byte[8192];
+      long total = 0;
+      int count;
+      while ((count = input.read(buffer)) != -1) {
+        total += count;
+        if (maximumBytes > 0 && total > maximumBytes) {
+          throw new MediaSizeLimitException(maximumBytes);
+        }
+        output.write(buffer, 0, count);
+      }
+      return output.toByteArray();
+    }
+  }
+
+  /**
+   * A streaming binary HTTP request.
+   *
+   * @param method the HTTP method
+   * @param url the target URL
+   * @param headers additional request headers
+   * @param body media source
+   * @param contentLength known length, or empty for unknown length
+   * @param contentType media MIME type
+   */
+  record StreamingBinaryRequest(
+      String method,
+      String url,
+      Map<String, String> headers,
+      InputStream body,
+      OptionalLong contentLength,
+      String contentType) {
+
+    public StreamingBinaryRequest {
+      headers = headers == null ? Map.of() : Map.copyOf(headers);
+      Objects.requireNonNull(body, "body");
+      contentLength = contentLength == null ? OptionalLong.empty() : contentLength;
+      Objects.requireNonNull(contentType, "contentType");
+    }
+  }
 
   /**
    * A binary HTTP request: raw body bytes with an explicit content type. The {@code toString()}
@@ -112,84 +258,6 @@ public interface MediaTransport {
         sb.append('}');
       }
       return sb.append(" body=").append(body.length).append(" bytes").toString();
-    }
-  }
-
-  /**
-   * A binary HTTP response: the raw body as an {@link InputStream} so callers can stream large
-   * media instead of buffering it in memory. Callers must close the stream.
-   *
-   * @see <a href="https://spec.matrix.org/latest/client-server-api/#content-repository">Matrix
-   *     specification</a>
-   */
-  final class BinaryResponse {
-
-    private final int statusCode;
-    private final Map<String, String> headers;
-    private final byte[] body;
-    private final Long retryAfterMs;
-
-    /**
-     * Creates a binary response containing the media transfer result.
-     *
-     * @param statusCode the HTTP response status
-     * @param headers the response headers
-     * @param body the downloaded media bytes
-     * @param retryAfterMs the optional parsed rate-limit delay, in milliseconds
-     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
-     *     specification</a>
-     */
-    public BinaryResponse(
-        int statusCode, Map<String, String> headers, byte[] body, Long retryAfterMs) {
-      this.statusCode = statusCode;
-      var normalized = new HashMap<String, String>();
-      if (headers != null) {
-        for (Map.Entry<String, String> header : headers.entrySet()) {
-          normalized.put(header.getKey().toLowerCase(Locale.ROOT), header.getValue());
-        }
-      }
-      this.headers = Map.copyOf(normalized);
-      this.body = body == null ? new byte[0] : body;
-      this.retryAfterMs = retryAfterMs;
-    }
-
-    public int statusCode() {
-      return statusCode;
-    }
-
-    public Map<String, String> headers() {
-      return headers;
-    }
-
-    public String header(String name) {
-      return headers.get(name.toLowerCase(Locale.ROOT));
-    }
-
-    public Long retryAfterMs() {
-      return retryAfterMs;
-    }
-
-    /**
-     * Returns the body size in bytes.
-     *
-     * @return the body size in bytes
-     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
-     *     specification</a>
-     */
-    public long contentLength() {
-      return body.length;
-    }
-
-    /**
-     * Opens the body as a stream; the underlying bytes are already buffered by the HTTP client, so
-     * the stream never blocks on the network.
-     *
-     * @return the body stream; must be closed by the caller
-     * @see <a href="https://spec.matrix.org/latest/client-server-api/#downloading-content">Matrix
-     *     specification</a>
-     */
-    public InputStream bodyStream() {
-      return new ByteArrayInputStream(body);
     }
   }
 

@@ -40,18 +40,25 @@ import io.github.fherbreteau.matrix.retry.RetryPolicy;
 import io.github.fherbreteau.matrix.store.SessionStore;
 import io.github.fherbreteau.matrix.store.SyncTokenStore;
 import io.github.fherbreteau.matrix.store.TransactionIdStore;
+import io.github.fherbreteau.matrix.transport.BinaryResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import io.github.fherbreteau.matrix.transport.JdkMediaTransport;
+import io.github.fherbreteau.matrix.transport.MediaSizeLimitException;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
 import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
-import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryResponse;
+import io.github.fherbreteau.matrix.transport.MediaTransport.StreamingBinaryRequest;
 import io.github.fherbreteau.matrix.transport.TransportInterruptedException;
 import io.github.fherbreteau.matrix.transport.TransportTimeoutException;
 import io.github.fherbreteau.matrix.transport.UncheckedTransportException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +66,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 /**
@@ -108,6 +116,7 @@ public final class MatrixClient {
   private final DiscoveredHomeserver discovery;
   private final SessionStore sessionStore;
   private final MediaTransport mediaTransport;
+  private final long maxMediaUploadBytes;
   private final SyncTokenStore syncTokenStore;
   private final TransactionIdStore transactionIdStore;
   private final RetryPolicy retryPolicy;
@@ -117,6 +126,12 @@ public final class MatrixClient {
   private MatrixClient(Builder builder) {
     this.transport = builder.transport;
     this.mediaTransport = builder.mediaTransport;
+    this.maxMediaUploadBytes =
+        builder.maxMediaUploadBytes > 0
+            ? builder.maxMediaUploadBytes
+            : builder.mediaTransport instanceof JdkMediaTransport jdkMediaTransport
+                ? jdkMediaTransport.maxUploadBytes()
+                : 0;
     this.sessionStore = builder.sessionStore;
     this.syncTokenStore = builder.syncTokenStore;
     this.transactionIdStore = builder.transactionIdStore;
@@ -1536,15 +1551,63 @@ public final class MatrixClient {
    *     specification</a>
    */
   public MxcUri uploadMedia(byte[] content, String contentType, String filename) {
+    return uploadMedia(new ByteArrayInputStream(content), content.length, contentType, filename);
+  }
+
+  /**
+   * Uploads media from a stream without requiring callers to buffer the complete file.
+   *
+   * @param content the media stream, closed after the request completes
+   * @param contentLength the source length, or a negative value when unknown
+   * @param contentType the optional MIME type
+   * @param filename the optional filename presented to other users
+   * @return the uploaded media URI
+   * @throws MediaSizeLimitException if the upload exceeds the configured client limit
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixmediav3upload">Matrix
+   *     specification</a>
+   */
+  public MxcUri uploadMedia(
+      InputStream content, long contentLength, String contentType, String filename) {
     var path = new StringBuilder("_matrix/media/v3/upload");
     if (filename != null) {
       path.append("?filename=").append(encode(filename));
     }
+    var length = OptionalLong.of(contentLength).stream().filter(c -> c >= 0).findFirst();
     var request =
-        new BinaryRequest("POST", homeserverUrl + "/" + path, authHeaders(), content, contentType);
-    var response = sendBinary(request, path.toString());
-    throwIfError(response.statusCode(), asString(response), response.headers());
-    JsonObject body = JsonParser.parse(asString(response)).asObject();
+        new StreamingBinaryRequest(
+            "POST",
+            homeserverUrl + "/" + path,
+            authHeaders(),
+            content,
+            length,
+            contentType == null ? FILE_TYPE : contentType);
+    return parseUploadResponse(sendBinary(request, path.toString()));
+  }
+
+  /**
+   * Uploads a file from disk without loading the entire file into memory.
+   *
+   * @param file the file to upload
+   * @param contentType the optional MIME type
+   * @param filename the optional filename presented to other users
+   * @return the uploaded media URI
+   * @throws IOException if the file cannot be opened or its size cannot be read
+   * @throws MediaSizeLimitException if the file exceeds the configured client limit
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixmediav3upload">Matrix
+   *     specification</a>
+   */
+  public MxcUri uploadMedia(Path file, String contentType, String filename) throws IOException {
+    try (InputStream input = Files.newInputStream(file)) {
+      return uploadMedia(input, Files.size(file), contentType, filename);
+    }
+  }
+
+  private MxcUri parseUploadResponse(BinaryResponse response) {
+    String responseBody = asString(response);
+    throwIfError(response.statusCode(), responseBody, response.headers());
+    JsonObject body = JsonParser.parse(responseBody).asObject();
     JsonValue uri = body.get("content_uri");
     if (uri == null || !uri.isString()) {
       throw new MatrixServerException(
@@ -1598,12 +1661,8 @@ public final class MatrixClient {
     }
     var request =
         new BinaryRequest("GET", homeserverUrl + "/" + path, authHeaders(), null, FILE_TYPE);
-    var response = sendBinary(request, path.toString());
-    throwIfError(response.statusCode(), asString(response), response.headers());
-    if (maxBytes > 0 && response.contentLength() > maxBytes) {
-      throw new MatrixServerException(
-          response.statusCode(), "M_TOO_LARGE", "Media exceeds the configured maximum size");
-    }
+    var response = sendBinary(request, path.toString(), maxBytes);
+    throwIfBinaryError(response);
     return new MediaDownload(
         response.header(CONTENT_TYPE_HEADER),
         response.header(CONTENT_DISPOSITION_HEADER),
@@ -1648,12 +1707,8 @@ public final class MatrixClient {
     }
     var request =
         new BinaryRequest("GET", homeserverUrl + "/" + query, authHeaders(), null, FILE_TYPE);
-    var response = sendBinary(request, query.toString());
-    throwIfError(response.statusCode(), asString(response), response.headers());
-    if (maxBytes > 0 && response.contentLength() > maxBytes) {
-      throw new MatrixServerException(
-          response.statusCode(), "M_TOO_LARGE", "Thumbnail exceeds the configured maximum size");
-    }
+    var response = sendBinary(request, query.toString(), maxBytes);
+    throwIfBinaryError(response);
     return new MediaDownload(
         response.header(CONTENT_TYPE_HEADER),
         response.header(CONTENT_DISPOSITION_HEADER),
@@ -1687,11 +1742,16 @@ public final class MatrixClient {
     return Map.of(Request.AUTHORIZATION_HEADER, BEARER_PREFIX + session.accessToken());
   }
 
-  private BinaryResponse sendBinary(BinaryRequest request, String path) {
+  private BinaryResponse sendBinary(StreamingBinaryRequest request, String path) {
+    return sendBinary(request, path, 0);
+  }
+
+  private BinaryResponse sendBinary(
+      StreamingBinaryRequest request, String path, long maxResponseBytes) {
     var context =
         new AttemptContext(UUID.randomUUID(), request.method(), path, 1, System.nanoTime());
     try {
-      BinaryResponse response = mediaTransport.send(request);
+      BinaryResponse response = mediaTransport.send(request, maxMediaUploadBytes, maxResponseBytes);
       RequestAttempt.Outcome outcome =
           response.statusCode() >= 200 && response.statusCode() < 300
               ? RequestAttempt.Outcome.SUCCEEDED
@@ -1701,9 +1761,41 @@ public final class MatrixClient {
     } catch (TransportInterruptedException exception) {
       observe(context, null, null, RequestAttempt.Outcome.INTERRUPTED);
       throw exception;
+    } catch (MediaSizeLimitException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.FAILED);
+      throw new MatrixServerException(413, "M_TOO_LARGE", exception.getMessage());
     } catch (RuntimeException exception) {
       observe(context, null, null, RequestAttempt.Outcome.FAILED);
       throw exception;
+    }
+  }
+
+  private BinaryResponse sendBinary(BinaryRequest request, String path, long maxResponseBytes) {
+    var context =
+        new AttemptContext(UUID.randomUUID(), request.method(), path, 1, System.nanoTime());
+    try {
+      BinaryResponse response = mediaTransport.send(request, maxResponseBytes);
+      RequestAttempt.Outcome outcome =
+          response.statusCode() >= 200 && response.statusCode() < 300
+              ? RequestAttempt.Outcome.SUCCEEDED
+              : RequestAttempt.Outcome.FAILED;
+      observe(context, response.statusCode(), null, outcome);
+      return response;
+    } catch (TransportInterruptedException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.INTERRUPTED);
+      throw exception;
+    } catch (MediaSizeLimitException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.FAILED);
+      throw new MatrixServerException(413, "M_TOO_LARGE", exception.getMessage());
+    } catch (RuntimeException exception) {
+      observe(context, null, null, RequestAttempt.Outcome.FAILED);
+      throw exception;
+    }
+  }
+
+  private void throwIfBinaryError(BinaryResponse response) {
+    if (response.statusCode() < 200 || response.statusCode() >= 300) {
+      throwIfError(response.statusCode(), asString(response), response.headers());
     }
   }
 
@@ -2032,6 +2124,7 @@ public final class MatrixClient {
     private HttpTransport transport = HttpTransport.create();
     private SessionStore sessionStore = SessionStore.create();
     private MediaTransport mediaTransport = MediaTransport.create();
+    private long maxMediaUploadBytes;
     private SyncTokenStore syncTokenStore = SyncTokenStore.inMemory();
     private TransactionIdStore transactionIdStore = TransactionIdStore.inMemory();
     private RetryPolicy retryPolicy = RetryPolicy.defaults();
@@ -2145,6 +2238,20 @@ public final class MatrixClient {
      */
     public Builder mediaTransport(MediaTransport mediaTransport) {
       this.mediaTransport = mediaTransport;
+      return this;
+    }
+
+    /**
+     * Sets the maximum size accepted for media uploads; zero disables the client-side limit.
+     *
+     * @param maxMediaUploadBytes maximum upload size in bytes, or zero for no limit
+     * @return this builder for chaining
+     */
+    public Builder maxMediaUploadBytes(long maxMediaUploadBytes) {
+      if (maxMediaUploadBytes < 0) {
+        throw new IllegalArgumentException("maxMediaUploadBytes must not be negative");
+      }
+      this.maxMediaUploadBytes = maxMediaUploadBytes;
       return this;
     }
 

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventFilter;
 import io.github.fherbreteau.matrix.model.EventId;
@@ -230,6 +231,46 @@ class SynapseContainerIT {
     MxcUri uri = client.uploadMedia(payload, "text/plain", "integration.txt");
     try (var download = client.downloadMedia(uri, 1_024)) {
       assertThat(download.body().readAllBytes()).containsExactly(payload);
+    }
+  }
+
+  @Test
+  void changesPasswordWithInteractiveAuthenticationAndRestoresIt() {
+    String changedPassword = UUID.randomUUID().toString();
+    try {
+      client.changePassword(
+          AccountRequest.builder()
+              .newPassword(changedPassword)
+              .logoutDevices(false)
+              .put(
+                  "auth",
+                  JsonParser.parse(
+                      "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"@integration:localhost\"},\"password\":\""
+                          + PASSWORD
+                          + "\"}"))
+              .build());
+      MatrixClient changedPasswordClient =
+          MatrixClient.builder(homeserverUrl()).retryPolicy(RetryPolicy.disabled()).build();
+      var changedSession =
+          changedPasswordClient.login(
+              new PasswordCredentials("@integration:localhost", changedPassword));
+      assertThat(changedSession.userId()).isEqualTo("@integration:localhost");
+      changedPasswordClient.logout();
+    } finally {
+      var currentSession = client.getSession();
+      if (currentSession.isPresent()) {
+        client.changePassword(
+            AccountRequest.builder()
+                .newPassword(PASSWORD)
+                .logoutDevices(false)
+                .put(
+                    "auth",
+                    JsonParser.parse(
+                        "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"@integration:localhost\"},\"password\":\""
+                            + changedPassword
+                            + "\"}"))
+                .build());
+      }
     }
   }
 

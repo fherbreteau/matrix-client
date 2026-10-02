@@ -1025,11 +1025,12 @@ class AuthenticationTest {
 
   @Test
   void malformedDeviceResponsesAreRejected() {
-    assertThatThrownBy(() -> DevicesResponse.from(JsonParser.parse("{}")))
+    var emptyObject = JsonParser.parse("{}");
+    assertThatThrownBy(() -> DevicesResponse.from(emptyObject))
         .isInstanceOf(DiscoveryException.class);
-    assertThatThrownBy(() -> Device.from(JsonParser.parse("{}")))
-        .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> Device.from(JsonParser.parse("{\"device_id\":\"\"}")))
+    assertThatThrownBy(() -> Device.from(emptyObject)).isInstanceOf(IllegalArgumentException.class);
+    var emptyDeviceId = JsonParser.parse("{\"device_id\":\"\"}");
+    assertThatThrownBy(() -> Device.from(emptyDeviceId))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new DeleteDevicesRequest(null))
         .isInstanceOf(IllegalArgumentException.class);

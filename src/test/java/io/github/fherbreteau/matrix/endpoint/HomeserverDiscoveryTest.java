@@ -2,6 +2,7 @@ package io.github.fherbreteau.matrix.endpoint;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,14 @@ class HomeserverDiscoveryTest {
         org.junit.jupiter.params.provider.Arguments.of(
             "https://matrix.example.org:443/prefix",
             "https://matrix.example.org/.well-known/matrix/client"));
+  }
+
+  @Test
+  void discoveryRejectsBaseWithoutHostname() {
+    assertThatThrownBy(
+            () -> HomeserverDiscovery.discover(HttpTransportStub.recording(), "https:opaque-base"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("must contain a hostname");
   }
 
   @Test

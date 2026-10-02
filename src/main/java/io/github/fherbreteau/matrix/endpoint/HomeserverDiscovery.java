@@ -5,6 +5,7 @@ import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
+import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import io.github.fherbreteau.matrix.transport.TransportException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -34,7 +35,7 @@ public final class HomeserverDiscovery {
    */
   public static DiscoveredHomeserver discover(HttpTransport transport, String baseUrl) {
     String normalizedBase = normalize(baseUrl);
-    HttpTransport.Response response;
+    Response response;
     try {
       response = fetchWellKnown(transport, normalizedBase);
     } catch (TransportException | MatrixException _) {
@@ -77,8 +78,7 @@ public final class HomeserverDiscovery {
         null);
   }
 
-  private static DiscoveredHomeserver responseOutcome(
-      String fallbackUrl, HttpTransport.Response response) {
+  private static DiscoveredHomeserver responseOutcome(String fallbackUrl, Response response) {
     if (response.statusCode() == 404) {
       return new DiscoveredHomeserver(
           fallbackUrl, null, null, true, DiscoveryOutcome.IGNORE, "Well-known endpoint not found");
@@ -192,45 +192,8 @@ public final class HomeserverDiscovery {
     }
   }
 
-  private static JsonValue fetchWellKnown(HttpTransport transport, String normalizedBase) {
+  private static Response fetchWellKnown(HttpTransport transport, String normalizedBase) {
     Request request = new Request("GET", wellKnownUrl(normalizedBase), Map.of(), null);
-    HttpTransport.Response response;
-    try {
-      response = transport.send(request);
-    } catch (TransportException | MatrixException _) {
-      return null;
-    }
-    if (response.statusCode() < 200 || response.statusCode() >= 300) {
-      return null;
-    }
-    if (response.body() == null || response.body().isBlank()) {
-      return null;
-    }
-    try {
-      JsonValue body = JsonParser.parse(response.body());
-      return body.isObject() ? body : null;
-    } catch (IllegalArgumentException _) {
-      return null;
-    }
-  }
-
-  private static String extractUrl(JsonValue wellKnown, String key) {
-    JsonValue section = wellKnown.asObject().get(key);
-    if (section == null || !section.isObject()) {
-      return null;
-    }
-    JsonValue baseUrlValue = section.asObject().get("base_url");
-    if (baseUrlValue == null || !baseUrlValue.isString()) {
-      return null;
-    }
-    String url = baseUrlValue.asString().strip();
-    if (url.isEmpty()) {
-      return null;
-    }
-    try {
-      return normalize(url);
-    } catch (IllegalArgumentException _) {
-      return null;
-    }
+    return transport.send(request);
   }
 }

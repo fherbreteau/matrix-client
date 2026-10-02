@@ -4,14 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
+import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
+import io.github.fherbreteau.matrix.model.RegistrationRequest;
 import io.github.fherbreteau.matrix.model.Session;
+import io.github.fherbreteau.matrix.model.ThreePidTokenRequest;
 import io.github.fherbreteau.matrix.store.SessionStore;
 import io.github.fherbreteau.matrix.store.memory.InMemorySessionStore;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
@@ -369,6 +374,384 @@ class AuthenticationTest {
     assertThatThrownBy(client::refresh)
         .isInstanceOf(AuthenticationException.class)
         .hasMessageContaining("Invalid grant");
+  }
+
+  @Test
+  void usernameAvailabilityEncodesQueryAndPreservesUnknownFields() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new Response(200, "{\"available\":true,\"future\":1}"), requests))
+            .build();
+    var result = client.isUsernameAvailable("alice smith");
+    assertThat(result.available()).isTrue();
+    assertThat(result.raw().asObject().get("future").asLong()).isEqualTo(1L);
+    assertThat(requests.getFirst().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v3/register/available?username=alice%20smith");
+    assertThat(requests.getFirst().headers()).isEmpty();
+  }
+
+  @Test
+  void registrationSupportsAuthRetryAndInhibitLogin() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport =
+        recording(
+            new Response(401, "{\"flows\":[{\"stages\":[\"m.login.terms\"]}],\"session\":\"s\"}"),
+            requests);
+    transport.enqueue(new Response(200, "{\"user_id\":\"@alice:example.org\",\"future\":true}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    var first = RegistrationRequest.builder().username("alice").inhibitLogin(true).build();
+    assertThatThrownBy(() -> client.register(first))
+        .isInstanceOf(MatrixServerException.class)
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getFields)
+        .asInstanceOf(MAP)
+        .extractingByKey("flows")
+        .isNotNull();
+    var retry =
+        RegistrationRequest.builder()
+            .username("alice")
+            .inhibitLogin(true)
+            .put("auth", JsonParser.parse("{\"type\":\"m.login.terms\",\"session\":\"s\"}"))
+            .build();
+    var result = client.register(retry);
+    assertThat(result.userId()).isEqualTo("@alice:example.org");
+    assertThat(result.accessToken()).isNull();
+    assertThat(result.raw().asObject().get("future").asBoolean()).isTrue();
+    assertThat(requests).hasSize(2);
+    assertThat(requests.getLast().body()).contains("m.login.terms").contains("inhibit_login");
+    assertThat(requests.getLast().headers()).isEmpty();
+  }
+
+  @Test
+  void registrationStoresSessionWhenHomeserverReturnsCredentials() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    new Response(
+                        200,
+                        "{\"user_id\":\"@alice:example.org\",\"access_token\":\"token\",\"device_id\":\"D\"}"),
+                    requests))
+            .build();
+    var result = client.register(RegistrationRequest.builder().username("alice").build());
+    assertThat(result.accessToken()).isEqualTo("token");
+    assertThat(client.getSession()).isPresent();
+  }
+
+  @Test
+  void registrationTokenAndAuthMetadataUseTypedRawResponses() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport = recording(new Response(200, "{\"valid\":true}"), requests);
+    transport.enqueue(new Response(200, "{\"issuer\":\"https://issuer\",\"extension\":1}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    assertThat(client.isRegistrationTokenValid("invite token").valid()).isTrue();
+    var metadata = client.getAuthMetadata();
+    assertThat(metadata.get("issuer").asString()).isEqualTo("https://issuer");
+    assertThat(metadata.get("extension").asLong()).isEqualTo(1L);
+    assertThat(metadata.fields()).containsKey("issuer");
+    assertThat(requests.getFirst().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v1/register/m.login.registration_token/validity?token=invite%20token");
+    assertThat(requests.getLast().url()).endsWith("/_matrix/client/v1/auth_metadata");
+  }
+
+  @Test
+  void passwordChangeWithoutSessionRaisesAuthenticationException() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{}"))
+            .build();
+    assertThatThrownBy(
+            () -> client.changePassword(AccountRequest.builder().newPassword("next").build()))
+        .isInstanceOf(AuthenticationException.class)
+        .hasMessageContaining("No authenticated session");
+  }
+
+  @Test
+  void passwordChangeUsesBearerTokenAndAllowsUiAuthRetry() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport =
+        recording(
+            new Response(200, LOGIN_OK),
+            new Response(
+                401, "{\"flows\":[{\"stages\":[\"m.login.password\"]}],\"session\":\"s\"}"),
+            requests);
+    transport.enqueue(new Response(200, "{}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    var request = AccountRequest.builder().newPassword("new").build();
+    assertThatThrownBy(() -> client.changePassword(request))
+        .isInstanceOf(MatrixServerException.class)
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getUserInteractiveAuthChallenge)
+        .isNotNull();
+    var retry =
+        AccountRequest.builder()
+            .newPassword("new")
+            .put("auth", JsonParser.parse("{\"type\":\"m.login.password\",\"session\":\"s\"}"))
+            .build();
+    client.changePassword(retry);
+    assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/account/password");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
+    assertThat(requests.getLast().body()).contains("new_password").contains("m.login.password");
+  }
+
+  @Test
+  void accountDeactivationClearsSessionAfterSuccess() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"id_server_unbind_result\":\"success\"}"),
+                    requests))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    var response = client.deactivateAccount(AccountRequest.builder().erase(true).build());
+    assertThat(response.idServerUnbindResult()).isEqualTo("success");
+    assertThat(client.getSession()).isEmpty();
+    assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/account/deactivate");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
+  }
+
+  @Test
+  void thirdPartyIdentifierMethodsUseSpecPathsAndBearerAuthentication() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport = recording(new Response(200, LOGIN_OK), requests);
+    transport.enqueue(new Response(200, "{\"threepids\":[]}"));
+    transport.enqueue(new Response(200, "{}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    client.getThreePids();
+    client.addThreePid(AccountRequest.builder().clientSecret("c").sessionId("sid").build());
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/account/3pid");
+    assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/account/3pid/add");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
+  }
+
+  @Test
+  void emailTokenRequestUsesTypedResponseAndExactBody() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    new Response(200, "{\"sid\":\"sid1\",\"submit_url\":\"https://verify\"}"),
+                    requests))
+            .build();
+    var response =
+        client.requestRegistrationEmailToken(
+            ThreePidTokenRequest.builder()
+                .clientSecret("secret")
+                .email("a@example.org")
+                .sendAttempt(1)
+                .build());
+    assertThat(response)
+        .extracting(
+            io.github.fherbreteau.matrix.model.ThreePidTokenResponse::sid,
+            io.github.fherbreteau.matrix.model.ThreePidTokenResponse::submitUrl)
+        .containsExactly("sid1", "https://verify");
+    assertThat(requests.getFirst().url())
+        .endsWith("/_matrix/client/v3/register/email/requestToken");
+    assertThat(requests.getFirst().body()).contains("a@example.org").contains("send_attempt");
+    assertThat(requests.getFirst().headers()).isEmpty();
+  }
+
+  @Test
+  void accountOperationsSupportBothBindingMutationsAndIdentifierManagement() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport = recording(new Response(200, LOGIN_OK), requests);
+    transport.enqueue(
+        new Response(
+            200,
+            "{\"threepids\":[{\"address\":\"a@example.org\",\"medium\":\"email\",\"added_at\":1,\"validated_at\":2,\"extension\":true}]}"));
+    transport.enqueue(new Response(200, "{}"));
+    transport.enqueue(new Response(200, "{\"id_server_unbind_result\":\"success\"}"));
+    transport.enqueue(new Response(200, "{\"id_server_unbind_result\":\"success\"}"));
+    transport.enqueue(new Response(200, "{\"id_server_unbind_result\":\"no-support\"}"));
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "p"));
+    var threepids = client.getThreePids();
+    assertThat(threepids.threepids())
+        .singleElement()
+        .satisfies(
+            threePid -> {
+              assertThat(threePid.address()).isEqualTo("a@example.org");
+              assertThat(threePid.medium()).isEqualTo("email");
+              assertThat(threePid.addedAt()).isEqualTo(1L);
+              assertThat(threePid.validatedAt()).isEqualTo(2L);
+              assertThat(threePid.raw().asObject().get("extension").asBoolean()).isTrue();
+            });
+    var request =
+        AccountRequest.builder()
+            .clientSecret("secret")
+            .sessionId("sid")
+            .identityServer("id.example.org")
+            .identityAccessToken("identity-token")
+            .address("a@example.org")
+            .medium("email")
+            .build();
+    client.bindThreePid(request);
+    client.deleteThreePid(request);
+    client.unbindThreePid(request);
+    assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/account/3pid/bind");
+    assertThat(requests.get(3).url()).endsWith("/_matrix/client/v3/account/3pid/delete");
+    assertThat(requests.get(4).url()).endsWith("/_matrix/client/v3/account/3pid/unbind");
+    assertThat(requests.getLast().headers())
+        .containsEntry(Request.AUTHORIZATION_HEADER, "Bearer secret-token");
+  }
+
+  @Test
+  void tokenRequestMethodsUseAllSupportedSpecPathsWithoutAuthentication() {
+    var requests = new ArrayList<Request>();
+    HttpTransportStub transport = recording(new Response(200, "{\"sid\":\"s\"}"), requests);
+    for (int i = 0; i < 5; i++) {
+      transport.enqueue(new Response(200, "{\"sid\":\"s\"}"));
+    }
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org").transport(transport).build();
+    var email =
+        ThreePidTokenRequest.builder()
+            .clientSecret("c")
+            .email("a@example.org")
+            .sendAttempt(1)
+            .build();
+    var phone =
+        ThreePidTokenRequest.builder()
+            .clientSecret("c")
+            .country("US")
+            .phoneNumber("5550000")
+            .sendAttempt(2)
+            .build();
+    client.requestRegistrationEmailToken(email);
+    client.requestRegistrationMsisdnToken(phone);
+    client.requestThreePidEmailToken(email);
+    client.requestThreePidMsisdnToken(phone);
+    client.requestPasswordResetEmailToken(email);
+    client.requestPasswordResetMsisdnToken(phone);
+    assertThat(requests).hasSize(6);
+    assertThat(requests)
+        .extracting(Request::url)
+        .containsExactly(
+            "https://matrix.example.org/_matrix/client/v3/register/email/requestToken",
+            "https://matrix.example.org/_matrix/client/v3/register/msisdn/requestToken",
+            "https://matrix.example.org/_matrix/client/v3/account/3pid/email/requestToken",
+            "https://matrix.example.org/_matrix/client/v3/account/3pid/msisdn/requestToken",
+            "https://matrix.example.org/_matrix/client/v3/account/password/email/requestToken",
+            "https://matrix.example.org/_matrix/client/v3/account/password/msisdn/requestToken");
+    assertThat(requests).allSatisfy(request -> assertThat(request.headers()).isEmpty());
+  }
+
+  @Test
+  void requestModelBuildersSerializeAllFieldsAndExtensions() {
+    var registration =
+        RegistrationRequest.builder()
+            .username("alice")
+            .password("secret")
+            .deviceId("D")
+            .initialDeviceDisplayName("Phone")
+            .inhibitLogin(false)
+            .requestRefreshToken(true)
+            .putAll(Map.of("auth", JsonParser.parse("{\"type\":\"m.login.dummy\"}")))
+            .build();
+    assertThat(registration.toJson().asObject().names())
+        .contains(
+            "username",
+            "password",
+            "device_id",
+            "initial_device_display_name",
+            "inhibit_login",
+            "refresh_token",
+            "auth");
+    var account =
+        AccountRequest.builder()
+            .newPassword("next")
+            .logoutDevices(false)
+            .erase(true)
+            .identityServer("id.example.org")
+            .clientSecret("c")
+            .sessionId("sid")
+            .identityAccessToken("id-token")
+            .address("a@example.org")
+            .medium("email")
+            .putAll(Map.of("auth", JsonParser.parse("{}")))
+            .build();
+    assertThat(account.toJson().asObject().names())
+        .contains(
+            "new_password",
+            "logout_devices",
+            "erase",
+            "id_server",
+            "client_secret",
+            "sid",
+            "id_access_token",
+            "address",
+            "medium",
+            "auth");
+    var tokenRequest =
+        ThreePidTokenRequest.builder()
+            .clientSecret("c")
+            .email("a@example.org")
+            .country("GB")
+            .phoneNumber("123")
+            .sendAttempt(2)
+            .identityServer("id.example.org")
+            .identityAccessToken("id-token")
+            .nextLink("https://next")
+            .put("extension", JsonParser.parse("true"))
+            .putAll(Map.of("another_extension", JsonParser.parse("false")))
+            .build();
+    assertThat(tokenRequest.toJson().asObject().names())
+        .contains(
+            "client_secret",
+            "email",
+            "country",
+            "phone_number",
+            "send_attempt",
+            "id_server",
+            "id_access_token",
+            "next_link",
+            "extension");
+  }
+
+  @Test
+  void typedUiAuthChallengeExposesFlowsAndCompletedStages() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    new Response(
+                        401,
+                        "{\"flows\":[{\"stages\":[\"m.login.terms\",\"m.login.dummy\"],\"future\":1}],\"completed\":[\"m.login.terms\"],\"params\":{\"terms\":true},\"session\":\"s\"}"),
+                    requests))
+            .build();
+    assertThatThrownBy(() -> client.register(RegistrationRequest.builder().build()))
+        .isInstanceOf(MatrixServerException.class)
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getUserInteractiveAuthChallenge)
+        .satisfies(
+            challenge -> {
+              assertThat(challenge.session()).isEqualTo("s");
+              assertThat(challenge.completed()).containsExactly("m.login.terms");
+              assertThat(challenge.flows())
+                  .singleElement()
+                  .extracting("stages")
+                  .isEqualTo(List.of("m.login.terms", "m.login.dummy"));
+              assertThat(challenge.raw().asObject().has("params")).isTrue();
+            });
   }
 
   private static HttpTransportStub recording(Response response, List<Request> requests) {

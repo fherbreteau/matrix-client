@@ -2,6 +2,7 @@ package io.github.fherbreteau.matrix.error;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import io.github.fherbreteau.matrix.model.UserInteractiveAuthChallenge;
 import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
@@ -175,6 +176,16 @@ public class MatrixServerException extends MatrixException {
    */
   public Map<String, JsonValue> getFields() {
     return fields == null ? Map.of() : fields;
+  }
+
+  /**
+   * Returns a parsed User-Interactive Authentication challenge when the error carries one.
+   *
+   * @return the UI-auth challenge, or {@code null} when no {@code flows} field is present
+   */
+  public UserInteractiveAuthChallenge getUserInteractiveAuthChallenge() {
+    JsonValue flows = getFields().get("flows");
+    return flows == null ? null : UserInteractiveAuthChallenge.from(new JsonObject(getFields()));
   }
 
   /**

@@ -434,7 +434,8 @@ class AuthenticationTest {
                 recording(
                     new Response(
                         200,
-                        "{\"user_id\":\"@alice:example.org\",\"access_token\":\"token\",\"device_id\":\"D\"}"),
+                        "{\"user_id\":\"@alice:example.org\",\"access_token\":\"token\","
+                            + "\"device_id\":\"D\"}"),
                     requests))
             .build();
     var result = client.register(RegistrationRequest.builder().username("alice").build());
@@ -575,7 +576,8 @@ class AuthenticationTest {
     transport.enqueue(
         new Response(
             200,
-            "{\"threepids\":[{\"address\":\"a@example.org\",\"medium\":\"email\",\"added_at\":1,\"validated_at\":2,\"extension\":true}]}"));
+            "{\"threepids\":[{\"address\":\"a@example.org\",\"medium\":\"email\",\"added_at\":1,"
+                + "\"validated_at\":2,\"extension\":true}]}"));
     transport.enqueue(new Response(200, "{}"));
     transport.enqueue(new Response(200, "{\"id_server_unbind_result\":\"success\"}"));
     transport.enqueue(new Response(200, "{\"id_server_unbind_result\":\"success\"}"));
@@ -735,7 +737,9 @@ class AuthenticationTest {
                 recording(
                     new Response(
                         401,
-                        "{\"flows\":[{\"stages\":[\"m.login.terms\",\"m.login.dummy\"],\"future\":1}],\"completed\":[\"m.login.terms\"],\"params\":{\"terms\":true},\"session\":\"s\"}"),
+                        "{\"flows\":[{\"stages\":[\"m.login.terms\",\"m.login.dummy\"],"
+                            + "\"future\":1}],\"completed\":[\"m.login.terms\"],"
+                            + "\"params\":{\"terms\":true},\"session\":\"s\"}"),
                     requests))
             .build();
     var request = RegistrationRequest.builder().build();
@@ -796,11 +800,13 @@ class AuthenticationTest {
         MatrixClient.builder("https://matrix.example.org").transport(transport).build();
     client.register(RegistrationRequest.builder().build(), "guest");
     assertThat(requests.getFirst().url()).endsWith("/_matrix/client/v3/register?kind=guest");
+    var registrationRequest = RegistrationRequest.builder().build();
     var invalidKind = "service";
-    assertThatThrownBy(() -> client.register(RegistrationRequest.builder().build(), invalidKind))
+    assertThatThrownBy(() -> client.register(registrationRequest, invalidKind))
         .isInstanceOf(IllegalArgumentException.class);
     client.login(new PasswordCredentials("@alice:matrix.org", "p"));
-    assertThatThrownBy(() -> client.deactivateAccount(AccountRequest.builder().build()))
+    var accountRequest = AccountRequest.builder().build();
+    assertThatThrownBy(() -> client.deactivateAccount(accountRequest))
         .isInstanceOf(MatrixServerException.class);
     assertThat(client.getSession()).isPresent();
   }

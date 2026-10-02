@@ -466,8 +466,8 @@ class AuthenticationTest {
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{}"))
             .build();
-    assertThatThrownBy(
-            () -> client.changePassword(AccountRequest.builder().newPassword("next").build()))
+    var request = AccountRequest.builder().newPassword("next").build();
+    assertThatThrownBy(() -> client.changePassword(request))
         .isInstanceOf(AuthenticationException.class)
         .hasMessageContaining("No authenticated session");
   }
@@ -738,7 +738,8 @@ class AuthenticationTest {
                         "{\"flows\":[{\"stages\":[\"m.login.terms\",\"m.login.dummy\"],\"future\":1}],\"completed\":[\"m.login.terms\"],\"params\":{\"terms\":true},\"session\":\"s\"}"),
                     requests))
             .build();
-    assertThatThrownBy(() -> client.register(RegistrationRequest.builder().build()))
+    var request = RegistrationRequest.builder().build();
+    assertThatThrownBy(() -> client.register(request))
         .isInstanceOf(MatrixServerException.class)
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getUserInteractiveAuthChallenge)

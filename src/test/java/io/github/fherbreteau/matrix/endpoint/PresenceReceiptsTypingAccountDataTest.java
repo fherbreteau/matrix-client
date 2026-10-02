@@ -102,7 +102,7 @@ class PresenceReceiptsTypingAccountDataTest {
     client.sendReceipt(roomId, "m.read.private", EventId.of("$e2"), "$thread");
     assertThat(requests.get(1).url())
         .endsWith("/_matrix/client/v3/rooms/%21a%3Ab/receipt/m.read/%24e1");
-    assertThat(requests.get(1).body()).isNull();
+    assertThat(requests.get(1).body()).isEqualTo("{}");
     assertThat(requests.get(2).url())
         .endsWith("/_matrix/client/v3/rooms/%21a%3Ab/receipt/m.read.private/%24e2");
     assertThat(requests.get(2).body()).isEqualTo("{\"thread_id\":\"$thread\"}");

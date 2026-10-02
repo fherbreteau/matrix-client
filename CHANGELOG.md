@@ -61,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🧪 Testing
 
+- **Sanitized Conformance Failure Diagnostics**: Attach redacted request and response metadata to mock-homeserver assertion failures without exposing credentials or bodies (#41, #48).
+
 - **AssertJ Migration**: All test assertions migrated from JUnit 5 assertions to the AssertJ fluent style (`assertThat`/`assertThatExceptionOfType`), with AssertJ 3.27.7 added as a test-scoped dependency (#16)
 
 ### 🔧 Build System

@@ -13,12 +13,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 final class MockMatrixHomeserver implements AutoCloseable {
 
   private final HttpServer server;
   private final Queue<Response> responses = new ArrayDeque<>();
   private final List<CapturedRequest> requests = new ArrayList<>();
+  private final List<CapturedResponse> capturedResponses = new ArrayList<>();
   private final AtomicBoolean closed = new AtomicBoolean();
 
   MockMatrixHomeserver() {
@@ -54,6 +57,36 @@ final class MockMatrixHomeserver implements AutoCloseable {
     return requests.getLast();
   }
 
+  synchronized List<CapturedResponse> responses() {
+    return List.copyOf(capturedResponses);
+  }
+
+  void assertWithDiagnostics(Runnable assertions) {
+    try {
+      assertions.run();
+    } catch (AssertionError failure) {
+      throw new AssertionError(
+          failure.getMessage() + System.lineSeparator() + diagnosticContext(), failure);
+    }
+  }
+
+  private synchronized String diagnosticContext() {
+    return "Mock homeserver exchanges:"
+        + System.lineSeparator()
+        + IntStream.range(0, requests.size())
+            .mapToObj(
+                index ->
+                    "["
+                        + index
+                        + "] "
+                        + requests.get(index).redactedDescription()
+                        + " -> "
+                        + (index < capturedResponses.size()
+                            ? capturedResponses.get(index).redactedDescription()
+                            : "response pending"))
+            .collect(Collectors.joining(System.lineSeparator()));
+  }
+
   private void handle(HttpExchange exchange) throws IOException {
     String requestBody =
         new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
@@ -81,6 +114,9 @@ final class MockMatrixHomeserver implements AutoCloseable {
     }
     byte[] bytes =
         response.body() == null ? new byte[0] : response.body().getBytes(StandardCharsets.UTF_8);
+    synchronized (this) {
+      capturedResponses.add(new CapturedResponse(response.statusCode(), bytes.length));
+    }
     exchange.sendResponseHeaders(response.statusCode(), bytes.length);
     exchange.getResponseBody().write(bytes);
     exchange.close();
@@ -90,6 +126,13 @@ final class MockMatrixHomeserver implements AutoCloseable {
   public void close() {
     if (closed.compareAndSet(false, true)) {
       server.stop(0);
+    }
+  }
+
+  record CapturedResponse(int statusCode, int bodyBytes) {
+
+    String redactedDescription() {
+      return "status=" + statusCode + " body=" + bodyBytes + " bytes";
     }
   }
 

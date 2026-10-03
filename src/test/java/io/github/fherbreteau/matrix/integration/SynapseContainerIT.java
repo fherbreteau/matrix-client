@@ -21,12 +21,15 @@ import io.github.fherbreteau.matrix.model.PresenceStatus;
 import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.ReadMarkers;
 import io.github.fherbreteau.matrix.model.RegistrationRequest;
+import io.github.fherbreteau.matrix.model.RelationsOptions;
+import io.github.fherbreteau.matrix.model.RelationsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.SyncOptions;
+import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.retry.RetryPolicy;
 import java.io.IOException;
@@ -135,6 +138,35 @@ class SynapseContainerIT {
               .build());
       assertThat(client.redact(roomId, secondMessage, "integration cleanup").value())
           .startsWith("$");
+    } finally {
+      leaveAndForget(roomId);
+    }
+  }
+
+  @Test
+  void exercisesRelationAndThreadQueries() {
+    RoomId roomId = createPrivateRoom();
+    try {
+      EventId root = client.sendText(roomId, "thread root");
+      EventId reply =
+          client.sendEvent(
+              roomId,
+              "m.room.message",
+              JsonParser.parse(
+                  "{\"msgtype\":\"m.text\",\"body\":\"thread reply\","
+                      + "\"m.relates_to\":{\"rel_type\":\"m.thread\","
+                      + "\"event_id\":\""
+                      + root.value()
+                      + "\",\"m.in_reply_to\":{\"event_id\":\""
+                      + root.value()
+                      + "\"}}}"),
+              UUID.randomUUID().toString());
+      RelationsResponse relations =
+          client.getEventRelations(
+              roomId, root, "m.thread", "m.room.message", RelationsOptions.defaults());
+      assertThat(relations.chunk()).extracting(RoomEvent::eventId).contains(reply.value());
+      ThreadsResponse threads = client.getRoomThreads(roomId);
+      assertThat(threads.chunk()).extracting(RoomEvent::eventId).contains(root.value());
     } finally {
       leaveAndForget(roomId);
     }

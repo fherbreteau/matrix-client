@@ -14,9 +14,13 @@ import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
+import io.github.fherbreteau.matrix.model.RelationsOptions;
+import io.github.fherbreteau.matrix.model.RelationsResponse;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
+import io.github.fherbreteau.matrix.model.ThreadsOptions;
+import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
@@ -220,6 +224,163 @@ class MessagingHistoryTest {
     RoomMessagesPage page = client.getLatestRoomMessages(RoomId.of("!a:b"), 0);
     assertThat(page).extracting(RoomMessagesPage::state, list(RoomEvent.class)).hasSize(1);
     assertThat(page.state().getFirst().stateKey()).isEqualTo("@u:b");
+  }
+
+  @Test
+  void relationQueriesPreserveEventsAndPaginationTokens() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(
+                        200,
+                        "{\"chunk\":[{\"event_id\":\"$child\",\"sender\":\"@bob:example.org\",\"type\":\"m.room.message\",\"content\":{\"body\":\"reply\"}}],\"next_batch\":\"next\",\"prev_batch\":\"prev\",\"recursion_depth\":3,\"extension\":true}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RelationsResponse page =
+        client.getEventRelations(
+            RoomId.of("!room:example.org"),
+            EventId.of("$root:example.org"),
+            "m.annotation",
+            "m.reaction",
+            new RelationsOptions("from token", "to", 7, Direction.FORWARD, true));
+    assertThat(requests.getLast().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v1/rooms/%21room%3Aexample.org/relations/%24root%3Aexample.org/m.annotation/m.reaction?from=from%20token&to=to&limit=7&dir=f&recurse=true");
+    assertThat(page)
+        .extracting(
+            RelationsResponse::nextBatch,
+            RelationsResponse::prevBatch,
+            RelationsResponse::recursionDepth,
+            RelationsResponse::hasNextBatch)
+        .containsExactly("next", "prev", 3, true);
+    assertThat(page.chunk())
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.eventId()).isEqualTo("$child");
+              assertThat(event.content().asObject().get("body").asString()).isEqualTo("reply");
+            });
+    assertThat(page.raw().asObject().get("extension").asBoolean()).isTrue();
+  }
+
+  @Test
+  void relationQueryWithoutFiltersOmitsFilterPathSegments() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"chunk\":[],\"prev_batch\":\"prev\"}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RelationsResponse page = client.getEventRelations(RoomId.of("!a:b"), EventId.of("$event"));
+    assertThat(requests.getLast().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v1/rooms/%21a%3Ab/relations/%24event?dir=b");
+    assertThat(page)
+        .extracting(
+            RelationsResponse::nextBatch,
+            RelationsResponse::prevBatch,
+            RelationsResponse::recursionDepth,
+            RelationsResponse::hasNextBatch)
+        .containsExactly(null, "prev", null, false);
+  }
+
+  @Test
+  void relationEventTypeRequiresRelationType() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, LOGIN_OK))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    assertThatIllegalArgumentException()
+        .isThrownBy(
+            () ->
+                client.getEventRelations(
+                    RoomId.of("!a:b"), EventId.of("$e"), null, "m.room.message", null));
+  }
+
+  @Test
+  void nextRelationsPageUsesOpaqueFromTokenAndOptionalLimit() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"chunk\":[],\"next_batch\":\"next\"}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RelationsResponse page =
+        client.getNextEventRelations(RoomId.of("!a:b"), EventId.of("$root"), "next token", 5);
+    assertThat(requests.getLast().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v1/rooms/%21a%3Ab/relations/%24root?from=next%20token&limit=5");
+    assertThat(page.nextBatch()).isEqualTo("next");
+  }
+
+  @Test
+  void threadQueriesPaginateAndFilterParticipation() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(
+                        200,
+                        "{\"chunk\":[{\"event_id\":\"$root\",\"sender\":\"@bob:example.org\",\"type\":\"m.room.message\",\"content\":{\"body\":\"root\"}}],\"next_batch\":\"opaque\",\"future\":true}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    ThreadsResponse page =
+        client.getRoomThreads(
+            RoomId.of("!room:example.org"),
+            new ThreadsOptions("from token", 5, ThreadsOptions.Include.PARTICIPATED));
+    assertThat(requests.getLast().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v1/rooms/%21room%3Aexample.org/threads?from=from%20token&limit=5&include=participated");
+    assertThat(page.nextBatch()).isEqualTo("opaque");
+    assertThat(page.hasNextBatch()).isTrue();
+    assertThat(page.chunk()).singleElement().extracting(RoomEvent::eventId).isEqualTo("$root");
+    assertThat(page.raw().asObject().get("future").asBoolean()).isTrue();
+  }
+
+  @Test
+  void threadQueryDefaultsToAllAndPreservesEmptyPage() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests, new Response(200, LOGIN_OK), new Response(200, "{\"chunk\":[]}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    ThreadsResponse page = client.getRoomThreads(RoomId.of("!a:b"));
+    assertThat(requests.getLast().url())
+        .isEqualTo(
+            "https://matrix.example.org/_matrix/client/v1/rooms/%21a%3Ab/threads?include=all");
+    assertThat(page.chunk()).isEmpty();
+    assertThat(page.hasNextBatch()).isFalse();
+  }
+
+  @Test
+  void relationAndThreadRequestsRequireAuthentication() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{}"))
+            .build();
+    assertThatThrownBy(() -> client.getEventRelations(RoomId.of("!a:b"), EventId.of("$e")))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.getRoomThreads(RoomId.of("!a:b")))
+        .isInstanceOf(AuthenticationException.class);
   }
 
   @Test

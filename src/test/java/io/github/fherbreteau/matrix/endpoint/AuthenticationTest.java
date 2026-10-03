@@ -11,6 +11,7 @@ import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountRequest;
@@ -958,9 +959,10 @@ class AuthenticationTest {
               assertThat(device.lastSeenTs()).isEqualTo(42L);
               assertThat(device.raw().asObject().get("future").asBoolean()).isTrue();
             });
-    Device device = client.getDevice(DeviceId.of("D1"));
-    assertThat(device.deviceId()).isEqualTo(DeviceId.of("D1"));
-    client.updateDevice(DeviceId.of("D1"), DeviceUpdateRequest.displayName("New phone"));
+    DeviceId deviceId = DeviceId.of("D1");
+    Device device = client.getDevice(deviceId);
+    assertThat(device.deviceId()).isEqualTo(deviceId);
+    client.updateDevice(deviceId, DeviceUpdateRequest.displayName("New phone"));
     assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/devices");
     assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/devices/D1");
     assertThat(requests.getLast().url()).endsWith("/_matrix/client/v3/devices/D1");
@@ -1026,11 +1028,18 @@ class AuthenticationTest {
   @Test
   void malformedDeviceResponsesAreRejected() {
     var emptyObject = JsonParser.parse("{}");
-    assertThatThrownBy(() -> DevicesResponse.from(emptyObject))
+    var devicesObject = emptyObject;
+    assertThatThrownBy(() -> DevicesResponse.from(devicesObject))
         .isInstanceOf(DiscoveryException.class);
-    assertThatThrownBy(() -> Device.from(emptyObject)).isInstanceOf(IllegalArgumentException.class);
+    JsonValue deviceObject = emptyObject;
+    assertThatThrownBy(() -> Device.from(deviceObject))
+        .isInstanceOf(IllegalArgumentException.class);
     var emptyDeviceId = JsonParser.parse("{\"device_id\":\"\"}");
-    assertThatThrownBy(() -> Device.from(emptyDeviceId))
+    JsonValue invalidDevice = emptyDeviceId;
+    assertThatThrownBy(() -> Device.from(invalidDevice))
+        .isInstanceOf(IllegalArgumentException.class);
+    JsonObject missingDeviceIds = new JsonObject();
+    assertThatThrownBy(() -> new DeleteDevicesRequest(missingDeviceIds))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new DeleteDevicesRequest(null))
         .isInstanceOf(IllegalArgumentException.class);

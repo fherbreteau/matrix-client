@@ -123,6 +123,7 @@ public final class MatrixClient {
   private static final String CONTENT_TYPE_HEADER = "content-type";
   private static final String CONTENT_DISPOSITION_HEADER = "content-disposition";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String CLIENT_V1_ROOMS_PATH = "_matrix/client/v1/rooms/";
   private static final String DEVICES_PATH = "_matrix/client/v3/devices/";
   private static final String HTTP_DELETE = "DELETE";
   private static final String DIR_QUERY_PARAM = "&dir=";
@@ -1267,7 +1268,7 @@ public final class MatrixClient {
     JsonValue response =
         authenticated(
             "GET",
-            "_matrix/client/v1/rooms/"
+            CLIENT_V1_ROOMS_PATH
                 + encode(roomId.value())
                 + "/timestamp_to_event?ts="
                 + timestamp
@@ -1340,7 +1341,7 @@ public final class MatrixClient {
       String eventType,
       RelationsOptions options) {
     StringBuilder path =
-        new StringBuilder("_matrix/client/v1/rooms/")
+        new StringBuilder(CLIENT_V1_ROOMS_PATH)
             .append(encode(roomId.value()))
             .append("/relations/")
             .append(encode(eventId.value()));
@@ -1379,10 +1380,7 @@ public final class MatrixClient {
       query.put("limit", limit);
     }
     String path =
-        "_matrix/client/v1/rooms/"
-            + encode(roomId.value())
-            + "/relations/"
-            + encode(eventId.value());
+        CLIENT_V1_ROOMS_PATH + encode(roomId.value()) + "/relations/" + encode(eventId.value());
     return RelationsResponse.from(authenticated("GET", appendQuery(path, query), null));
   }
 
@@ -1399,7 +1397,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public ThreadsResponse getRoomThreads(RoomId roomId, ThreadsOptions options) {
-    String path = "_matrix/client/v1/rooms/" + encode(roomId.value()) + "/threads";
+    String path = CLIENT_V1_ROOMS_PATH + encode(roomId.value()) + "/threads";
     return ThreadsResponse.from(authenticated("GET", appendQuery(path, options.toQuery()), null));
   }
 

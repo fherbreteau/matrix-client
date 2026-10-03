@@ -294,16 +294,15 @@ class MessagingHistoryTest {
 
   @Test
   void relationEventTypeRequiresRelationType() {
+    RoomId roomId = RoomId.of("!a:b");
+    EventId eventId = EventId.of("$e");
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, LOGIN_OK))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                client.getEventRelations(
-                    RoomId.of("!a:b"), EventId.of("$e"), null, "m.room.message", null));
+        .isThrownBy(() -> client.getEventRelations(roomId, eventId, null, "m.room.message", null));
   }
 
   @Test
@@ -373,13 +372,15 @@ class MessagingHistoryTest {
 
   @Test
   void relationAndThreadRequestsRequireAuthentication() {
+    RoomId roomId = RoomId.of("!a:b");
+    EventId eventId = EventId.of("$e");
     MatrixClient client =
         MatrixClient.builder("https://matrix.example.org")
             .transport(stub -> new Response(200, "{}"))
             .build();
-    assertThatThrownBy(() -> client.getEventRelations(RoomId.of("!a:b"), EventId.of("$e")))
+    assertThatThrownBy(() -> client.getEventRelations(roomId, eventId))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.getRoomThreads(RoomId.of("!a:b")))
+    assertThatThrownBy(() -> client.getRoomThreads(roomId))
         .isInstanceOf(AuthenticationException.class);
   }
 

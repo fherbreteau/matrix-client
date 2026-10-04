@@ -35,18 +35,25 @@ class DiscoverySearchTest {
             new Response(
                 200,
                 "{\"room_id\":\"!room:example.org\",\"guest_can_join\":false,"
+                    + "\"num_joined_members\":3,\"world_readable\":true}"),
+            new Response(
+                200,
+                "{\"room_id\":\"!room:example.org\",\"guest_can_join\":false,"
                     + "\"num_joined_members\":3,\"world_readable\":true}"));
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
     var roomAlias = RoomAlias.of("#general:example.org");
 
-    var summary = client.getRoomSummary(roomAlias, List.of("a.example", "b.example"));
+    var summary = client.getRoomSummary(roomAlias, List.of("hint.example"));
+    var idSummary = client.getRoomSummary(RoomId.of("!room:example.org"));
 
     assertThat(summary.roomId()).isEqualTo(RoomId.of("!room:example.org"));
-    assertThat(requests.getLast().method()).isEqualTo("GET");
-    assertThat(requests.getLast().url())
-        .endsWith(
-            "/_matrix/client/v1/room_summary/%23general%3Aexample.org?via=a.example&via=b.example");
-    assertThat(requests.getLast().headers()).containsEntry("Authorization", "Bearer secret-token");
+    assertThat(idSummary.roomId()).isEqualTo(RoomId.of("!room:example.org"));
+    assertThat(requests.get(1).method()).isEqualTo("GET");
+    assertThat(requests.get(1).url())
+        .endsWith("/_matrix/client/v1/room_summary/%23general%3Aexample.org?via=hint.example");
+    assertThat(requests.get(1).headers()).containsEntry("Authorization", "Bearer secret-token");
+    assertThat(requests.get(2).url())
+        .endsWith("/_matrix/client/v1/room_summary/%21room%3Aexample.org");
   }
 
   @Test
@@ -142,12 +149,13 @@ class DiscoverySearchTest {
             new Response(200, "{\"limited\":false,\"results\":[]}"));
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
 
-    client.getRoomSummary(RoomId.of("!room:example.org"));
+    client.getRoomSummary(RoomId.of("!room:example.org"), List.of("hint.example"));
     client.getRoomSummary(RoomAlias.of("#general:example.org"));
     client.getSpaceHierarchy(RoomId.of("!space:example.org"));
     client.searchUsers("bob");
 
-    assertThat(requests.get(1).url()).endsWith("/room_summary/%21room%3Aexample.org");
+    assertThat(requests.get(1).url())
+        .endsWith("/room_summary/%21room%3Aexample.org?via=hint.example");
     assertThat(requests.get(2).url()).endsWith("/room_summary/%23general%3Aexample.org");
     assertThat(requests.get(3).url()).endsWith("/rooms/%21space%3Aexample.org/hierarchy");
     assertThat(requests.get(4).body()).isEqualTo("{\"search_term\":\"bob\"}");

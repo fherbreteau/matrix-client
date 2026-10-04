@@ -79,8 +79,9 @@ class UrlPreviewTest {
     properties.put("og:later", JsonParser.parse("true"));
 
     assertThat(preview.properties()).containsOnlyKeys("og:title");
+    Map<String, JsonValue> immutableProperties = preview.properties();
     JsonValue replacement = JsonParser.parse("false");
-    assertThatThrownBy(() -> preview.properties().put("og:changed", replacement))
+    assertThatThrownBy(() -> immutableProperties.put("og:changed", replacement))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 }

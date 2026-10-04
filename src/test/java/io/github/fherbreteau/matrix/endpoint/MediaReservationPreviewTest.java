@@ -149,7 +149,7 @@ class MediaReservationPreviewTest {
     MediaUploadReservation reservation =
         new MediaUploadReservation(MxcUri.of("media.example", "reserved_id"), null, null);
     Path file = Files.createTempFile("reserved-media", ".bin");
-    try (var ignored = Files.newInputStream(file)) {
+    try (var fileHandle = Files.newInputStream(file)) {
       byte[] content = "file payload".getBytes(StandardCharsets.UTF_8);
       Files.write(file, content);
       MatrixClient client =
@@ -216,10 +216,9 @@ class MediaReservationPreviewTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
 
+    ByteArrayInputStream oversizedContent = new ByteArrayInputStream(new byte[3]);
     assertThatThrownBy(
-            () ->
-                client.uploadReservedMedia(
-                    reservation, new ByteArrayInputStream(new byte[3]), 3, null, null))
+            () -> client.uploadReservedMedia(reservation, oversizedContent, 3, null, null))
         .isInstanceOf(MatrixServerException.class)
         .hasMessageContaining("maximum size of 2 bytes");
     assertThat(requests).hasSize(1);

@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
+- **Room summaries, hierarchy, and search APIs**: Add typed room summary, space hierarchy, user-directory search, and server-side event search endpoints with pagination, filters, raw-field preservation, and opaque continuation tokens (#54).
+
 - **Event Relations and Thread Queries**: Add typed, paginated queries for related room events and thread roots, preserving raw events and opaque continuation tokens (#53).
 
 - **Device Management APIs**: Add typed device listing, lookup, display-name updates, and single/bulk deletion with UI-auth retry support. Preserve unknown response fields and direct OAuth-session deletions to account management (#52).

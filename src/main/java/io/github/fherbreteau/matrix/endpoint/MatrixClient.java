@@ -42,7 +42,12 @@ import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
+import io.github.fherbreteau.matrix.model.RoomSummary;
+import io.github.fherbreteau.matrix.model.SearchRequest;
+import io.github.fherbreteau.matrix.model.SearchResponse;
 import io.github.fherbreteau.matrix.model.Session;
+import io.github.fherbreteau.matrix.model.SpaceHierarchyOptions;
+import io.github.fherbreteau.matrix.model.SpaceHierarchyResponse;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
 import io.github.fherbreteau.matrix.model.ThreadsOptions;
@@ -51,6 +56,8 @@ import io.github.fherbreteau.matrix.model.ThreePidResponse;
 import io.github.fherbreteau.matrix.model.ThreePidTokenRequest;
 import io.github.fherbreteau.matrix.model.ThreePidTokenResponse;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
+import io.github.fherbreteau.matrix.model.UserDirectorySearchRequest;
+import io.github.fherbreteau.matrix.model.UserDirectorySearchResponse;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
@@ -1762,6 +1769,163 @@ public final class MatrixClient {
       body.put("since", since);
     }
     return PublicRoomsResponse.from(authenticated("POST", "_matrix/client/v3/publicRooms", body));
+  }
+
+  /**
+   * Retrieves a room summary by room ID.
+   *
+   * @param roomId the room identifier to summarize
+   * @param via servers to try if the local server cannot generate a summary
+   * @return the room summary
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
+   *     specification</a>
+   */
+  public RoomSummary getRoomSummary(RoomId roomId, List<String> via) {
+    return getRoomSummary(roomId.value(), via);
+  }
+
+  /**
+   * Retrieves a room summary by room alias.
+   *
+   * @param roomAlias the room alias to summarize
+   * @param via servers to try if the local server cannot generate a summary
+   * @return the room summary
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
+   *     specification</a>
+   */
+  public RoomSummary getRoomSummary(RoomAlias roomAlias, List<String> via) {
+    return getRoomSummary(roomAlias.value(), via);
+  }
+
+  private RoomSummary getRoomSummary(String roomIdOrAlias, List<String> via) {
+    String path = "_matrix/client/v1/room_summary/" + encode(roomIdOrAlias);
+    if (via != null && !via.isEmpty()) {
+      var query = new StringBuilder(path).append('?');
+      for (int index = 0; index < via.size(); index++) {
+        if (index > 0) {
+          query.append('&');
+        }
+        query.append("via=").append(encode(via.get(index)));
+      }
+      path = query.toString();
+    }
+    return RoomSummary.from(authenticated("GET", path, null));
+  }
+
+  /**
+   * Retrieves a room summary by room ID without federation hints.
+   *
+   * @param roomId the room identifier to summarize
+   * @return the room summary
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
+   *     specification</a>
+   */
+  public RoomSummary getRoomSummary(RoomId roomId) {
+    return getRoomSummary(roomId.value(), List.of());
+  }
+
+  /**
+   * Retrieves a room summary by room alias without federation hints.
+   *
+   * @param roomAlias the room alias to summarize
+   * @return the room summary
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
+   *     specification</a>
+   */
+  public RoomSummary getRoomSummary(RoomAlias roomAlias) {
+    return getRoomSummary(roomAlias.value(), List.of());
+  }
+
+  /**
+   * Retrieves one page of a space hierarchy.
+   *
+   * @param roomId the space room ID
+   * @param options pagination and hierarchy filters
+   * @return the hierarchy page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidhierarchy">Matrix
+   *     specification</a>
+   */
+  public SpaceHierarchyResponse getSpaceHierarchy(RoomId roomId, SpaceHierarchyOptions options) {
+    String path = CLIENT_V1_ROOMS_PATH + encode(roomId.value()) + "/hierarchy";
+    JsonObject query = options == null ? new JsonObject() : options.toQuery();
+    return SpaceHierarchyResponse.from(authenticated("GET", appendQuery(path, query), null));
+  }
+
+  /**
+   * Retrieves the first page of a space hierarchy with default server options.
+   *
+   * @param roomId the space room ID
+   * @return the hierarchy page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidhierarchy">Matrix
+   *     specification</a>
+   */
+  public SpaceHierarchyResponse getSpaceHierarchy(RoomId roomId) {
+    return getSpaceHierarchy(roomId, null);
+  }
+
+  /**
+   * Searches the user directory.
+   *
+   * @param request the search term and optional result limit
+   * @return the directory search response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3user_directorysearch">Matrix
+   *     specification</a>
+   */
+  public UserDirectorySearchResponse searchUsers(UserDirectorySearchRequest request) {
+    return UserDirectorySearchResponse.from(
+        authenticated("POST", "_matrix/client/v3/user_directory/search", request.toJson()));
+  }
+
+  /**
+   * Searches the user directory by term.
+   *
+   * @param searchTerm the term to search for
+   * @return the directory search response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3user_directorysearch">Matrix
+   *     specification</a>
+   */
+  public UserDirectorySearchResponse searchUsers(String searchTerm) {
+    return searchUsers(new UserDirectorySearchRequest(searchTerm, null));
+  }
+
+  /**
+   * Searches room events on the homeserver.
+   *
+   * @param request search criteria and optional opaque continuation token
+   * @return matching search results
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3search">Matrix
+   *     specification</a>
+   */
+  public SearchResponse search(SearchRequest request) {
+    String path = appendQuery("_matrix/client/v3/search", request.toQuery());
+    return SearchResponse.from(authenticated("POST", path, request.toJson()));
   }
 
   /**

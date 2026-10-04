@@ -941,7 +941,9 @@ class AuthenticationTest {
     transport.enqueue(
         new Response(
             200,
-            "{\"devices\":[{\"device_id\":\"D1\",\"display_name\":\"Phone\",\"last_seen_ip\":\"127.0.0.1\",\"last_seen_ts\":42,\"future\":true}],\"future\":1}"));
+            "{\"devices\":[{\"device_id\":\"D1\",\"display_name\":\"Phone\","
+                + "\"last_seen_ip\":\"127.0.0.1\",\"last_seen_ts\":42,\"future\":true}],"
+                + "\"future\":1}"));
     transport.enqueue(new Response(200, "{\"device_id\":\"D1\",\"display_name\":\"Phone\"}"));
     transport.enqueue(new Response(200, "{}"));
     MatrixClient client =

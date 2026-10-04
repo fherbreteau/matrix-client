@@ -150,9 +150,9 @@ class MediaReservationPreviewTest {
         new MediaUploadReservation(MxcUri.of("media.example", "reserved_id"), null, null);
     Path file = Files.createTempFile("reserved-media", ".bin");
     try (var fileHandle = Files.newInputStream(file)) {
-      assertThat(fileHandle.read()).isEqualTo(-1);
       byte[] content = "file payload".getBytes(StandardCharsets.UTF_8);
       Files.write(file, content);
+      assertThat(fileHandle.readAllBytes()).containsExactly(content);
       MatrixClient client =
           MatrixClient.builder("https://matrix.example.org")
               .transport(stub -> new Response(200, LOGIN_OK))

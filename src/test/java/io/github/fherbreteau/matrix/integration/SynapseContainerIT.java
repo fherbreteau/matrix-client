@@ -14,6 +14,7 @@ import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventFilter;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
+import io.github.fherbreteau.matrix.model.MediaUploadReservation;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
@@ -265,8 +266,19 @@ class SynapseContainerIT {
     assertThat(client.getMediaConfig()).isPresent();
     byte[] payload = "synapse integration media".getBytes(StandardCharsets.UTF_8);
     MxcUri uri = client.uploadMedia(payload, "text/plain", "integration.txt");
+    assertThat(downloadedBytes(uri)).containsExactly(payload);
+
+    MediaUploadReservation reservation = client.createMediaUpload();
+    byte[] reservedPayload = "synapse reserved media".getBytes(StandardCharsets.UTF_8);
+    MxcUri reservedUri =
+        client.uploadReservedMedia(reservation, reservedPayload, "text/plain", "reserved.txt");
+    assertThat(reservedUri).isEqualTo(reservation.contentUri());
+    assertThat(downloadedBytes(reservedUri)).containsExactly(reservedPayload);
+  }
+
+  private byte[] downloadedBytes(MxcUri uri) throws IOException {
     try (var download = client.downloadMedia(uri, 1_024)) {
-      assertThat(download.body().readAllBytes()).containsExactly(payload);
+      return download.body().readAllBytes();
     }
   }
 

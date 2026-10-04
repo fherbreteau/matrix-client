@@ -15,7 +15,12 @@ class SpaceHierarchyModelsTest {
   void parsesRoomChildrenAndOpaquePagination() {
     JsonValue json =
         JsonParser.parse(
-            "{\"rooms\":[{\"room_id\":\"!space:example.org\",\"guest_can_join\":true,\"num_joined_members\":2,\"world_readable\":false,\"children_state\":[{\"content\":{\"via\":[\"example.org\"]},\"origin_server_ts\":12,\"sender\":\"@alice:example.org\",\"state_key\":\"!child:example.org\",\"type\":\"m.space.child\",\"future\":true}]}],\"next_batch\":\"opaque+/%==\",\"other\":true}");
+            "{\"rooms\":[{\"room_id\":\"!space:example.org\",\"guest_can_join\":true,"
+                + "\"num_joined_members\":2,\"world_readable\":false,"
+                + "\"children_state\":[{\"content\":{\"via\":[\"example.org\"]},"
+                + "\"origin_server_ts\":12,\"sender\":\"@alice:example.org\","
+                + "\"state_key\":\"!child:example.org\",\"type\":\"m.space.child\","
+                + "\"future\":true}]}],\"next_batch\":\"opaque+/%==\",\"other\":true}");
     SpaceHierarchyResponse response = SpaceHierarchyResponse.from(json);
     assertThat(response.rooms())
         .singleElement()
@@ -33,12 +38,12 @@ class SpaceHierarchyModelsTest {
             });
     assertThat(response.nextBatch()).isEqualTo("opaque+/%==");
     assertThat(response.raw().asObject().get("other").asBoolean()).isTrue();
+    var invalidResponse =
+        JsonParser.parse(
+            "{\"rooms\":[{\"room_id\":\"!space:example.org\",\"guest_can_join\":true,"
+                + "\"num_joined_members\":2,\"world_readable\":false}]}");
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                SpaceHierarchyResponse.from(
-                    JsonParser.parse(
-                        "{\"rooms\":[{\"room_id\":\"!space:example.org\",\"guest_can_join\":true,\"num_joined_members\":2,\"world_readable\":false}]}")));
+        .isThrownBy(() -> SpaceHierarchyResponse.from(invalidResponse));
     assertThatIllegalArgumentException()
         .isThrownBy(() -> SpaceChildStateEvent.from(JsonParser.parse("{}")));
   }

@@ -237,7 +237,10 @@ class MessagingHistoryTest {
                     new Response(200, LOGIN_OK),
                     new Response(
                         200,
-                        "{\"chunk\":[{\"event_id\":\"$child\",\"sender\":\"@bob:example.org\",\"type\":\"m.room.message\",\"content\":{\"body\":\"reply\"}}],\"next_batch\":\"next\",\"prev_batch\":\"prev\",\"recursion_depth\":3,\"extension\":true}")))
+                        "{\"chunk\":[{\"event_id\":\"$child\",\"sender\":\"@bob:example.org\","
+                            + "\"type\":\"m.room.message\",\"content\":{\"body\":\"reply\"}}],"
+                            + "\"next_batch\":\"next\",\"prev_batch\":\"prev\","
+                            + "\"recursion_depth\":3,\"extension\":true}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     RelationsResponse page =
@@ -336,7 +339,9 @@ class MessagingHistoryTest {
                     new Response(200, LOGIN_OK),
                     new Response(
                         200,
-                        "{\"chunk\":[{\"event_id\":\"$root\",\"sender\":\"@bob:example.org\",\"type\":\"m.room.message\",\"content\":{\"body\":\"root\"}}],\"next_batch\":\"opaque\",\"future\":true}")))
+                        "{\"chunk\":[{\"event_id\":\"$root\",\"sender\":\"@bob:example.org\","
+                            + "\"type\":\"m.room.message\",\"content\":{\"body\":\"root\"}}],"
+                            + "\"next_batch\":\"opaque\",\"future\":true}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
     ThreadsResponse page =

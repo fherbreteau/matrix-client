@@ -1772,9 +1772,9 @@ public final class MatrixClient {
   }
 
   /**
-   * Retrieves a room summary by room ID or alias.
+   * Retrieves a room summary by room ID.
    *
-   * @param roomIdOrAlias the room identifier or alias to summarize
+   * @param roomId the room identifier to summarize
    * @param via servers to try if the local server cannot generate a summary
    * @return the room summary
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
@@ -1783,7 +1783,27 @@ public final class MatrixClient {
    *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
    *     specification</a>
    */
-  public RoomSummary getRoomSummary(String roomIdOrAlias, List<String> via) {
+  public RoomSummary getRoomSummary(RoomId roomId, List<String> via) {
+    return getRoomSummary(roomId.value(), via);
+  }
+
+  /**
+   * Retrieves a room summary by room alias.
+   *
+   * @param roomAlias the room alias to summarize
+   * @param via servers to try if the local server cannot generate a summary
+   * @return the room summary
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
+   *     specification</a>
+   */
+  public RoomSummary getRoomSummary(RoomAlias roomAlias, List<String> via) {
+    return getRoomSummary(roomAlias.value(), via);
+  }
+
+  private RoomSummary getRoomSummary(String roomIdOrAlias, List<String> via) {
     String path = "_matrix/client/v1/room_summary/" + encode(roomIdOrAlias);
     if (via != null && !via.isEmpty()) {
       var query = new StringBuilder(path).append('?');
@@ -1799,9 +1819,9 @@ public final class MatrixClient {
   }
 
   /**
-   * Retrieves a room summary by room ID or alias without federation hints.
+   * Retrieves a room summary by room ID without federation hints.
    *
-   * @param roomIdOrAlias the room identifier or alias to summarize
+   * @param roomId the room identifier to summarize
    * @return the room summary
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     the token is no longer valid
@@ -1809,8 +1829,23 @@ public final class MatrixClient {
    *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
    *     specification</a>
    */
-  public RoomSummary getRoomSummary(String roomIdOrAlias) {
-    return getRoomSummary(roomIdOrAlias, List.of());
+  public RoomSummary getRoomSummary(RoomId roomId) {
+    return getRoomSummary(roomId.value(), List.of());
+  }
+
+  /**
+   * Retrieves a room summary by room alias without federation hints.
+   *
+   * @param roomAlias the room alias to summarize
+   * @return the room summary
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1room_summaryroomidoralias">Matrix
+   *     specification</a>
+   */
+  public RoomSummary getRoomSummary(RoomAlias roomAlias) {
+    return getRoomSummary(roomAlias.value(), List.of());
   }
 
   /**

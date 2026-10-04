@@ -82,21 +82,20 @@ class SearchModelsTest {
 
   @Test
   void validatesIntegerAndOptionalSearchFields() {
+    var roomSummary =
+        JsonParser.parse(
+            "{\"room_id\":\"!r:s\",\"guest_can_join\":false,\"num_joined_members\":1.5,"
+                + "\"world_readable\":true}");
+    assertThatIllegalArgumentException().isThrownBy(() -> RoomSummary.from(roomSummary));
+    var searchResults = JsonParser.parse("{\"count\":1.5,\"results\":[]}");
     assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                RoomSummary.from(
-                    JsonParser.parse(
-                        "{\"room_id\":\"!r:s\",\"guest_can_join\":false,\"num_joined_members\":1.5,\"world_readable\":true}")));
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () -> RoomEventsSearchResults.from(JsonParser.parse("{\"count\":1.5,\"results\":[]}")));
-    assertThatIllegalArgumentException()
-        .isThrownBy(
-            () ->
-                SearchResult.from(
-                    JsonParser.parse(
-                        "{\"result\":{\"event_id\":\"$e\",\"sender\":\"@a:s\",\"type\":\"m.room.message\",\"origin_server_ts\":1,\"room_id\":\"!r:s\",\"content\":{}},\"rank\":\"wrong\"}")));
+        .isThrownBy(() -> RoomEventsSearchResults.from(searchResults));
+    var searchResult =
+        JsonParser.parse(
+            "{\"result\":{\"event_id\":\"$e\",\"sender\":\"@a:s\",\"type\":\"m.room.message\","
+                + "\"origin_server_ts\":1,\"room_id\":\"!r:s\",\"content\":{}},"
+                + "\"rank\":\"wrong\"}");
+    assertThatIllegalArgumentException().isThrownBy(() -> SearchResult.from(searchResult));
     assertThatIllegalArgumentException()
         .isThrownBy(() -> new RoomEventsSearchCriteria(null, null, null, null, null, null, null));
     assertThatIllegalArgumentException().isThrownBy(() -> new SearchEventContext(-1, null, null));

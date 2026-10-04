@@ -510,7 +510,7 @@
                             <dataFile>${project.build.directory}/jacoco/jacoco-merged.exec</dataFile>
                             <formats>
                                 <format>XML</format>
-                                <format>HTML</format>
+                                <format>CSV</format>
                             </formats>
                         </configuration>
                     </execution>

@@ -8,6 +8,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
+import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEventsSearchCriteria;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.SearchRequest;
@@ -36,8 +37,9 @@ class DiscoverySearchTest {
                 "{\"room_id\":\"!room:example.org\",\"guest_can_join\":false,"
                     + "\"num_joined_members\":3,\"world_readable\":true}"));
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    var roomAlias = RoomAlias.of("#general:example.org");
 
-    var summary = client.getRoomSummary("#general:example.org", List.of("a.example", "b.example"));
+    var summary = client.getRoomSummary(roomAlias, List.of("a.example", "b.example"));
 
     assertThat(summary.roomId()).isEqualTo(RoomId.of("!room:example.org"));
     assertThat(requests.getLast().method()).isEqualTo("GET");
@@ -64,7 +66,8 @@ class DiscoverySearchTest {
     assertThat(page.nextBatch()).isEqualTo("opaque+/=");
     assertThat(requests.getLast().url())
         .endsWith(
-            "/_matrix/client/v1/rooms/%21space%3Aexample.org/hierarchy?from=from%20%2B%2F&limit=20&max_depth=2&suggested_only=true");
+            "/_matrix/client/v1/rooms/%21space%3Aexample.org/hierarchy"
+                + "?from=from%20%2B%2F&limit=20&max_depth=2&suggested_only=true");
   }
 
   @Test
@@ -116,7 +119,8 @@ class DiscoverySearchTest {
         .endsWith("/_matrix/client/v3/search?next_batch=opaque%20%2B%2F%3D");
     assertThat(requests.getLast().body())
         .isEqualTo(
-            "{\"search_categories\":{\"room_events\":{\"search_term\":\"words\",\"order_by\":\"recent\"}}}");
+            "{\"search_categories\":{\"room_events\":{\"search_term\":\"words\","
+                + "\"order_by\":\"recent\"}}}");
   }
 
   @Test
@@ -130,17 +134,23 @@ class DiscoverySearchTest {
                 200,
                 "{\"room_id\":\"!room:example.org\",\"guest_can_join\":false,"
                     + "\"num_joined_members\":3,\"world_readable\":true}"),
+            new Response(
+                200,
+                "{\"room_id\":\"!room:example.org\",\"guest_can_join\":false,"
+                    + "\"num_joined_members\":3,\"world_readable\":true}"),
             new Response(200, "{\"rooms\":[]}"),
             new Response(200, "{\"limited\":false,\"results\":[]}"));
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
 
-    client.getRoomSummary("!room:example.org");
+    client.getRoomSummary(RoomId.of("!room:example.org"));
+    client.getRoomSummary(RoomAlias.of("#general:example.org"));
     client.getSpaceHierarchy(RoomId.of("!space:example.org"));
     client.searchUsers("bob");
 
     assertThat(requests.get(1).url()).endsWith("/room_summary/%21room%3Aexample.org");
-    assertThat(requests.get(2).url()).endsWith("/rooms/%21space%3Aexample.org/hierarchy");
-    assertThat(requests.get(3).body()).isEqualTo("{\"search_term\":\"bob\"}");
+    assertThat(requests.get(2).url()).endsWith("/room_summary/%23general%3Aexample.org");
+    assertThat(requests.get(3).url()).endsWith("/rooms/%21space%3Aexample.org/hierarchy");
+    assertThat(requests.get(4).body()).isEqualTo("{\"search_term\":\"bob\"}");
   }
 
   @Test
@@ -150,7 +160,7 @@ class DiscoverySearchTest {
     SearchRequest searchRequest =
         new SearchRequest(
             new RoomEventsSearchCriteria("x", null, null, null, null, null, null), null);
-    assertThatThrownBy(() -> unauthenticated.getRoomSummary("!room:example.org"))
+    assertThatThrownBy(() -> unauthenticated.getRoomSummary(RoomId.of("!room:example.org")))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> unauthenticated.getSpaceHierarchy(spaceId))
         .isInstanceOf(AuthenticationException.class);
@@ -165,8 +175,9 @@ class DiscoverySearchTest {
             new Response(200, LOGIN_OK),
             new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"denied\"}"));
     forbidden.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    RoomId roomId = RoomId.of("!room:example.org");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> forbidden.getRoomSummary("!room:example.org"))
+        .isThrownBy(() -> forbidden.getRoomSummary(roomId))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");

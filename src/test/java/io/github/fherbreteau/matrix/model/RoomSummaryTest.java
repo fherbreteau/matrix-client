@@ -15,7 +15,9 @@ class RoomSummaryTest {
   void parsesTypedFieldsAndRetainsUnknownFields() {
     JsonValue json =
         JsonParser.parse(
-            "{\"room_id\":\"!room:example.org\",\"allowed_room_ids\":[\"!parent:example.org\"],\"guest_can_join\":false,\"num_joined_members\":8,\"world_readable\":true,\"name\":\"Example\",\"x_unknown\":42}");
+            "{\"room_id\":\"!room:example.org\",\"allowed_room_ids\":[\"!parent:example.org\"],"
+                + "\"guest_can_join\":false,\"num_joined_members\":8,\"world_readable\":true,"
+                + "\"name\":\"Example\",\"x_unknown\":42}");
     RoomSummary summary = RoomSummary.from(json);
     assertThat(summary.roomId()).isEqualTo(RoomId.of("!room:example.org"));
     assertThat(summary.allowedRoomIds()).containsExactly(RoomId.of("!parent:example.org"));

@@ -23,7 +23,9 @@ class UserDirectorySearchModelsTest {
     var response =
         UserDirectorySearchResponse.from(
             JsonParser.parse(
-                "{\"limited\":false,\"results\":[{\"user_id\":\"@ada:example.org\",\"display_name\":\"Ada\",\"avatar_url\":\"mxc://example.org/avatar\",\"new_field\":1}],\"extension\":true}"));
+                "{\"limited\":false,\"results\":[{\"user_id\":\"@ada:example.org\","
+                    + "\"display_name\":\"Ada\",\"avatar_url\":\"mxc://example.org/avatar\","
+                    + "\"new_field\":1}],\"extension\":true}"));
     assertThat(response.limited()).isFalse();
     assertThat(response.results())
         .singleElement()

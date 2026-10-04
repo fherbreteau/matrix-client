@@ -28,7 +28,7 @@
         <failsafe-plugin.version>3.6.0</failsafe-plugin.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <checkstyle-maven.version>3.6.0</checkstyle-maven.version>
-        <checkstyle.version>14.1.0</checkstyle.version>
+        <checkstyle.version>14.3.0</checkstyle.version>
         <jacoco.version>0.8.15</jacoco.version>
         <sonar.version>5.8.0.7211</sonar.version>
         <git-commit-id.version>10.0.1</git-commit-id.version>

@@ -34,6 +34,8 @@ import io.github.fherbreteau.matrix.model.RegistrationAvailability;
 import io.github.fherbreteau.matrix.model.RegistrationRequest;
 import io.github.fherbreteau.matrix.model.RegistrationResponse;
 import io.github.fherbreteau.matrix.model.RegistrationTokenValidity;
+import io.github.fherbreteau.matrix.model.RelationsOptions;
+import io.github.fherbreteau.matrix.model.RelationsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
@@ -43,6 +45,8 @@ import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.Session;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
+import io.github.fherbreteau.matrix.model.ThreadsOptions;
+import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.model.ThreePidResponse;
 import io.github.fherbreteau.matrix.model.ThreePidTokenRequest;
 import io.github.fherbreteau.matrix.model.ThreePidTokenResponse;
@@ -119,6 +123,7 @@ public final class MatrixClient {
   private static final String CONTENT_TYPE_HEADER = "content-type";
   private static final String CONTENT_DISPOSITION_HEADER = "content-disposition";
   private static final String ROOMS_PATH = "_matrix/client/v3/rooms/";
+  private static final String CLIENT_V1_ROOMS_PATH = "_matrix/client/v1/rooms/";
   private static final String DEVICES_PATH = "_matrix/client/v3/devices/";
   private static final String HTTP_DELETE = "DELETE";
   private static final String DIR_QUERY_PARAM = "&dir=";
@@ -1263,7 +1268,7 @@ public final class MatrixClient {
     JsonValue response =
         authenticated(
             "GET",
-            "_matrix/client/v1/rooms/"
+            CLIENT_V1_ROOMS_PATH
                 + encode(roomId.value())
                 + "/timestamp_to_event?ts="
                 + timestamp
@@ -1296,6 +1301,119 @@ public final class MatrixClient {
       }
     }
     return aliases;
+  }
+
+  /**
+   * Retrieves the child events related to a room event.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the parent event identifier
+   * @return the first relation page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidrelationseventid">Matrix
+   *     specification</a>
+   */
+  public RelationsResponse getEventRelations(RoomId roomId, EventId eventId) {
+    return getEventRelations(roomId, eventId, null, null, RelationsOptions.defaults());
+  }
+
+  /**
+   * Retrieves relation children with optional relation and event-type filters.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the parent event identifier
+   * @param relationType optional relation type filter
+   * @param eventType optional child event type filter
+   * @param options pagination and recursion options
+   * @return the matching relation page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidrelations">Matrix
+   *     specification</a>
+   */
+  public RelationsResponse getEventRelations(
+      RoomId roomId,
+      EventId eventId,
+      String relationType,
+      String eventType,
+      RelationsOptions options) {
+    StringBuilder path =
+        new StringBuilder(CLIENT_V1_ROOMS_PATH)
+            .append(encode(roomId.value()))
+            .append("/relations/")
+            .append(encode(eventId.value()));
+    if (relationType != null) {
+      path.append('/').append(encode(relationType));
+      if (eventType != null) {
+        path.append('/').append(encode(eventType));
+      }
+    } else if (eventType != null) {
+      throw new IllegalArgumentException("eventType requires a relationType");
+    }
+    if (options != null) {
+      path = new StringBuilder(appendQuery(path.toString(), options.toQuery()));
+    }
+    return RelationsResponse.from(authenticated("GET", path.toString(), null));
+  }
+
+  /**
+   * Retrieves the next page of related events using an opaque continuation token.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the parent event identifier
+   * @param from pagination token from the previous result
+   * @param limit maximum number of events, or a non-positive value to use the server default
+   * @return the next relation page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidrelations">Matrix
+   *     specification</a>
+   */
+  public RelationsResponse getNextEventRelations(
+      RoomId roomId, EventId eventId, String from, long limit) {
+    var query = new JsonObject().put("from", from);
+    if (limit > 0) {
+      query.put("limit", limit);
+    }
+    String path =
+        CLIENT_V1_ROOMS_PATH + encode(roomId.value()) + "/relations/" + encode(eventId.value());
+    return RelationsResponse.from(authenticated("GET", appendQuery(path, query), null));
+  }
+
+  /**
+   * Retrieves thread roots in a room, optionally limited to threads the user participated in.
+   *
+   * @param roomId the room whose threads to list
+   * @param options pagination and participation filters
+   * @return the thread-root page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidthreads">Matrix
+   *     specification</a>
+   */
+  public ThreadsResponse getRoomThreads(RoomId roomId, ThreadsOptions options) {
+    String path = CLIENT_V1_ROOMS_PATH + encode(roomId.value()) + "/threads";
+    return ThreadsResponse.from(authenticated("GET", appendQuery(path, options.toQuery()), null));
+  }
+
+  /**
+   * Retrieves the first page of all thread roots in a room.
+   *
+   * @param roomId the room whose thread roots to retrieve
+   * @return the first page of thread roots
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1roomsroomidthreads">Matrix
+   *     specification</a>
+   */
+  public ThreadsResponse getRoomThreads(RoomId roomId) {
+    return getRoomThreads(roomId, ThreadsOptions.defaults());
   }
 
   /**

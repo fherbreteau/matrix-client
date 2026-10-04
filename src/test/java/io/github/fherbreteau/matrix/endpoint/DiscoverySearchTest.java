@@ -168,7 +168,8 @@ class DiscoverySearchTest {
     SearchRequest searchRequest =
         new SearchRequest(
             new RoomEventsSearchCriteria("x", null, null, null, null, null, null), null);
-    assertThatThrownBy(() -> unauthenticated.getRoomSummary(RoomId.of("!room:example.org")))
+    RoomId unauthenticatedRoomId = RoomId.of("!room:example.org");
+    assertThatThrownBy(() -> unauthenticated.getRoomSummary(unauthenticatedRoomId))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> unauthenticated.getSpaceHierarchy(spaceId))
         .isInstanceOf(AuthenticationException.class);

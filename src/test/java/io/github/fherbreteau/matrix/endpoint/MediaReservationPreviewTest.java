@@ -14,8 +14,8 @@ import io.github.fherbreteau.matrix.model.UrlPreview;
 import io.github.fherbreteau.matrix.transport.BinaryResponse;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
+import io.github.fherbreteau.matrix.transport.MediaSizeLimitException;
 import io.github.fherbreteau.matrix.transport.MediaTransport;
-import io.github.fherbreteau.matrix.transport.MediaTransport.BinaryRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -149,7 +149,7 @@ class MediaReservationPreviewTest {
     MediaUploadReservation reservation =
         new MediaUploadReservation(MxcUri.of("media.example", "reserved_id"), null, null);
     Path file = Files.createTempFile("reserved-media", ".bin");
-    try {
+    try (var ignored = Files.newInputStream(file)) {
       byte[] content = "file payload".getBytes(StandardCharsets.UTF_8);
       Files.write(file, content);
       MatrixClient client =
@@ -158,7 +158,7 @@ class MediaReservationPreviewTest {
               .mediaTransport(
                   new MediaTransport() {
                     @Override
-                    public BinaryResponse send(BinaryRequest request) {
+                    public BinaryResponse send(MediaTransport.BinaryRequest request) {
                       throw new AssertionError("streaming request expected");
                     }
 
@@ -173,6 +173,7 @@ class MediaReservationPreviewTest {
                   })
               .maxMediaUploadBytes(64)
               .build();
+
       client.login(new PasswordCredentials("@alice:matrix.org", "password"));
 
       assertThat(client.uploadReservedMedia(reservation, file, "text/plain", "file.txt"))
@@ -208,8 +209,7 @@ class MediaReservationPreviewTest {
                   public BinaryResponse send(
                       StreamingBinaryRequest request, long maxUploadBytes, long maxResponseBytes) {
                     requests.add(request);
-                    throw new io.github.fherbreteau.matrix.transport.MediaSizeLimitException(
-                        maxUploadBytes);
+                    throw new MediaSizeLimitException(maxUploadBytes);
                   }
                 })
             .maxMediaUploadBytes(2)
@@ -319,9 +319,10 @@ class MediaReservationPreviewTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
 
-    assertThat(client.getUrlPreview("https://example.org").properties()).isEmpty();
+    String url = "https://example.org";
+    assertThat(client.getUrlPreview(url).properties()).isEmpty();
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.getUrlPreview("https://example.org"))
+        .isThrownBy(() -> client.getUrlPreview(url))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");

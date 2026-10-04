@@ -1,8 +1,8 @@
 package io.github.fherbreteau.matrix.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
@@ -79,7 +79,8 @@ class UrlPreviewTest {
     properties.put("og:later", JsonParser.parse("true"));
 
     assertThat(preview.properties()).containsOnlyKeys("og:title");
-    assertThatExceptionOfType(UnsupportedOperationException.class)
-        .isThrownBy(() -> preview.properties().put("og:changed", JsonParser.parse("false")));
+    JsonValue replacement = JsonParser.parse("false");
+    assertThatThrownBy(() -> preview.properties().put("og:changed", replacement))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 }

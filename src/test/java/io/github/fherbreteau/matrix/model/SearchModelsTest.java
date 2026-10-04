@@ -108,13 +108,13 @@ class SearchModelsTest {
     var criteria = new RoomEventsSearchCriteria("x", keys, null, null, null, null, null);
     keys.clear();
     assertThat(criteria.keys()).containsExactly("content.body");
-    assertThatExceptionOfType(UnsupportedOperationException.class)
-        .isThrownBy(() -> criteria.keys().clear());
+    List<String> criteriaKeys = criteria.keys();
+    assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(criteriaKeys::clear);
     List<String> groupKeys = new ArrayList<>(List.of("sender"));
     var grouping = new SearchGrouping(groupKeys);
     groupKeys.clear();
     assertThat(grouping.groupBy()).containsExactly("sender");
-    assertThatExceptionOfType(UnsupportedOperationException.class)
-        .isThrownBy(() -> grouping.groupBy().clear());
+    List<String> groupingKeys = grouping.groupBy();
+    assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(groupingKeys::clear);
   }
 }

@@ -146,18 +146,17 @@ class DiscoverySearchTest {
   @Test
   void newEndpointsRequireAuthenticationAndPreserveServerErrors() {
     MatrixClient unauthenticated = MatrixClient.builder("https://matrix.example.org").build();
+    RoomId spaceId = RoomId.of("!space:example.org");
+    SearchRequest searchRequest =
+        new SearchRequest(
+            new RoomEventsSearchCriteria("x", null, null, null, null, null, null), null);
     assertThatThrownBy(() -> unauthenticated.getRoomSummary("!room:example.org"))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> unauthenticated.getSpaceHierarchy(RoomId.of("!space:example.org")))
+    assertThatThrownBy(() -> unauthenticated.getSpaceHierarchy(spaceId))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> unauthenticated.searchUsers("bob"))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(
-            () ->
-                unauthenticated.search(
-                    new SearchRequest(
-                        new RoomEventsSearchCriteria("x", null, null, null, null, null, null),
-                        null)))
+    assertThatThrownBy(() -> unauthenticated.search(searchRequest))
         .isInstanceOf(AuthenticationException.class);
 
     MatrixClient forbidden =

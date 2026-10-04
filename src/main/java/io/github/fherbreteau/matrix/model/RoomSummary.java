@@ -2,7 +2,6 @@ package io.github.fherbreteau.matrix.model;
 
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,10 +50,10 @@ public record RoomSummary(
     if (guest == null || members == null || readable == null) {
       throw new IllegalArgumentException("room summary is missing required fields");
     }
-    List<RoomId> allowed = new ArrayList<>();
-    for (String id : ModelJson.strings(object.get("allowed_room_ids"), "allowed_room_ids")) {
-      allowed.add(RoomId.of(id));
-    }
+    List<RoomId> allowed =
+        ModelJson.strings(object.get("allowed_room_ids"), "allowed_room_ids").stream()
+            .map(RoomId::of)
+            .toList();
     return new RoomSummary(
         RoomId.of(roomId),
         allowed,

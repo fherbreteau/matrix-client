@@ -17,6 +17,8 @@ public record SpaceChildStateEvent(
     String stateKey,
     String type,
     JsonValue raw) {
+  private static final String DESCRIPTION = "space child state event";
+
   /**
    * Parses a stripped child state event.
    *
@@ -25,14 +27,14 @@ public record SpaceChildStateEvent(
    * @throws IllegalArgumentException if required fields are absent or malformed
    */
   public static SpaceChildStateEvent from(JsonValue value) {
-    JsonObject object = ModelJson.object(value, "space child state event");
+    JsonObject object = ModelJson.object(value, DESCRIPTION);
     JsonValue content = object.get("content");
     Long timestamp = ModelJson.number(object, "origin_server_ts");
-    String sender = ModelJson.requiredString(object, "sender", "space child state event");
-    String stateKey = ModelJson.requiredString(object, "state_key", "space child state event");
-    String type = ModelJson.requiredString(object, "type", "space child state event");
+    String sender = ModelJson.requiredString(object, "sender", DESCRIPTION);
+    String stateKey = ModelJson.requiredString(object, "state_key", DESCRIPTION);
+    String type = ModelJson.requiredString(object, "type", DESCRIPTION);
     if (content == null || !content.isObject() || timestamp == null) {
-      throw new IllegalArgumentException("space child state event is missing required fields");
+      throw new IllegalArgumentException(DESCRIPTION + " is missing required fields");
     }
     return new SpaceChildStateEvent(content, timestamp, UserId.of(sender), stateKey, type, value);
   }

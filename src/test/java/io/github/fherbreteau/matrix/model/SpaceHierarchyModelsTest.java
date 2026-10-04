@@ -69,7 +69,8 @@ class SpaceHierarchyModelsTest {
     SpaceHierarchyResponse response = new SpaceHierarchyResponse(rooms, null, null);
     rooms.add(null);
     assertThat(response.rooms()).isEmpty();
+    List<SpaceHierarchyRoom> responseRooms = response.rooms();
     assertThatExceptionOfType(UnsupportedOperationException.class)
-        .isThrownBy(() -> response.rooms().add(null));
+        .isThrownBy(() -> responseRooms.add(null));
   }
 }

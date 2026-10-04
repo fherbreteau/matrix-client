@@ -50,7 +50,8 @@ class UserDirectorySearchModelsTest {
     UserDirectorySearchResponse response = new UserDirectorySearchResponse(false, users, null);
     users.add(null);
     assertThat(response.results()).isEmpty();
+    List<DirectoryUser> results = response.results();
     assertThatExceptionOfType(UnsupportedOperationException.class)
-        .isThrownBy(() -> response.results().add(null));
+        .isThrownBy(() -> results.add(null));
   }
 }

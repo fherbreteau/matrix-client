@@ -56,10 +56,10 @@ public record SpaceHierarchyRoom(
       throw new IllegalArgumentException("space hierarchy room is missing required fields");
     }
     String roomId = ModelJson.requiredString(object, "room_id", "space hierarchy room");
-    List<RoomId> allowed = new ArrayList<>();
-    for (String id : ModelJson.strings(object.get("allowed_room_ids"), "allowed_room_ids")) {
-      allowed.add(RoomId.of(id));
-    }
+    List<RoomId> allowed =
+        ModelJson.strings(object.get("allowed_room_ids"), "allowed_room_ids").stream()
+            .map(RoomId::of)
+            .toList();
     List<SpaceChildStateEvent> children = new ArrayList<>();
     for (int index = 0; index < childrenValue.asArray().size(); index++) {
       children.add(SpaceChildStateEvent.from(childrenValue.asArray().get(index)));

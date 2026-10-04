@@ -48,7 +48,8 @@ class RoomSummaryTest {
             null);
     allowed.clear();
     assertThat(summary.allowedRoomIds()).hasSize(1);
+    List<RoomId> summaryAllowedRoomIds = summary.allowedRoomIds();
     assertThatExceptionOfType(UnsupportedOperationException.class)
-        .isThrownBy(() -> summary.allowedRoomIds().clear());
+        .isThrownBy(summaryAllowedRoomIds::clear);
   }
 }

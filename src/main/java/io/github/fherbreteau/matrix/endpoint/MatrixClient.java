@@ -11,6 +11,7 @@ import io.github.fherbreteau.matrix.model.AccountOperationResponse;
 import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.AuthMetadata;
 import io.github.fherbreteau.matrix.model.AuthenticationApi;
+import io.github.fherbreteau.matrix.model.ContentReport;
 import io.github.fherbreteau.matrix.model.Credentials;
 import io.github.fherbreteau.matrix.model.DeleteDevicesRequest;
 import io.github.fherbreteau.matrix.model.Device;
@@ -44,6 +45,8 @@ import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.RoomSummary;
+import io.github.fherbreteau.matrix.model.RoomTag;
+import io.github.fherbreteau.matrix.model.RoomTags;
 import io.github.fherbreteau.matrix.model.SearchRequest;
 import io.github.fherbreteau.matrix.model.SearchResponse;
 import io.github.fherbreteau.matrix.model.Session;
@@ -139,6 +142,8 @@ public final class MatrixClient {
   private static final String LIMIT_QUERY_PARAM = "&limit=";
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
+  private static final String USERS_PATH = "_matrix/client/v3/users/";
+  private static final String USER_ROOMS_SEGMENT = "/rooms/";
   private static final String ROOM_ID_FIELD = "room_id";
   private static final String FILE_TYPE = "application/octet-stream";
 
@@ -2123,7 +2128,7 @@ public final class MatrixClient {
   private String userAccountDataPath(RoomId roomId, String type) {
     var path = new StringBuilder(USER_PATH).append(encode(currentUserId()));
     if (roomId != null) {
-      path.append("/rooms/").append(encode(roomId.value()));
+      path.append(USER_ROOMS_SEGMENT).append(encode(roomId.value()));
     }
     return path.append(ACCOUNT_DATA_PATH).append(encode(type)).toString();
   }
@@ -2132,6 +2137,121 @@ public final class MatrixClient {
     return getSession()
         .orElseThrow(() -> new AuthenticationException(M_MISSING_TOKEN, NO_SESSION_MESSAGE))
         .userId();
+  }
+
+  /**
+   * Retrieves the current user's tags for a room.
+   *
+   * @param roomId the room whose tags to retrieve
+   * @return the room tags
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3useruseridroomsroomidtags">Matrix
+   *     specification</a>
+   */
+  public RoomTags getRoomTags(RoomId roomId) {
+    String path =
+        USER_PATH + encode(currentUserId()) + USER_ROOMS_SEGMENT + encode(roomId.value()) + "/tags";
+    return RoomTags.from(authenticated("GET", path, null));
+  }
+
+  /**
+   * Adds or updates a tag for a room.
+   *
+   * @param roomId the room to tag
+   * @param tagName the tag name
+   * @param tag the tag metadata
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3useruseridroomsroomidtagstag">Matrix
+   *     specification</a>
+   */
+  public void setRoomTag(RoomId roomId, String tagName, RoomTag tag) {
+    String path = roomTagPath(roomId, tagName);
+    authenticated("PUT", path, tag.toJson());
+  }
+
+  /**
+   * Removes a tag from a room.
+   *
+   * @param roomId the room to untag
+   * @param tagName the tag name
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3useruseridroomsroomidtagstag">Matrix
+   *     specification</a>
+   */
+  public void deleteRoomTag(RoomId roomId, String tagName) {
+    authenticated(HTTP_DELETE, roomTagPath(roomId, tagName), null);
+  }
+
+  private String roomTagPath(RoomId roomId, String tagName) {
+    return USER_PATH
+        + encode(currentUserId())
+        + USER_ROOMS_SEGMENT
+        + encode(roomId.value())
+        + "/tags/"
+        + encode(tagName);
+  }
+
+  /**
+   * Reports a room to the homeserver.
+   *
+   * @param roomId the room being reported
+   * @param report the report reason
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidreport">Matrix
+   *     specification</a>
+   */
+  public void reportRoom(RoomId roomId, ContentReport report) {
+    requireReportReason(report);
+    authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/report", report.toJson());
+  }
+
+  /**
+   * Reports an event in a room to the homeserver.
+   *
+   * @param roomId the room containing the event
+   * @param eventId the event being reported
+   * @param report the optional report reason
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidreporteventid">Matrix
+   *     specification</a>
+   */
+  public void reportEvent(RoomId roomId, EventId eventId, ContentReport report) {
+    authenticated(
+        "POST",
+        ROOMS_PATH + encode(roomId.value()) + "/report/" + encode(eventId.value()),
+        report.toJson());
+  }
+
+  /**
+   * Reports a user to the homeserver.
+   *
+   * @param userId the user being reported
+   * @param report the report reason
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3usersuseridreport">Matrix
+   *     specification</a>
+   */
+  public void reportUser(UserId userId, ContentReport report) {
+    requireReportReason(report);
+    authenticated("POST", USERS_PATH + encode(userId.value()) + "/report", report.toJson());
+  }
+
+  private static void requireReportReason(ContentReport report) {
+    if (report.reason() == null) {
+      throw new IllegalArgumentException("report reason is required");
+    }
   }
 
   /**

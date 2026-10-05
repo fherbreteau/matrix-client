@@ -12,6 +12,7 @@ import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonString;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountRequest;
+import io.github.fherbreteau.matrix.model.ContentReport;
 import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
 import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
@@ -35,6 +36,8 @@ import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
+import io.github.fherbreteau.matrix.model.RoomTag;
+import io.github.fherbreteau.matrix.model.RoomTags;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.model.UserId;
@@ -246,6 +249,28 @@ class SynapseContainerIT {
     } finally {
       client.leaveRoom(roomId);
       client.forget(roomId);
+    }
+  }
+
+  @Test
+  void exercisesRoomTagsAndContentReporting() {
+    RoomId roomId = createPrivateRoom();
+    try {
+      RoomTags initialTags = client.getRoomTags(roomId);
+      assertThat(initialTags.tags()).doesNotContainKey("org.example.integration");
+      client.setRoomTag(roomId, "org.example.integration", RoomTag.withOrder(0.5));
+      assertThat(client.getRoomTags(roomId).tags().get("org.example.integration").order())
+          .isEqualTo(0.5);
+      client.deleteRoomTag(roomId, "org.example.integration");
+      assertThat(client.getRoomTags(roomId).tags()).doesNotContainKey("org.example.integration");
+
+      client.reportRoom(roomId, ContentReport.withReason("integration report"));
+      EventId eventId = client.sendText(roomId, "reported integration event");
+      client.reportEvent(roomId, eventId, ContentReport.withReason("integration report"));
+      client.reportUser(
+          UserId.of("@integration-member:localhost"), ContentReport.withReason("spam"));
+    } finally {
+      leaveAndForget(roomId);
     }
   }
 

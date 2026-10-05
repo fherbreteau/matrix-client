@@ -10,6 +10,7 @@ import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import io.github.fherbreteau.matrix.model.ContentReport;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.PublicRoom;
@@ -17,6 +18,8 @@ import io.github.fherbreteau.matrix.model.PublicRoomsResponse;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.model.RoomTag;
+import io.github.fherbreteau.matrix.model.RoomTags;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.model.UserProfile;
 import io.github.fherbreteau.matrix.model.WhoamiResponse;
@@ -346,6 +349,133 @@ class ClientServerOperationsTest {
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");
+  }
+
+  @Test
+  void roomTagsUseEncodedIdentifiersAndTypedMetadata() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{\"tags\":{\"m.favourite\":{\"order\":0.5}}}"),
+                    new Response(200, "{}"),
+                    new Response(200, "{}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RoomId roomId = RoomId.of("!a:b");
+
+    RoomTags tags = client.getRoomTags(roomId);
+    assertThat(tags.tags()).containsOnlyKeys("m.favourite");
+    assertThat(tags.tags().get("m.favourite").order()).isEqualTo(0.5);
+    client.setRoomTag(roomId, "org.example/favourite", RoomTag.withOrder(0.75));
+    client.deleteRoomTag(roomId, "org.example/favourite");
+
+    assertThat(requests.get(1).url())
+        .endsWith("/_matrix/client/v3/user/%40alice%3Amatrix.org/rooms/%21a%3Ab/tags");
+    assertThat(requests.get(2).url())
+        .endsWith(
+            "/_matrix/client/v3/user/%40alice%3Amatrix.org/rooms/%21a%3Ab/tags/"
+                + "org.example%2Ffavourite");
+    assertThat(requests.get(2).method()).isEqualTo("PUT");
+    assertThat(requests.get(2).body()).isEqualTo("{\"order\":0.75}");
+    assertThat(requests.get(3).method()).isEqualTo("DELETE");
+    assertThat(requests.get(3).body()).isNull();
+  }
+
+  @Test
+  void reportingEndpointsUseSpecBodiesAndEncodedPaths() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                recording(
+                    requests,
+                    new Response(200, LOGIN_OK),
+                    new Response(200, "{}"),
+                    new Response(200, "{}"),
+                    new Response(200, "{}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RoomId roomId = RoomId.of("!a:b");
+    client.reportRoom(roomId, ContentReport.withReason("abuse"));
+    client.reportEvent(roomId, EventId.of("$event:remote.org"), ContentReport.empty());
+    client.reportUser(UserId.of("@bad:remote.org"), ContentReport.withReason("spam"));
+
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/rooms/%21a%3Ab/report");
+    assertThat(requests.get(1).method()).isEqualTo("POST");
+    assertThat(requests.get(1).body()).isEqualTo("{\"reason\":\"abuse\"}");
+    assertThat(requests.get(2).url())
+        .endsWith("/_matrix/client/v3/rooms/%21a%3Ab/report/%24event%3Aremote.org");
+    assertThat(requests.get(2).body()).isEqualTo("{}");
+    assertThat(requests.get(3).url())
+        .endsWith("/_matrix/client/v3/users/%40bad%3Aremote.org/report");
+    assertThat(requests.get(3).body()).isEqualTo("{\"reason\":\"spam\"}");
+  }
+
+  @Test
+  void tagAndReportingServerErrorsAreMapped() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(
+                queued(
+                    new Response(200, LOGIN_OK),
+                    new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"No\"}")))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RoomId roomId = RoomId.of("!a:b");
+    ContentReport report = ContentReport.withReason("abuse");
+    assertThatExceptionOfType(MatrixServerException.class)
+        .isThrownBy(() -> client.reportRoom(roomId, report))
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getErrcode)
+        .isEqualTo("M_FORBIDDEN");
+  }
+
+  @Test
+  void roomAndUserReportsRequireAReason() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(recording(new ArrayList<>(), new Response(200, LOGIN_OK)))
+            .build();
+    client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+
+    RoomId roomId = RoomId.of("!a:b");
+    UserId userId = UserId.of("@bob:matrix.org");
+    ContentReport report = ContentReport.empty();
+    assertThatThrownBy(() -> client.reportRoom(roomId, report))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("report reason is required");
+    assertThatThrownBy(() -> client.reportUser(userId, report))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("report reason is required");
+  }
+
+  @Test
+  void tagsAndReportingRequireAnAuthenticatedSession() {
+    MatrixClient client =
+        MatrixClient.builder("https://matrix.example.org")
+            .transport(stub -> new Response(200, "{}"))
+            .build();
+    RoomId roomId = RoomId.of("!a:b");
+    UserId userId = UserId.of("@bob:matrix.org");
+    RoomTag tag = RoomTag.empty();
+    ContentReport report = ContentReport.withReason("test");
+    EventId eventId = EventId.of("$event");
+    assertThatThrownBy(() -> client.getRoomTags(roomId))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.setRoomTag(roomId, "m.favourite", tag))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.deleteRoomTag(roomId, "m.favourite"))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.reportRoom(roomId, report))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.reportEvent(roomId, eventId, report))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.reportUser(userId, report))
+        .isInstanceOf(AuthenticationException.class);
   }
 
   private static HttpTransportStub recording(List<Request> requests, Response... responses) {

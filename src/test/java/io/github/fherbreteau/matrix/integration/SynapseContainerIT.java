@@ -14,6 +14,7 @@ import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventFilter;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
+import io.github.fherbreteau.matrix.model.MediaDownload;
 import io.github.fherbreteau.matrix.model.MediaUploadReservation;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.MxcUri;
@@ -279,6 +280,20 @@ class SynapseContainerIT {
   private byte[] downloadedBytes(MxcUri uri) throws IOException {
     try (var download = client.downloadMedia(uri, 1_024)) {
       return download.body().readAllBytes();
+    }
+  }
+
+  @Test
+  void exercicesMediaUploadAndPreview() throws IOException {
+    try (var stream = getClass().getResourceAsStream("/sample.png")) {
+      MxcUri uri = client.uploadMedia(stream, 21_485, "image/png", "sample.png");
+
+      try (MediaDownload thumbnail = client.getThumbnail(uri, 200, 150, null, false, 15_000)) {
+        assertThat(thumbnail.contentType()).isEqualTo("image/png");
+        assertThat(thumbnail.contentDisposition()).isEqualTo("inline");
+        byte[] content = thumbnail.body().readAllBytes();
+        assertThat(content).hasSizeLessThan(15_000);
+      }
     }
   }
 

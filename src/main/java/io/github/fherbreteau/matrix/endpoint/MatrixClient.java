@@ -2209,7 +2209,6 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void reportRoom(RoomId roomId, ContentReport report) {
-    currentUserId();
     requireReportReason(report);
     authenticated("POST", ROOMS_PATH + encode(roomId.value()) + "/report", report.toJson());
   }
@@ -2245,7 +2244,6 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void reportUser(UserId userId, ContentReport report) {
-    currentUserId();
     requireReportReason(report);
     authenticated("POST", USERS_PATH + encode(userId.value()) + "/report", report.toJson());
   }

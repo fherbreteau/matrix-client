@@ -8,11 +8,18 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.model.DeviceSigningUploadRequest;
+import io.github.fherbreteau.matrix.model.EncryptionRequest;
+import io.github.fherbreteau.matrix.model.KeySignaturesUploadRequest;
+import io.github.fherbreteau.matrix.model.KeysClaimRequest;
+import io.github.fherbreteau.matrix.model.KeysQueryRequest;
+import io.github.fherbreteau.matrix.model.KeysUploadRequest;
 import io.github.fherbreteau.matrix.model.MutualRoomsResponse;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEventsSearchCriteria;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.model.RoomKeyBackupVersionRequest;
 import io.github.fherbreteau.matrix.model.SearchRequest;
 import io.github.fherbreteau.matrix.model.SpaceHierarchyOptions;
 import io.github.fherbreteau.matrix.model.ThirdPartyLocations;
@@ -360,6 +367,202 @@ class DiscoverySearchTest {
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_INVALID_PARAM");
+  }
+
+  @Test
+  void keyUploadQueryClaimAndChangesMatchMatrixPathsAndPreserveRawKeys() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        client(
+            requests,
+            new Response(200, LOGIN_OK),
+            new Response(200, "{\"one_time_key_counts\":{\"signed_curve25519\":17}}"),
+            new Response(
+                200,
+                "{\"device_keys\":{\"@bob:example.org\":{\"D\":{\"keys\":{"
+                    + "\"ed25519:D\":\"opaque\"}}}},\"future\":\"kept\"}"),
+            new Response(
+                200,
+                "{\"one_time_keys\":{\"@bob:example.org\":{\"D\":{"
+                    + "\"signed_curve25519:k\":{\"key\":\"public\",\"signatures\":{}}}}}}"),
+            new Response(200, "{\"changed\":[\"@bob:example.org\"],\"left\":[]}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+
+    var upload =
+        KeysUploadRequest.of(
+            JsonParser.parse("{\"one_time_keys\":{\"signed_curve25519:k\":\"key\"}}"));
+    assertThat(client.uploadKeys(upload).oneTimeKeyCounts().get("signed_curve25519").asLong())
+        .isEqualTo(17);
+    var query =
+        client.queryKeys(
+            KeysQueryRequest.of(JsonParser.parse("{\"device_keys\":{\"@bob:example.org\":[]}}")));
+    assertThat(query.deviceKeys().get("@bob:example.org").asObject().has("D")).isTrue();
+    assertThat(query.toJson().get("future").asString()).isEqualTo("kept");
+    var claim =
+        client.claimKeys(
+            KeysClaimRequest.of(
+                JsonParser.parse(
+                    "{\"one_time_keys\":{\"@bob:example.org\":{\"D\":\"signed_curve25519\"}}}")));
+    assertThat(claim.oneTimeKeys().get("@bob:example.org").asObject().has("D")).isTrue();
+    assertThat(client.getKeyChanges("s0 +/=", "s1").changed())
+        .containsExactly(UserId.of("@bob:example.org"));
+
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/keys/upload");
+    assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/keys/query");
+    assertThat(requests.get(3).url()).endsWith("/_matrix/client/v3/keys/claim");
+    assertThat(requests.get(4).url())
+        .endsWith("/_matrix/client/v3/keys/changes?from=s0%20%2B%2F%3D&to=s1");
+    assertThat(requests.get(1).headers()).containsKey("Authorization");
+  }
+
+  @Test
+  void signingAndBackupVersionRequestsSupportUiAuthAndOpaqueVersions() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        client(
+            requests,
+            new Response(200, LOGIN_OK),
+            new Response(401, "{\"flows\":[{\"stages\":[\"m.login.dummy\"]}],\"session\":\"S\"}"),
+            new Response(200, "{}"),
+            new Response(200, "{\"version\":\"v/1 +\"}"),
+            new Response(
+                200,
+                "{\"algorithm\":\"m.megolm_backup.v1\",\"auth_data\":{},"
+                    + "\"count\":0,\"etag\":\"e\",\"version\":\"v/1 +\"}"),
+            new Response(
+                200,
+                "{\"algorithm\":\"m.megolm_backup.v1\",\"auth_data\":{},"
+                    + "\"count\":0,\"etag\":\"e\",\"version\":\"v/1 +\"}"),
+            new Response(200, "{}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+
+    var signing =
+        DeviceSigningUploadRequest.of(
+            JsonParser.parse("{\"master_key\":{\"keys\":{}},\"auth\":{\"session\":\"S\"}}"));
+    assertThatExceptionOfType(MatrixServerException.class)
+        .isThrownBy(() -> client.uploadDeviceSigningKeys(signing))
+        .satisfies(
+            exception ->
+                assertThat(exception.getUserInteractiveAuthChallenge().session()).isEqualTo("S"));
+    client.uploadDeviceSigningKeysWithAuth(signing);
+    var createRequest =
+        RoomKeyBackupVersionRequest.create("m.megolm_backup.v1", JsonParser.parse("{}"));
+    assertThat(client.createRoomKeyBackupVersion(createRequest).version()).isEqualTo("v/1 +");
+    assertThat(client.getRoomKeyBackupVersionById("v/1 +").version()).isEqualTo("v/1 +");
+    assertThat(client.getRoomKeyBackupVersion().version()).isEqualTo("v/1 +");
+    client.updateRoomKeyBackupVersion(
+        "v/1 +", RoomKeyBackupVersionRequest.create("m.megolm_backup.v1", JsonParser.parse("{}")));
+
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/keys/device_signing/upload");
+    assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/keys/device_signing/upload");
+    assertThat(requests.get(2).body()).contains("\"session\":\"S\"");
+    assertThat(requests.get(3).url()).endsWith("/_matrix/client/v3/room_keys/version");
+    assertThat(requests.get(4).url()).endsWith("/_matrix/client/v3/room_keys/version/v%2F1%20%2B");
+    assertThat(requests.get(6).body()).contains("\"version\":\"v/1 +\"");
+  }
+
+  @Test
+  void signatureAndRoomKeyBackupGranularityUseExactPaths() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        client(
+            requests,
+            new Response(200, LOGIN_OK),
+            new Response(200, "{\"failures\":{\"@bob:example.org\":{}}}"),
+            new Response(200, "{\"rooms\":{}}"),
+            new Response(200, "{\"count\":1,\"etag\":\"e1\"}"),
+            new Response(200, "{\"count\":0,\"etag\":\"e2\"}"),
+            new Response(200, "{\"sessions\":{}}"),
+            new Response(200, "{\"count\":1,\"etag\":\"e2\"}"),
+            new Response(200, "{\"count\":0,\"etag\":\"e3\"}"),
+            new Response(
+                200,
+                "{\"first_message_index\":0,\"forwarded_count\":0,"
+                    + "\"is_verified\":true,\"session_data\":{\"ciphertext\":\"opaque\"}}"),
+            new Response(200, "{\"count\":1,\"etag\":\"e3\"}"),
+            new Response(200, "{\"count\":0,\"etag\":\"e4\"}"),
+            new Response(200, "{}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    var signatureRequest =
+        KeySignaturesUploadRequest.of(
+            JsonParser.parse("{\"@bob:example.org\":{\"ed25519:k\":{}}}"));
+    assertThat(client.uploadKeySignatures(signatureRequest).failures().names())
+        .contains("@bob:example.org");
+    assertThat(client.getRoomKeyBackup("v").toJson().get("rooms").asObject().size()).isZero();
+    client.uploadRoomKeyBackup("v", EncryptionRequest.of(JsonParser.parse("{\"rooms\":{}}")));
+    client.deleteRoomKeyBackup("v");
+    assertThat(
+            client
+                .getRoomKeyBackupForRoom("v", RoomId.of("!r:hs"))
+                .toJson()
+                .get("sessions")
+                .asObject()
+                .size())
+        .isZero();
+    client.uploadRoomKeyBackupForRoom(
+        "v", RoomId.of("!r:hs"), EncryptionRequest.of(JsonParser.parse("{\"sessions\":{}}")));
+    client.deleteRoomKeyBackupForRoom("v", RoomId.of("!r:hs"));
+    assertThat(
+            client
+                .getRoomKeyBackupSession("v", RoomId.of("!r:hs"), "s")
+                .toJson()
+                .has("session_data"))
+        .isTrue();
+    client.uploadRoomKeyBackupSession(
+        "v",
+        RoomId.of("!r:hs"),
+        "s",
+        EncryptionRequest.of(JsonParser.parse("{\"session_data\":{}}")));
+    client.deleteRoomKeyBackupSession("v", RoomId.of("!r:hs"), "s");
+    client.deleteRoomKeyBackupVersion("v");
+
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/keys/signatures/upload");
+    assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/room_keys/keys?version=v");
+    assertThat(requests.get(3).url()).endsWith("/_matrix/client/v3/room_keys/keys?version=v");
+    assertThat(requests.get(4).url()).endsWith("/_matrix/client/v3/room_keys/keys?version=v");
+    assertThat(requests.get(5).url())
+        .endsWith("/_matrix/client/v3/room_keys/keys/%21r%3Ahs?version=v");
+    assertThat(requests.get(6).url())
+        .endsWith("/_matrix/client/v3/room_keys/keys/%21r%3Ahs?version=v");
+    assertThat(requests.get(7).url())
+        .endsWith("/_matrix/client/v3/room_keys/keys/%21r%3Ahs?version=v");
+    assertThat(requests.get(8).url())
+        .endsWith("/_matrix/client/v3/room_keys/keys/%21r%3Ahs/s?version=v");
+    assertThat(requests.get(9).url())
+        .endsWith("/_matrix/client/v3/room_keys/keys/%21r%3Ahs/s?version=v");
+    assertThat(requests.get(10).url())
+        .endsWith("/_matrix/client/v3/room_keys/keys/%21r%3Ahs/s?version=v");
+    assertThat(requests.get(11).url()).endsWith("/_matrix/client/v3/room_keys/version/v");
+  }
+
+  @Test
+  void keyEndpointsRequireAuthenticationAndPreserveServerErrors() {
+    MatrixClient client = MatrixClient.builder("https://matrix.example.org").build();
+    var json = JsonParser.parse("{}");
+    assertThatThrownBy(() -> client.uploadKeys(KeysUploadRequest.of(json)))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.queryKeys(KeysQueryRequest.of(json)))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.claimKeys(KeysClaimRequest.of(json)))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> client.getKeyChanges("a", "b"))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(
+            () -> client.uploadRoomKeyBackup("v", EncryptionRequest.of(JsonParser.parse("[]"))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> client.uploadRoomKeyBackup("v", (EncryptionRequest) null))
+        .isInstanceOf(NullPointerException.class);
+
+    MatrixClient serverError =
+        client(
+            new ArrayList<>(),
+            new Response(200, LOGIN_OK),
+            new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"denied\"}"));
+    serverError.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    assertThatExceptionOfType(MatrixServerException.class)
+        .isThrownBy(() -> serverError.queryKeys(KeysQueryRequest.of(json)))
+        .extracting(MatrixServerException::getErrcode)
+        .isEqualTo("M_FORBIDDEN");
   }
 
   private static String protocolJson() {

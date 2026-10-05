@@ -170,7 +170,8 @@ public final class MatrixClient {
   private static final String KEYS_PATH = "_matrix/client/v3/keys/";
   private static final String ROOM_KEYS_PATH = "_matrix/client/v3/room_keys/";
   private static final String ROOM_KEY_VERSION_PATH = ROOM_KEYS_PATH + "version";
-  private static final String ROOM_KEY_VERSION_ID_PATH = ROOM_KEY_VERSION_PATH + "/";
+  private static final char URL_PATH_SEPARATOR = '/';
+  private static final String ROOM_KEY_VERSION_ID_PATH = ROOM_KEY_VERSION_PATH + URL_PATH_SEPARATOR;
   private static final String MUTUAL_ROOMS_PATH = "_matrix/client/v1/mutual_rooms";
   private static final String ROOM_ID_FIELD = "room_id";
   private static final String FILE_TYPE = "application/octet-stream";

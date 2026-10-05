@@ -550,8 +550,8 @@ class DiscoverySearchTest {
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> client.getKeyChanges("a", "b"))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(
-            () -> client.uploadRoomKeyBackup("v", EncryptionRequest.of(JsonParser.parse("[]"))))
+    var invalidPayload = JsonParser.parse("[]");
+    assertThatThrownBy(() -> EncryptionRequest.of(invalidPayload))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> client.uploadRoomKeyBackup("v", (EncryptionRequest) null))
         .isInstanceOf(NullPointerException.class);

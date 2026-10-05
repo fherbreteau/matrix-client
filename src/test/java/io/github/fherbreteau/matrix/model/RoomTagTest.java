@@ -32,7 +32,8 @@ class RoomTagTest {
     properties.put("later", JsonParser.parse("true"));
     assertThat(copied.properties()).containsOnlyKeys("order");
     JsonValue value = JsonParser.parse("true");
-    assertThatThrownBy(() -> copied.properties().put("later", value))
+    Map<String, JsonValue> immutableProperties = copied.properties();
+    assertThatThrownBy(() -> immutableProperties.put("later", value))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 

@@ -2128,7 +2128,7 @@ public final class MatrixClient {
   private String userAccountDataPath(RoomId roomId, String type) {
     var path = new StringBuilder(USER_PATH).append(encode(currentUserId()));
     if (roomId != null) {
-      path.append("/rooms/").append(encode(roomId.value()));
+      path.append(USER_ROOMS_SEGMENT).append(encode(roomId.value()));
     }
     return path.append(ACCOUNT_DATA_PATH).append(encode(type)).toString();
   }

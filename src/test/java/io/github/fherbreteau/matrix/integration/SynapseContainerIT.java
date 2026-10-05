@@ -297,6 +297,23 @@ class SynapseContainerIT {
   }
 
   @Test
+  void exercisesMutualRoomsPagination() {
+    RoomId roomId = createPrivateRoom();
+    MatrixClient memberClient = loginAsOtherUser();
+    try {
+      memberClient.joinRoom(roomId);
+      var sharedRooms = client.getMutualRooms(UserId.of("@integration-member:localhost"));
+      assertThat(sharedRooms.count()).isGreaterThanOrEqualTo(1);
+      assertThat(sharedRooms.joined()).contains(roomId);
+      assertThat(sharedRooms.raw().isObject()).isTrue();
+    } finally {
+      memberClient.leaveRoom(roomId);
+      memberClient.logout();
+      leaveAndForget(roomId);
+    }
+  }
+
+  @Test
   void exercisesServerSideFiltersAndOpaqueSyncTokens() {
     String accountDataType =
         "org.example.integration." + UUID.randomUUID().toString().replace('-', '_');

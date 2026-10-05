@@ -26,6 +26,7 @@ import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.MediaDownload;
 import io.github.fherbreteau.matrix.model.MediaUploadReservation;
 import io.github.fherbreteau.matrix.model.MessageBody;
+import io.github.fherbreteau.matrix.model.MutualRoomsResponse;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.Presence;
@@ -2048,6 +2049,42 @@ public final class MatrixClient {
     JsonObject query = new JsonObject();
     fields.forEach(query::put);
     return appendQuery(path, query);
+  }
+
+  /**
+   * Retrieves rooms shared between the current user and another user.
+   *
+   * @param userId the user whose mutual rooms to retrieve
+   * @param from optional pagination token returned as {@code next_batch} by the preceding response
+   * @return the mutual rooms and an optional continuation token
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mutual_rooms">Matrix
+   *     specification</a>
+   */
+  public MutualRoomsResponse getMutualRooms(UserId userId, String from) {
+    JsonObject query = new JsonObject().put("user_id", userId.value());
+    if (from != null) {
+      query.put("from", from);
+    }
+    return MutualRoomsResponse.from(
+        authenticated("GET", appendQuery("_matrix/client/v1/mutual_rooms", query), null));
+  }
+
+  /**
+   * Retrieves the first page of rooms shared with another user.
+   *
+   * @param userId the user whose mutual rooms to retrieve
+   * @return the first mutual-rooms page
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mutual_rooms">Matrix
+   *     specification</a>
+   */
+  public MutualRoomsResponse getMutualRooms(UserId userId) {
+    return getMutualRooms(userId, null);
   }
 
   /**

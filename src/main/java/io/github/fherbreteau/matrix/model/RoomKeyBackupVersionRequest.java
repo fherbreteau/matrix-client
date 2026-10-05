@@ -12,6 +12,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  */
 public record RoomKeyBackupVersionRequest(JsonObject payload) {
 
+  private static final String AUTH_DATA_FIELD = "auth_data";
+
   /**
    * Wraps a version request object while retaining its algorithm-specific fields.
    *
@@ -25,8 +27,8 @@ public record RoomKeyBackupVersionRequest(JsonObject payload) {
     }
     JsonObject object = value.asObject();
     if (ModelJson.string(object, "algorithm") == null
-        || object.get("auth_data") == null
-        || !object.get("auth_data").isObject()) {
+        || object.get(AUTH_DATA_FIELD) == null
+        || !object.get(AUTH_DATA_FIELD).isObject()) {
       throw new IllegalArgumentException(
           "room-key backup version request is missing required fields");
     }
@@ -49,7 +51,7 @@ public record RoomKeyBackupVersionRequest(JsonObject payload) {
       throw new IllegalArgumentException("backup algorithm and auth data are required");
     }
     return new RoomKeyBackupVersionRequest(
-        new JsonObject().put("algorithm", algorithm).put("auth_data", authData));
+        new JsonObject().put("algorithm", algorithm).put(AUTH_DATA_FIELD, authData));
   }
 
   /** Returns the raw request body. */
@@ -59,7 +61,7 @@ public record RoomKeyBackupVersionRequest(JsonObject payload) {
 
   /** Returns algorithm-specific authentication data. */
   public JsonObject authData() {
-    return payload.get("auth_data").asObject();
+    return payload.get(AUTH_DATA_FIELD).asObject();
   }
 
   /** Returns an optional body version. */

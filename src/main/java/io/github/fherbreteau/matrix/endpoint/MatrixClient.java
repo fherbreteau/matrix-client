@@ -169,6 +169,8 @@ public final class MatrixClient {
   private static final String THIRD_PARTY_PATH = "_matrix/client/v3/thirdparty/";
   private static final String KEYS_PATH = "_matrix/client/v3/keys/";
   private static final String ROOM_KEYS_PATH = "_matrix/client/v3/room_keys/";
+  private static final String ROOM_KEY_VERSION_PATH = ROOM_KEYS_PATH + "version";
+  private static final String ROOM_KEY_VERSION_ID_PATH = ROOM_KEY_VERSION_PATH + "/";
   private static final String MUTUAL_ROOMS_PATH = "_matrix/client/v1/mutual_rooms";
   private static final String ROOM_ID_FIELD = "room_id";
   private static final String FILE_TYPE = "application/octet-stream";
@@ -889,7 +891,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupInfo getRoomKeyBackupVersion() {
-    String path = ROOM_KEYS_PATH + "version";
+    String path = ROOM_KEY_VERSION_PATH;
     return RoomKeyBackupInfo.from(authenticated("GET", path, null));
   }
 
@@ -906,7 +908,7 @@ public final class MatrixClient {
    */
   public RoomKeyBackupVersion createRoomKeyBackupVersion(RoomKeyBackupVersionRequest request) {
     return RoomKeyBackupVersion.from(
-        authenticated("POST", ROOM_KEYS_PATH + "version", request.toJson()));
+        authenticated("POST", ROOM_KEY_VERSION_PATH, request.toJson()));
   }
 
   /**
@@ -922,7 +924,7 @@ public final class MatrixClient {
    */
   public RoomKeyBackupInfo getRoomKeyBackupVersionById(String versionId) {
     return RoomKeyBackupInfo.from(
-        authenticated("GET", ROOM_KEYS_PATH + "version/" + encode(versionId), null));
+        authenticated("GET", ROOM_KEY_VERSION_ID_PATH + encode(versionId), null));
   }
 
   /**
@@ -942,7 +944,7 @@ public final class MatrixClient {
     }
     JsonObject body = request.toJson();
     body.put("version", versionId);
-    authenticated("PUT", ROOM_KEYS_PATH + "version/" + encode(versionId), body);
+    authenticated("PUT", ROOM_KEY_VERSION_ID_PATH + encode(versionId), body);
   }
 
   /**
@@ -956,7 +958,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void deleteRoomKeyBackupVersion(String versionId) {
-    authenticated(HTTP_DELETE, ROOM_KEYS_PATH + "version/" + encode(versionId), null);
+    authenticated(HTTP_DELETE, ROOM_KEY_VERSION_ID_PATH + encode(versionId), null);
   }
 
   /**
@@ -2455,7 +2457,7 @@ public final class MatrixClient {
       query.put("from", from);
     }
     return MutualRoomsResponse.from(
-        authenticated("GET", appendQuery("_matrix/client/v1/mutual_rooms", query), null));
+        authenticated("GET", appendQuery(MUTUAL_ROOMS_PATH, query), null));
   }
 
   /**

@@ -539,11 +539,14 @@ class DiscoverySearchTest {
   void keyEndpointsRequireAuthenticationAndPreserveServerErrors() {
     MatrixClient client = MatrixClient.builder("https://matrix.example.org").build();
     var json = JsonParser.parse("{}");
-    assertThatThrownBy(() -> client.uploadKeys(KeysUploadRequest.of(json)))
+    var uploadRequest = KeysUploadRequest.of(json);
+    var queryRequest = KeysQueryRequest.of(json);
+    var claimRequest = KeysClaimRequest.of(json);
+    assertThatThrownBy(() -> client.uploadKeys(uploadRequest))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.queryKeys(KeysQueryRequest.of(json)))
+    assertThatThrownBy(() -> client.queryKeys(queryRequest))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.claimKeys(KeysClaimRequest.of(json)))
+    assertThatThrownBy(() -> client.claimKeys(claimRequest))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> client.getKeyChanges("a", "b"))
         .isInstanceOf(AuthenticationException.class);
@@ -559,8 +562,9 @@ class DiscoverySearchTest {
             new Response(200, LOGIN_OK),
             new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"denied\"}"));
     serverError.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    var errorRequest = KeysQueryRequest.of(json);
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> serverError.queryKeys(KeysQueryRequest.of(json)))
+        .isThrownBy(() -> serverError.queryKeys(errorRequest))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");
   }

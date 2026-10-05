@@ -12,6 +12,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  */
 public record RoomKeyBackupInfo(JsonObject payload) {
 
+  private static final String AUTH_DATA_FIELD = "auth_data";
+
   /**
    * Parses backup metadata and validates its required properties.
    *
@@ -22,8 +24,8 @@ public record RoomKeyBackupInfo(JsonObject payload) {
   public static RoomKeyBackupInfo from(JsonValue value) {
     JsonObject object = ModelJson.object(value, "room-key backup info");
     if (ModelJson.string(object, "algorithm") == null
-        || object.get("auth_data") == null
-        || !object.get("auth_data").isObject()
+        || object.get(AUTH_DATA_FIELD) == null
+        || !object.get(AUTH_DATA_FIELD).isObject()
         || ModelJson.number(object, "count") == null
         || ModelJson.string(object, "etag") == null
         || ModelJson.string(object, "version") == null) {
@@ -39,7 +41,7 @@ public record RoomKeyBackupInfo(JsonObject payload) {
 
   /** Returns algorithm-specific authentication data without normalizing it. */
   public JsonObject authData() {
-    return payload.get("auth_data").asObject();
+    return payload.get(AUTH_DATA_FIELD).asObject();
   }
 
   /** Returns the server-reported backed-up key count. */

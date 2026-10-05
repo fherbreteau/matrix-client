@@ -7,17 +7,24 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
+import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEventsSearchCriteria;
 import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.SearchRequest;
 import io.github.fherbreteau.matrix.model.SpaceHierarchyOptions;
+import io.github.fherbreteau.matrix.model.ThirdPartyLocations;
+import io.github.fherbreteau.matrix.model.ThirdPartyProtocol;
+import io.github.fherbreteau.matrix.model.ThirdPartyProtocols;
+import io.github.fherbreteau.matrix.model.ThirdPartyUsers;
 import io.github.fherbreteau.matrix.model.UserDirectorySearchRequest;
+import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Request;
 import io.github.fherbreteau.matrix.transport.HttpTransport.Response;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class DiscoverySearchTest {
@@ -190,6 +197,127 @@ class DiscoverySearchTest {
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");
+  }
+
+  @Test
+  void thirdPartyLookupEndpointsEncodeRequestsAndPreserveRawFields() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        client(
+            requests,
+            new Response(200, LOGIN_OK),
+            new Response(200, protocolMapJson()),
+            new Response(200, protocolJson()),
+            new Response(
+                200,
+                "[{\"alias\":\"#mapped:example.org\",\"fields\":{\"room\":\"matrix-spec\"},"
+                    + "\"protocol\":\"gitter\",\"future\":true}]"),
+            new Response(
+                200,
+                "[{\"alias\":\"#mapped:example.org\",\"fields\":{\"room\":\"matrix-spec\"},"
+                    + "\"protocol\":\"gitter\"}]"),
+            new Response(
+                200,
+                "[{\"fields\":{\"username\":\"@bob\"},\"protocol\":\"gitter\","
+                    + "\"userid\":\"@bob:example.org\"}]"),
+            new Response(
+                200,
+                "[{\"fields\":{\"username\":\"@bob\"},\"protocol\":\"gitter\","
+                    + "\"userid\":\"@bob:example.org\"}]"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+
+    ThirdPartyProtocols protocols = client.getThirdPartyProtocols();
+    ThirdPartyProtocol protocol = client.getThirdPartyProtocol("gitter/example");
+    var aliasLocations = client.getThirdPartyLocations(RoomAlias.of("#matrix:example.org"));
+    var fieldLocations = client.getThirdPartyLocations("gitter", Map.of("room", "matrix spec"));
+    var mappedUsers = client.getThirdPartyUsers(UserId.of("@bob:example.org"));
+    var fieldUsers = client.getThirdPartyUsers("gitter", Map.of("username", "@bob"));
+
+    assertThat(protocols.protocols()).containsOnlyKeys("gitter");
+    assertThat(protocol.raw().asObject().get("future_protocol_field").asBoolean()).isTrue();
+    assertThat(aliasLocations.locations()).hasSize(1);
+    assertThat(aliasLocations.locations().getFirst().raw().asObject().get("future").asBoolean())
+        .isTrue();
+    assertThat(fieldLocations.locations()).hasSize(1);
+    assertThat(mappedUsers.users())
+        .singleElement()
+        .extracting(user -> user.userId())
+        .isEqualTo(UserId.of("@bob:example.org"));
+    assertThat(fieldUsers.users()).hasSize(1);
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/thirdparty/protocols");
+    assertThat(requests.get(2).url())
+        .endsWith("/_matrix/client/v3/thirdparty/protocol/gitter%2Fexample");
+    assertThat(requests.get(3).url())
+        .endsWith("/_matrix/client/v3/thirdparty/location?alias=%23matrix%3Aexample.org");
+    assertThat(requests.get(4).url())
+        .endsWith("/_matrix/client/v3/thirdparty/location/gitter?room=matrix%20spec");
+    assertThat(requests.get(5).url())
+        .endsWith("/_matrix/client/v3/thirdparty/user?userid=%40bob%3Aexample.org");
+    assertThat(requests.get(6).url())
+        .endsWith("/_matrix/client/v3/thirdparty/user/gitter?username=%40bob");
+    assertThat(requests.getLast().headers()).containsEntry("Authorization", "Bearer secret-token");
+  }
+
+  @Test
+  void thirdPartyLookupSupportsEmptyResultsAndRejectsMalformedResponses() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client = client(requests, new Response(200, LOGIN_OK), new Response(200, "{}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    assertThat(client.getThirdPartyProtocols().protocols()).isEmpty();
+
+    var malformedArray = JsonParser.parse("[]");
+    var malformedObject = JsonParser.parse("{}");
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> ThirdPartyProtocols.from(malformedArray));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> ThirdPartyProtocol.from(malformedObject));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> ThirdPartyLocations.from(malformedObject));
+    assertThatExceptionOfType(IllegalArgumentException.class)
+        .isThrownBy(() -> ThirdPartyUsers.from(malformedObject));
+  }
+
+  @Test
+  void thirdPartyLookupRequiresAuthenticationAndMapsServerErrors() {
+    MatrixClient unauthenticated = MatrixClient.builder("https://matrix.example.org").build();
+    RoomAlias alias = RoomAlias.of("#a:hs");
+    UserId userId = UserId.of("@a:hs");
+    assertThatThrownBy(unauthenticated::getThirdPartyProtocols)
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyProtocol("irc"))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyLocations(alias))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyLocations("irc", Map.of()))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyUsers(userId))
+        .isInstanceOf(AuthenticationException.class);
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyUsers("irc", Map.of()))
+        .isInstanceOf(AuthenticationException.class);
+
+    MatrixClient notFound =
+        client(
+            new ArrayList<>(),
+            new Response(200, LOGIN_OK),
+            new Response(404, "{\"errcode\":\"M_NOT_FOUND\",\"error\":\"unknown protocol\"}"));
+    notFound.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    assertThatExceptionOfType(MatrixServerException.class)
+        .isThrownBy(() -> notFound.getThirdPartyProtocol("unknown"))
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getErrcode)
+        .isEqualTo("M_NOT_FOUND");
+  }
+
+  private static String protocolJson() {
+    return "{\"field_types\":{\"room\":{\"placeholder\":\"room name\","
+        + "\"regexp\":\"[^ ]+\"}},\"icon\":\"mxc://example.org/icon\","
+        + "\"instances\":[{\"desc\":\"Gitter\",\"fields\":{},"
+        + "\"network_id\":\"gitter\"}],\"location_fields\":[\"room\"],"
+        + "\"user_fields\":[\"username\"],\"future_protocol_field\":true}";
+  }
+
+  private static String protocolMapJson() {
+    return "{\"gitter\":" + protocolJson() + "}";
   }
 
   private static MatrixClient client(List<Request> requests, Response... responses) {

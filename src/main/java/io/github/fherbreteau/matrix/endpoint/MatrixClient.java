@@ -143,6 +143,7 @@ public final class MatrixClient {
   private static final String DIRECTORY_PATH = "_matrix/client/v3/directory/room/";
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String USERS_PATH = "_matrix/client/v3/users/";
+  private static final String USER_ROOMS_SEGMENT = "/rooms/";
   private static final String ROOM_ID_FIELD = "room_id";
   private static final String FILE_TYPE = "application/octet-stream";
 
@@ -2151,7 +2152,7 @@ public final class MatrixClient {
    */
   public RoomTags getRoomTags(RoomId roomId) {
     String path =
-        USER_PATH + encode(currentUserId()) + "/rooms/" + encode(roomId.value()) + "/tags";
+        USER_PATH + encode(currentUserId()) + USER_ROOMS_SEGMENT + encode(roomId.value()) + "/tags";
     return RoomTags.from(authenticated("GET", path, null));
   }
 
@@ -2184,13 +2185,13 @@ public final class MatrixClient {
    *     specification</a>
    */
   public void deleteRoomTag(RoomId roomId, String tagName) {
-    authenticated("DELETE", roomTagPath(roomId, tagName), null);
+    authenticated(HTTP_DELETE, roomTagPath(roomId, tagName), null);
   }
 
   private String roomTagPath(RoomId roomId, String tagName) {
     return USER_PATH
         + encode(currentUserId())
-        + "/rooms/"
+        + USER_ROOMS_SEGMENT
         + encode(roomId.value())
         + "/tags/"
         + encode(tagName);

@@ -16,10 +16,12 @@ import java.util.Map;
  */
 public record RoomTag(Map<String, JsonValue> properties) {
 
+  private static final String ORDER_FIELD = "order";
+
   /** Copies tag properties into an immutable insertion-ordered map. */
   public RoomTag {
     properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
-    validateOrder(properties.get("order"));
+    validateOrder(properties.get(ORDER_FIELD));
   }
 
   private static void validateOrder(JsonValue order) {
@@ -49,7 +51,7 @@ public record RoomTag(Map<String, JsonValue> properties) {
   public static RoomTag withOrder(double order) {
     JsonNumber orderValue = JsonNumber.of(order);
     validateOrder(orderValue);
-    return new RoomTag(Map.of("order", orderValue));
+    return new RoomTag(Map.of(ORDER_FIELD, orderValue));
   }
 
   /**
@@ -74,7 +76,7 @@ public record RoomTag(Map<String, JsonValue> properties) {
    * @return the ordering value, or {@code null} if not set
    */
   public Double order() {
-    JsonValue value = properties.get("order");
+    JsonValue value = properties.get(ORDER_FIELD);
     return value == null ? null : value.asDouble();
   }
 

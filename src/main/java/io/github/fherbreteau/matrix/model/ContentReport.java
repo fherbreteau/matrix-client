@@ -12,6 +12,8 @@ import java.util.Objects;
  */
 public record ContentReport(String reason) {
 
+  private static final String REASON_FIELD = "reason";
+
   /**
    * Creates a report without a reason.
    *
@@ -28,7 +30,7 @@ public record ContentReport(String reason) {
    * @return the report
    */
   public static ContentReport withReason(String reason) {
-    return new ContentReport(Objects.requireNonNull(reason, "reason"));
+    return new ContentReport(Objects.requireNonNull(reason, REASON_FIELD));
   }
 
   /**
@@ -39,7 +41,7 @@ public record ContentReport(String reason) {
   public JsonObject toJson() {
     JsonObject body = new JsonObject();
     if (reason != null) {
-      body.put("reason", reason);
+      body.put(REASON_FIELD, reason);
     }
     return body;
   }
@@ -55,7 +57,7 @@ public record ContentReport(String reason) {
     if (value == null || !value.isObject()) {
       throw new IllegalArgumentException("content report must be a JSON object");
     }
-    JsonValue reasonValue = value.asObject().get("reason");
+    JsonValue reasonValue = value.asObject().get(REASON_FIELD);
     if (reasonValue != null && !reasonValue.isString()) {
       throw new IllegalArgumentException("report reason must be a string");
     }

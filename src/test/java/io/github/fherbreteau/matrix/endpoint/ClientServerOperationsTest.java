@@ -425,8 +425,10 @@ class ClientServerOperationsTest {
                     new Response(403, "{\"errcode\":\"M_FORBIDDEN\",\"error\":\"No\"}")))
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
+    RoomId roomId = RoomId.of("!a:b");
+    ContentReport report = ContentReport.withReason("abuse");
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.reportRoom(RoomId.of("!a:b"), ContentReport.withReason("abuse")))
+        .isThrownBy(() -> client.reportRoom(roomId, report))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_FORBIDDEN");
@@ -440,10 +442,13 @@ class ClientServerOperationsTest {
             .build();
     client.login(new PasswordCredentials("@alice:matrix.org", "s3cret"));
 
-    assertThatThrownBy(() -> client.reportRoom(RoomId.of("!a:b"), ContentReport.empty()))
+    RoomId roomId = RoomId.of("!a:b");
+    UserId userId = UserId.of("@bob:matrix.org");
+    ContentReport report = ContentReport.empty();
+    assertThatThrownBy(() -> client.reportRoom(roomId, report))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("report reason is required");
-    assertThatThrownBy(() -> client.reportUser(UserId.of("@bob:matrix.org"), ContentReport.empty()))
+    assertThatThrownBy(() -> client.reportUser(userId, report))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("report reason is required");
   }
@@ -455,18 +460,21 @@ class ClientServerOperationsTest {
             .transport(stub -> new Response(200, "{}"))
             .build();
     RoomId roomId = RoomId.of("!a:b");
+    UserId userId = UserId.of("@bob:matrix.org");
+    RoomTag tag = RoomTag.empty();
+    ContentReport report = ContentReport.withReason("test");
+    EventId eventId = EventId.of("$event");
     assertThatThrownBy(() -> client.getRoomTags(roomId))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.setRoomTag(roomId, "m.favourite", RoomTag.empty()))
+    assertThatThrownBy(() -> client.setRoomTag(roomId, "m.favourite", tag))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> client.deleteRoomTag(roomId, "m.favourite"))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.reportRoom(roomId, ContentReport.empty()))
+    assertThatThrownBy(() -> client.reportRoom(roomId, report))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(
-            () -> client.reportEvent(roomId, EventId.of("$event"), ContentReport.empty()))
+    assertThatThrownBy(() -> client.reportEvent(roomId, eventId, report))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> client.reportUser(UserId.of("@bob:matrix.org"), ContentReport.empty()))
+    assertThatThrownBy(() -> client.reportUser(userId, report))
         .isInstanceOf(AuthenticationException.class);
   }
 

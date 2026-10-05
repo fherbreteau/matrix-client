@@ -31,7 +31,8 @@ class RoomTagTest {
     RoomTag copied = new RoomTag(properties);
     properties.put("later", JsonParser.parse("true"));
     assertThat(copied.properties()).containsOnlyKeys("order");
-    assertThatThrownBy(() -> copied.properties().put("later", JsonParser.parse("true")))
+    JsonValue value = JsonParser.parse("true");
+    assertThatThrownBy(() -> copied.properties().put("later", value))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 

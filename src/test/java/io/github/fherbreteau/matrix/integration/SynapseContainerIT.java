@@ -292,8 +292,7 @@ class SynapseContainerIT {
     assertThat(locations.locations()).isEmpty();
     ThirdPartyUsers users = client.getThirdPartyUsers(UserId.of("@integration-member:localhost"));
     assertThat(users.users()).isEmpty();
-    assertThat(client.getThirdPartyLocations("missing-protocol", Map.of()).locations())
-        .isEmpty();
+    assertThat(client.getThirdPartyLocations("missing-protocol", Map.of()).locations()).isEmpty();
     assertThat(client.getThirdPartyUsers("missing-protocol", Map.of()).users()).isEmpty();
   }
 

@@ -284,7 +284,7 @@ class SynapseContainerIT {
   }
 
   @Test
-  void exercicesMediaUploadAndPreview() throws IOException {
+  void exercisesMediaUploadAndThumbnailDownload() throws IOException {
     try (var stream = getClass().getResourceAsStream("/sample.png")) {
       MxcUri uri = client.uploadMedia(stream, 21_485, "image/png", "sample.png");
 
@@ -294,6 +294,17 @@ class SynapseContainerIT {
         byte[] content = thumbnail.body().readAllBytes();
         assertThat(content).hasSizeLessThan(15_000);
       }
+    }
+  }
+
+  @Test
+  void previewsAndDownloadsImageFromExternalUrl() throws IOException {
+    var preview = client.getUrlPreview("https://dummyfiles.dev/image/800x600");
+
+    assertThat(preview.imageUri()).isNotNull();
+    try (MediaDownload image = client.downloadMedia(preview.imageUri(), 1_000_000)) {
+      assertThat(image.contentType()).startsWith("image/");
+      assertThat(image.body().readAllBytes()).isNotEmpty();
     }
   }
 
@@ -410,6 +421,27 @@ class SynapseContainerIT {
         registration_shared_secret: "%s"
         public_baseurl: "http://localhost:8008/"
         default_room_version: "10"
+        url_preview_enabled: true
+        url_preview_ip_range_blacklist:
+        - 127.0.0.0/8
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 100.64.0.0/10
+        - 192.0.0.0/24
+        - 169.254.0.0/16
+        - 192.88.99.0/24
+        - 198.18.0.0/15
+        - 192.0.2.0/24
+        - 198.51.100.0/24
+        - 203.0.113.0/24
+        - 224.0.0.0/4
+        - ::1/128
+        - fe80::/10
+        - fc00::/7
+        - 2001:db8::/32
+        - ff00::/8
+        - fec0::/10
         allow_public_rooms_without_auth: true
         presence:
           enabled: true

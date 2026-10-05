@@ -303,7 +303,8 @@ class MediaReservationPreviewTest {
     assertThat(requests.getLast().method()).isEqualTo("GET");
     assertThat(requests.getLast().url())
         .endsWith(
-            "/_matrix/client/v1/media/preview_url?url=https%3A%2F%2Fexample.org%2Fa%20b%3Fx%3D1&ts=123");
+            "/_matrix/client/v1/media/preview_url?"
+                + "url=https%3A%2F%2Fexample.org%2Fa%20b%3Fx%3D1&ts=123");
     assertThat(requests.getLast().headers()).containsEntry("Authorization", "Bearer secret-token");
   }
 

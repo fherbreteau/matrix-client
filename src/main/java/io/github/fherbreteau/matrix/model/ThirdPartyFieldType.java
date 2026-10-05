@@ -12,6 +12,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  */
 public record ThirdPartyFieldType(String placeholder, String regexp, JsonValue raw) {
 
+  private static final String DESCRIPTION = "third-party field type";
+
   /**
    * Parses field type metadata.
    *
@@ -20,10 +22,10 @@ public record ThirdPartyFieldType(String placeholder, String regexp, JsonValue r
    * @throws IllegalArgumentException if required fields are missing or malformed
    */
   public static ThirdPartyFieldType from(JsonValue value) {
-    JsonObject object = ModelJson.object(value, "third-party field type");
+    JsonObject object = ModelJson.object(value, DESCRIPTION);
     return new ThirdPartyFieldType(
-        ModelJson.requiredString(object, "placeholder", "third-party field type"),
-        ModelJson.requiredString(object, "regexp", "third-party field type"),
+        ModelJson.requiredString(object, "placeholder", DESCRIPTION),
+        ModelJson.requiredString(object, "regexp", DESCRIPTION),
         value);
   }
 }

@@ -265,14 +265,16 @@ class DiscoverySearchTest {
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
     assertThat(client.getThirdPartyProtocols().protocols()).isEmpty();
 
+    var malformedArray = JsonParser.parse("[]");
+    var malformedObject = JsonParser.parse("{}");
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> ThirdPartyProtocols.from(JsonParser.parse("[]")));
+        .isThrownBy(() -> ThirdPartyProtocols.from(malformedArray));
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> ThirdPartyProtocol.from(JsonParser.parse("{}")));
+        .isThrownBy(() -> ThirdPartyProtocol.from(malformedObject));
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> ThirdPartyLocations.from(JsonParser.parse("{}")));
+        .isThrownBy(() -> ThirdPartyLocations.from(malformedObject));
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> ThirdPartyUsers.from(JsonParser.parse("{}")));
+        .isThrownBy(() -> ThirdPartyUsers.from(malformedObject));
   }
 
   @Test

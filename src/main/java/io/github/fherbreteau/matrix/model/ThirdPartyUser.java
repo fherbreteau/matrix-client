@@ -12,6 +12,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
  */
 public record ThirdPartyUser(JsonValue fields, String protocol, UserId userId, JsonValue raw) {
 
+  private static final String DESCRIPTION = "third-party user";
+
   /**
    * Parses a third-party user.
    *
@@ -20,15 +22,15 @@ public record ThirdPartyUser(JsonValue fields, String protocol, UserId userId, J
    * @throws IllegalArgumentException if required fields are missing or malformed
    */
   public static ThirdPartyUser from(JsonValue value) {
-    JsonObject object = ModelJson.object(value, "third-party user");
+    JsonObject object = ModelJson.object(value, DESCRIPTION);
     JsonValue fields = object.get("fields");
     if (fields == null || !fields.isObject()) {
-      throw new IllegalArgumentException("third-party user must contain fields object");
+      throw new IllegalArgumentException(DESCRIPTION + " must contain fields object");
     }
     return new ThirdPartyUser(
         fields,
-        ModelJson.requiredString(object, "protocol", "third-party user"),
-        UserId.of(ModelJson.requiredString(object, "userid", "third-party user")),
+        ModelJson.requiredString(object, "protocol", DESCRIPTION),
+        UserId.of(ModelJson.requiredString(object, "userid", DESCRIPTION)),
         value);
   }
 }

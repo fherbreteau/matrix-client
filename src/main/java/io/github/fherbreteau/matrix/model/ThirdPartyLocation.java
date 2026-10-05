@@ -13,6 +13,8 @@ import io.github.fherbreteau.matrix.json.JsonValue;
 public record ThirdPartyLocation(
     RoomAlias alias, JsonValue fields, String protocol, JsonValue raw) {
 
+  private static final String DESCRIPTION = "third-party location";
+
   /**
    * Parses a third-party location.
    *
@@ -21,15 +23,15 @@ public record ThirdPartyLocation(
    * @throws IllegalArgumentException if required fields are missing or malformed
    */
   public static ThirdPartyLocation from(JsonValue value) {
-    JsonObject object = ModelJson.object(value, "third-party location");
+    JsonObject object = ModelJson.object(value, DESCRIPTION);
     JsonValue fields = object.get("fields");
     if (fields == null || !fields.isObject()) {
-      throw new IllegalArgumentException("third-party location must contain fields object");
+      throw new IllegalArgumentException(DESCRIPTION + " must contain fields object");
     }
     return new ThirdPartyLocation(
-        RoomAlias.of(ModelJson.requiredString(object, "alias", "third-party location")),
+        RoomAlias.of(ModelJson.requiredString(object, "alias", DESCRIPTION)),
         fields,
-        ModelJson.requiredString(object, "protocol", "third-party location"),
+        ModelJson.requiredString(object, "protocol", DESCRIPTION),
         value);
   }
 }

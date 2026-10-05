@@ -39,6 +39,9 @@ import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.RoomTag;
 import io.github.fherbreteau.matrix.model.RoomTags;
 import io.github.fherbreteau.matrix.model.SyncOptions;
+import io.github.fherbreteau.matrix.model.ThirdPartyLocations;
+import io.github.fherbreteau.matrix.model.ThirdPartyProtocols;
+import io.github.fherbreteau.matrix.model.ThirdPartyUsers;
 import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.retry.RetryPolicy;
@@ -51,6 +54,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -272,6 +276,25 @@ class SynapseContainerIT {
     } finally {
       leaveAndForget(roomId);
     }
+  }
+
+  @Test
+  void exercisesThirdPartyLookups() {
+    ThirdPartyProtocols protocols = client.getThirdPartyProtocols();
+    assertThat(protocols.raw().isObject()).isTrue();
+    protocols.protocols().keySet().stream()
+        .findFirst()
+        .ifPresent(protocol -> assertThat(client.getThirdPartyProtocol(protocol)).isNotNull());
+    assertThatThrownBy(() -> client.getThirdPartyProtocol("missing-protocol"))
+        .isInstanceOf(RuntimeException.class);
+    ThirdPartyLocations locations =
+        client.getThirdPartyLocations(RoomAlias.of("#missing:localhost"));
+    assertThat(locations.locations()).isEmpty();
+    ThirdPartyUsers users = client.getThirdPartyUsers(UserId.of("@integration-member:localhost"));
+    assertThat(users.users()).isEmpty();
+    assertThat(client.getThirdPartyLocations("missing-protocol", Map.of()).locations())
+        .isEmpty();
+    assertThat(client.getThirdPartyUsers("missing-protocol", Map.of()).users()).isEmpty();
   }
 
   @Test

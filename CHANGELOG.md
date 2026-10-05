@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🚀 Features
 
+- **Client-Server third-party lookups**: Add typed protocol metadata, location, and user lookup APIs with encoded query fields (#57).
+
 - **Room tags and content reporting APIs**: Add typed room-tag retrieval and mutation plus room, event, and user reporting methods (#56).
 
 - **Media reservation and URL preview APIs**: Add authenticated media-ID reservation and bounded streaming uploads to reserved MXC URIs, plus typed URL-preview metadata preserving OpenGraph extensions; Synapse integration covers reservation, upload, preview metadata, and image download (#55, #73).

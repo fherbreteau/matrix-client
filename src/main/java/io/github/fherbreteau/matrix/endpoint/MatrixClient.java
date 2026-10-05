@@ -54,6 +54,10 @@ import io.github.fherbreteau.matrix.model.SpaceHierarchyOptions;
 import io.github.fherbreteau.matrix.model.SpaceHierarchyResponse;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.SyncResponse;
+import io.github.fherbreteau.matrix.model.ThirdPartyLocations;
+import io.github.fherbreteau.matrix.model.ThirdPartyProtocol;
+import io.github.fherbreteau.matrix.model.ThirdPartyProtocols;
+import io.github.fherbreteau.matrix.model.ThirdPartyUsers;
 import io.github.fherbreteau.matrix.model.ThreadsOptions;
 import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.model.ThreePidResponse;
@@ -144,6 +148,7 @@ public final class MatrixClient {
   private static final String PROFILE_PATH = "_matrix/client/v3/profile/";
   private static final String USERS_PATH = "_matrix/client/v3/users/";
   private static final String USER_ROOMS_SEGMENT = "/rooms/";
+  private static final String THIRD_PARTY_PATH = "_matrix/client/v3/thirdparty/";
   private static final String ROOM_ID_FIELD = "room_id";
   private static final String FILE_TYPE = "application/octet-stream";
 
@@ -1933,6 +1938,116 @@ public final class MatrixClient {
   public SearchResponse search(SearchRequest request) {
     String path = appendQuery("_matrix/client/v3/search", request.toQuery());
     return SearchResponse.from(authenticated("POST", path, request.toJson()));
+  }
+
+  /**
+   * Retrieves the third-party protocols supported by the homeserver.
+   *
+   * @return protocol metadata keyed by protocol name
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3thirdpartyprotocols">Matrix
+   *     specification</a>
+   */
+  public ThirdPartyProtocols getThirdPartyProtocols() {
+    return ThirdPartyProtocols.from(authenticated("GET", THIRD_PARTY_PATH + "protocols", null));
+  }
+
+  /**
+   * Retrieves metadata for one third-party protocol.
+   *
+   * @param protocol the protocol name
+   * @return protocol metadata
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3thirdpartyprotocolprotocol">Matrix
+   *     specification</a>
+   */
+  public ThirdPartyProtocol getThirdPartyProtocol(String protocol) {
+    return ThirdPartyProtocol.from(
+        authenticated("GET", THIRD_PARTY_PATH + "protocol/" + encode(protocol), null));
+  }
+
+  /**
+   * Looks up Matrix room aliases that map to a third-party location.
+   *
+   * @param alias the Matrix room alias to look up
+   * @return matching third-party locations
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3thirdpartylocation">Matrix
+   *     specification</a>
+   */
+  public ThirdPartyLocations getThirdPartyLocations(RoomAlias alias) {
+    JsonObject query = new JsonObject().put("alias", alias.value());
+    return thirdPartyLocations(appendQuery(THIRD_PARTY_PATH + "location", query));
+  }
+
+  /**
+   * Looks up Matrix room aliases matching third-party location fields.
+   *
+   * @param protocol the third-party protocol name
+   * @param fields custom protocol fields, or {@code null} if none
+   * @return matching third-party locations
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3thirdpartylocationprotocol">Matrix
+   *     specification</a>
+   */
+  public ThirdPartyLocations getThirdPartyLocations(String protocol, Map<String, String> fields) {
+    String path = THIRD_PARTY_PATH + "location/" + encode(protocol);
+    return thirdPartyLocations(appendFields(path, fields));
+  }
+
+  private ThirdPartyLocations thirdPartyLocations(String path) {
+    return ThirdPartyLocations.from(authenticated("GET", path, null));
+  }
+
+  /**
+   * Looks up third-party users associated with a Matrix user ID.
+   *
+   * @param userId the Matrix user ID to look up
+   * @return matching third-party users
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3thirdpartyuser">Matrix
+   *     specification</a>
+   */
+  public ThirdPartyUsers getThirdPartyUsers(UserId userId) {
+    JsonObject query = new JsonObject().put("userid", userId.value());
+    return ThirdPartyUsers.from(
+        authenticated("GET", appendQuery(THIRD_PARTY_PATH + "user", query), null));
+  }
+
+  /**
+   * Looks up Matrix user IDs matching third-party user fields.
+   *
+   * @param protocol the third-party protocol name
+   * @param fields custom protocol fields, or {@code null} if none
+   * @return matching third-party users
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3thirdpartyuserprotocol">Matrix
+   *     specification</a>
+   */
+  public ThirdPartyUsers getThirdPartyUsers(String protocol, Map<String, String> fields) {
+    String path = THIRD_PARTY_PATH + "user/" + encode(protocol);
+    return ThirdPartyUsers.from(authenticated("GET", appendFields(path, fields), null));
+  }
+
+  private static String appendFields(String path, Map<String, String> fields) {
+    if (fields == null || fields.isEmpty()) {
+      return path;
+    }
+    JsonObject query = new JsonObject();
+    fields.forEach(query::put);
+    return appendQuery(path, query);
   }
 
   /**

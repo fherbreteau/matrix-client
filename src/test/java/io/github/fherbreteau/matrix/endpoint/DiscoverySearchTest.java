@@ -8,6 +8,7 @@ import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.error.MatrixServerException;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.model.MutualRoomsResponse;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
 import io.github.fherbreteau.matrix.model.RoomAlias;
 import io.github.fherbreteau.matrix.model.RoomEventsSearchCriteria;
@@ -306,6 +307,59 @@ class DiscoverySearchTest {
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_NOT_FOUND");
+  }
+
+  @Test
+  void mutualRoomsUsesEncodedUserAndOpaquePagination() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        client(
+            requests,
+            new Response(200, LOGIN_OK),
+            new Response(
+                200,
+                "{\"count\":2,\"joined\":[\"!one:example.org\"],"
+                    + "\"next_batch\":\"opaque +/=\",\"future\":true}"),
+            new Response(200, "{\"count\":2,\"joined\":[]}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    UserId target = UserId.of("@bob:example.org");
+
+    MutualRoomsResponse firstPage = client.getMutualRooms(target);
+    MutualRoomsResponse lastPage = client.getMutualRooms(target, firstPage.nextBatch());
+
+    assertThat(firstPage.count()).isEqualTo(2);
+    assertThat(firstPage.joined()).containsExactly(RoomId.of("!one:example.org"));
+    assertThat(firstPage.hasNextBatch()).isTrue();
+    assertThat(firstPage.raw().asObject().get("future").asBoolean()).isTrue();
+    assertThat(lastPage.joined()).isEmpty();
+    assertThat(lastPage.hasNextBatch()).isFalse();
+    assertThat(requests.get(1).url())
+        .endsWith("/_matrix/client/v1/mutual_rooms?user_id=%40bob%3Aexample.org");
+    assertThat(requests.get(2).url())
+        .endsWith(
+            "/_matrix/client/v1/mutual_rooms?user_id=%40bob%3Aexample.org"
+                + "&from=opaque%20%2B%2F%3D");
+  }
+
+  @Test
+  void mutualRoomsRequiresAuthenticationAndPreservesServerErrors() {
+    MatrixClient unauthenticated = MatrixClient.builder("https://matrix.example.org").build();
+    UserId targetUser = UserId.of("@bob:example.org");
+    assertThatThrownBy(() -> unauthenticated.getMutualRooms(targetUser))
+        .isInstanceOf(AuthenticationException.class);
+
+    MatrixClient client =
+        client(
+            new ArrayList<>(),
+            new Response(200, LOGIN_OK),
+            new Response(400, "{\"errcode\":\"M_INVALID_PARAM\",\"error\":\"bad from\"}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    String invalidToken = "invalid";
+    assertThatExceptionOfType(MatrixServerException.class)
+        .isThrownBy(() -> client.getMutualRooms(targetUser, invalidToken))
+        .asInstanceOf(type(MatrixServerException.class))
+        .extracting(MatrixServerException::getErrcode)
+        .isEqualTo("M_INVALID_PARAM");
   }
 
   private static String protocolJson() {

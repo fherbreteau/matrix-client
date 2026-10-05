@@ -2,10 +2,15 @@ package io.github.fherbreteau.matrix.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
+import io.github.fherbreteau.matrix.json.JsonNull;
+import io.github.fherbreteau.matrix.json.JsonNumber;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonString;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
@@ -302,6 +307,40 @@ class SynapseContainerIT {
     var preview = client.getUrlPreview("https://dummyfiles.dev/image/800x600");
 
     assertThat(preview.imageUri()).isNotNull();
+    assertThat(preview.imageSize()).isBetween(21000L, 22000L);
+    assertThat(preview.properties())
+        .extractingByKey("og:description", type(JsonValue.class))
+        .isEqualTo(JsonNull.INSTANCE);
+    assertThat(preview.properties())
+        .extractingByKey("og:image", type(JsonValue.class))
+        .isInstanceOf(JsonString.class)
+        .asInstanceOf(type(JsonString.class))
+        .extracting(JsonString::asString)
+        .isEqualTo(preview.imageUri().toString());
+    assertThat(preview.properties())
+        .extractingByKey("og:image:type", type(JsonValue.class))
+        .isInstanceOf(JsonString.class)
+        .asInstanceOf(type(JsonString.class))
+        .extracting(JsonString::asString)
+        .isEqualTo("image/png");
+    assertThat(preview.properties())
+        .extractingByKey("matrix:image:size", type(JsonValue.class))
+        .isInstanceOf(JsonNumber.class)
+        .asInstanceOf(type(JsonNumber.class))
+        .extracting(JsonNumber::asLong)
+        .isEqualTo(preview.imageSize());
+    assertThat(preview.properties())
+        .extractingByKey("og:image:width", type(JsonValue.class))
+        .isInstanceOf(JsonNumber.class)
+        .asInstanceOf(type(JsonNumber.class))
+        .extracting(JsonNumber::asLong)
+        .isEqualTo(800L);
+    assertThat(preview.properties())
+        .extractingByKey("og:image:height", type(JsonValue.class))
+        .isInstanceOf(JsonNumber.class)
+        .asInstanceOf(type(JsonNumber.class))
+        .extracting(JsonNumber::asLong)
+        .isEqualTo(600L);
     try (MediaDownload image = client.downloadMedia(preview.imageUri(), 1_000_000)) {
       assertThat(image.contentType()).startsWith("image/");
       assertThat(image.body().readAllBytes()).isNotEmpty();

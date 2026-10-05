@@ -2,7 +2,10 @@ package io.github.fherbreteau.matrix.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.InstanceOfAssertFactories.BOOLEAN;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import org.junit.jupiter.api.Test;
@@ -20,8 +23,12 @@ class MediaUploadReservationTest {
     assertThat(reservation.contentUri()).isEqualTo(MxcUri.of("example.org", "media_id-1"));
     assertThat(reservation.unusedExpiresAt()).isEqualTo(9007199254740993L);
     assertThat(reservation.raw()).isSameAs(json);
-    assertThat(
-            reservation.raw().asObject().get("future_field").asObject().get("enabled").asBoolean())
+    assertThat(reservation.raw())
+        .extracting(JsonValue::asObject, type(JsonObject.class))
+        .extracting(o -> o.get("future_field"), type(JsonValue.class))
+        .extracting(JsonValue::asObject, type(JsonObject.class))
+        .extracting(o -> o.get("enabled"), type(JsonValue.class))
+        .extracting(JsonValue::asBoolean, BOOLEAN)
         .isTrue();
   }
 

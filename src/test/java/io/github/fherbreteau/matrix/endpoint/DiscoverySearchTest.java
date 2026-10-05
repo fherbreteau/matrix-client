@@ -344,7 +344,8 @@ class DiscoverySearchTest {
   @Test
   void mutualRoomsRequiresAuthenticationAndPreservesServerErrors() {
     MatrixClient unauthenticated = MatrixClient.builder("https://matrix.example.org").build();
-    assertThatThrownBy(() -> unauthenticated.getMutualRooms(UserId.of("@bob:example.org")))
+    UserId targetUser = UserId.of("@bob:example.org");
+    assertThatThrownBy(() -> unauthenticated.getMutualRooms(targetUser))
         .isInstanceOf(AuthenticationException.class);
 
     MatrixClient client =
@@ -353,8 +354,9 @@ class DiscoverySearchTest {
             new Response(200, LOGIN_OK),
             new Response(400, "{\"errcode\":\"M_INVALID_PARAM\",\"error\":\"bad from\"}"));
     client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    String invalidToken = "invalid";
     assertThatExceptionOfType(MatrixServerException.class)
-        .isThrownBy(() -> client.getMutualRooms(UserId.of("@bob:example.org"), "invalid"))
+        .isThrownBy(() -> client.getMutualRooms(targetUser, invalidToken))
         .asInstanceOf(type(MatrixServerException.class))
         .extracting(MatrixServerException::getErrcode)
         .isEqualTo("M_INVALID_PARAM");

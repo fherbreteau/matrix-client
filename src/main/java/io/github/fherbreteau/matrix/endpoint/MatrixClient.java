@@ -2064,7 +2064,7 @@ public final class MatrixClient {
    *     specification</a>
    */
   public MutualRoomsResponse getMutualRooms(UserId userId, String from) {
-    JsonObject query = new JsonObject().put("user_id", userId.value());
+    JsonObject query = new JsonObject().put(USER_ID_FIELD, userId.value());
     if (from != null) {
       query.put("from", from);
     }

@@ -51,26 +51,25 @@ class MutualRoomsResponseTest {
 
   @Test
   void rejectsMalformedRequiredAndOptionalFields() {
+    var malformedArray = JsonParser.parse("[]");
     var malformedObject = JsonParser.parse("{}");
+    var negativeCount = JsonParser.parse("{\"count\":-1,\"joined\":[]}");
+    var invalidJoined = JsonParser.parse("{\"count\":0,\"joined\":[1]}");
+    var invalidNextBatch = JsonParser.parse("{\"count\":0,\"joined\":[],\"next_batch\":1}");
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> MutualRoomsResponse.from(JsonParser.parse("[]")))
+        .isThrownBy(() -> MutualRoomsResponse.from(malformedArray))
         .withMessage("mutual rooms response must be a JSON object");
     assertThatExceptionOfType(IllegalArgumentException.class)
         .isThrownBy(() -> MutualRoomsResponse.from(malformedObject))
         .withMessage("mutual rooms response is missing required fields");
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () -> MutualRoomsResponse.from(JsonParser.parse("{\"count\":-1,\"joined\":[]}")))
+        .isThrownBy(() -> MutualRoomsResponse.from(negativeCount))
         .withMessage("mutual rooms response is missing required fields");
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () -> MutualRoomsResponse.from(JsonParser.parse("{\"count\":0,\"joined\":[1]}")))
+        .isThrownBy(() -> MutualRoomsResponse.from(invalidJoined))
         .withMessage("mutual rooms joined must contain room IDs");
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(
-            () ->
-                MutualRoomsResponse.from(
-                    JsonParser.parse("{\"count\":0,\"joined\":[],\"next_batch\":1}")))
+        .isThrownBy(() -> MutualRoomsResponse.from(invalidNextBatch))
         .withMessage("mutual rooms next_batch must be a string");
   }
 }

@@ -280,15 +280,17 @@ class DiscoverySearchTest {
   @Test
   void thirdPartyLookupRequiresAuthenticationAndMapsServerErrors() {
     MatrixClient unauthenticated = MatrixClient.builder("https://matrix.example.org").build();
+    RoomAlias alias = RoomAlias.of("#a:hs");
+    UserId userId = UserId.of("@a:hs");
     assertThatThrownBy(unauthenticated::getThirdPartyProtocols)
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> unauthenticated.getThirdPartyProtocol("irc"))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> unauthenticated.getThirdPartyLocations(RoomAlias.of("#a:hs")))
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyLocations(alias))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> unauthenticated.getThirdPartyLocations("irc", Map.of()))
         .isInstanceOf(AuthenticationException.class);
-    assertThatThrownBy(() -> unauthenticated.getThirdPartyUsers(UserId.of("@a:hs")))
+    assertThatThrownBy(() -> unauthenticated.getThirdPartyUsers(userId))
         .isInstanceOf(AuthenticationException.class);
     assertThatThrownBy(() -> unauthenticated.getThirdPartyUsers("irc", Map.of()))
         .isInstanceOf(AuthenticationException.class);

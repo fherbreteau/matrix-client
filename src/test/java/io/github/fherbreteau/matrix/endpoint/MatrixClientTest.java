@@ -96,15 +96,15 @@ class MatrixClientTest {
                 request ->
                     new HttpTransport.Response(
                         429,
-                        Map.of("retry-after", "30"),
+                        Map.of("retry-after", "1"),
                         "{\"errcode\":\"M_LIMIT_EXCEEDED\",\"error\":\"Too many\"}",
-                        30000L))
+                        1000L))
             .build();
     var exception =
         assertThatExceptionOfType(RateLimitedException.class)
             .isThrownBy(client::getVersions)
             .actual();
-    assertThat(exception).extracting(RateLimitedException::getRetryAfterMs).isEqualTo(30000L);
+    assertThat(exception).extracting(RateLimitedException::getRetryAfterMs).isEqualTo(1000L);
     assertThat(exception)
         .extracting(RateLimitedException::getErrcode)
         .isEqualTo("M_LIMIT_EXCEEDED");

@@ -23,6 +23,7 @@ import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.MediaDownload;
+import io.github.fherbreteau.matrix.model.MediaUploadReservation;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
@@ -56,6 +57,7 @@ import io.github.fherbreteau.matrix.model.ThreePidResponse;
 import io.github.fherbreteau.matrix.model.ThreePidTokenRequest;
 import io.github.fherbreteau.matrix.model.ThreePidTokenResponse;
 import io.github.fherbreteau.matrix.model.ThumbnailMethod;
+import io.github.fherbreteau.matrix.model.UrlPreview;
 import io.github.fherbreteau.matrix.model.UserDirectorySearchRequest;
 import io.github.fherbreteau.matrix.model.UserDirectorySearchResponse;
 import io.github.fherbreteau.matrix.model.UserId;
@@ -2266,6 +2268,151 @@ public final class MatrixClient {
   }
 
   /**
+   * Creates a reservation for a later media upload.
+   *
+   * @return the reserved MXC URI and optional expiry timestamp
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixmediav1create">Matrix
+   *     specification</a>
+   */
+  public MediaUploadReservation createMediaUpload() {
+    return MediaUploadReservation.from(authenticated("POST", "_matrix/media/v1/create", null));
+  }
+
+  /**
+   * Uploads raw bytes to a previously reserved content URI.
+   *
+   * @param reservation the reserved URI
+   * @param content the media bytes
+   * @param contentType the optional MIME type
+   * @param filename the optional filename presented to other users
+   * @return the uploaded MXC URI
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @throws MediaSizeLimitException if the upload exceeds the configured client limit
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixmediav3uploadservernamemediaid">Matrix
+   *     specification</a>
+   */
+  public MxcUri uploadReservedMedia(
+      MediaUploadReservation reservation, byte[] content, String contentType, String filename) {
+    return uploadReservedMedia(
+        reservation, new ByteArrayInputStream(content), content.length, contentType, filename);
+  }
+
+  /**
+   * Uploads a stream to a previously reserved content URI without buffering the full content when
+   * the media transport supports streaming uploads.
+   *
+   * @param reservation the reserved URI
+   * @param content the media stream, closed after the request completes
+   * @param contentLength the source length, or a negative value when unknown
+   * @param contentType the optional MIME type
+   * @param filename the optional filename presented to other users
+   * @return the uploaded MXC URI
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @throws MediaSizeLimitException if the upload exceeds the configured client limit
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixmediav3uploadservernamemediaid">Matrix
+   *     specification</a>
+   */
+  public MxcUri uploadReservedMedia(
+      MediaUploadReservation reservation,
+      InputStream content,
+      long contentLength,
+      String contentType,
+      String filename) {
+    Objects.requireNonNull(reservation, "reservation");
+    Objects.requireNonNull(content, "content");
+    var path =
+        new StringBuilder("_matrix/media/v3/upload/")
+            .append(encode(reservation.contentUri().serverName()))
+            .append('/')
+            .append(encode(reservation.contentUri().mediaId()));
+    if (filename != null) {
+      path.append("?filename=").append(encode(filename));
+    }
+    OptionalLong length =
+        contentLength >= 0 ? OptionalLong.of(contentLength) : OptionalLong.empty();
+    var request =
+        new StreamingBinaryRequest(
+            "PUT",
+            homeserverUrl + "/" + path,
+            authHeaders(),
+            content,
+            length,
+            contentType == null ? FILE_TYPE : contentType);
+    BinaryResponse response = sendBinary(request, path.toString());
+    try (response) {
+      throwIfBinaryError(response);
+    } catch (IOException exception) {
+      throw new UncheckedIOException(exception);
+    }
+    return reservation.contentUri();
+  }
+
+  /**
+   * Uploads a file to a previously reserved content URI without loading the full file into memory.
+   *
+   * @param reservation the reserved URI
+   * @param file the file to upload
+   * @param contentType the optional MIME type
+   * @param filename the optional filename presented to other users
+   * @return the uploaded MXC URI
+   * @throws IOException if the file cannot be opened or its size cannot be read
+   * @throws MediaSizeLimitException if the file exceeds the configured client limit
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixmediav3uploadservernamemediaid">Matrix
+   *     specification</a>
+   */
+  public MxcUri uploadReservedMedia(
+      MediaUploadReservation reservation, Path file, String contentType, String filename)
+      throws IOException {
+    try (InputStream input = Files.newInputStream(file)) {
+      return uploadReservedMedia(reservation, input, Files.size(file), contentType, filename);
+    }
+  }
+
+  /**
+   * Retrieves OpenGraph metadata for a URL.
+   *
+   * @param url the URL to preview
+   * @param timestamp the preferred Unix-epoch timestamp in milliseconds, or {@code null}
+   * @return typed preview metadata with raw fields retained
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mediapreview_url">Matrix
+   *     specification</a>
+   */
+  public UrlPreview getUrlPreview(String url, Long timestamp) {
+    JsonObject query = new JsonObject().put("url", url);
+    if (timestamp != null) {
+      query.put("ts", timestamp);
+    }
+    return UrlPreview.from(
+        authenticated("GET", appendQuery("_matrix/client/v1/media/preview_url", query), null));
+  }
+
+  /**
+   * Retrieves OpenGraph metadata for a URL without requesting a specific preview timestamp.
+   *
+   * @param url the URL to preview
+   * @return typed preview metadata with raw fields retained
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     the token is no longer valid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv1mediapreview_url">Matrix
+   *     specification</a>
+   */
+  public UrlPreview getUrlPreview(String url) {
+    return getUrlPreview(url, null);
+  }
+
+  /**
    * Uploads raw bytes to the content repository and returns their Matrix content URI.
    *
    * @param content the media bytes
@@ -2478,7 +2625,8 @@ public final class MatrixClient {
   private BinaryResponse sendBinary(
       StreamingBinaryRequest request, String path, long maxResponseBytes) {
     var context =
-        new AttemptContext(UUID.randomUUID(), request.method(), path, 1, System.nanoTime());
+        new AttemptContext(
+            UUID.randomUUID(), request.method(), sanitizeEndpoint(path), 1, System.nanoTime());
     try {
       BinaryResponse response = mediaTransport.send(request, maxMediaUploadBytes, maxResponseBytes);
       RequestAttempt.Outcome outcome =
@@ -2501,7 +2649,8 @@ public final class MatrixClient {
 
   private BinaryResponse sendBinary(BinaryRequest request, String path, long maxResponseBytes) {
     var context =
-        new AttemptContext(UUID.randomUUID(), request.method(), path, 1, System.nanoTime());
+        new AttemptContext(
+            UUID.randomUUID(), request.method(), sanitizeEndpoint(path), 1, System.nanoTime());
     try {
       BinaryResponse response = mediaTransport.send(request, maxResponseBytes);
       RequestAttempt.Outcome outcome =
@@ -2758,7 +2907,7 @@ public final class MatrixClient {
       } else {
         sanitized.append(segment);
       }
-      if ("download".equals(segment) || "thumbnail".equals(segment)) {
+      if ("download".equals(segment) || "thumbnail".equals(segment) || "upload".equals(segment)) {
         mediaIdentifiersToHide = 2;
       }
     }

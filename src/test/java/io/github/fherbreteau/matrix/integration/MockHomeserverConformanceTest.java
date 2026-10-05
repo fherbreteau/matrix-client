@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.RateLimitedException;
 import io.github.fherbreteau.matrix.model.EventId;
+import io.github.fherbreteau.matrix.model.MediaUploadReservation;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
@@ -16,6 +17,8 @@ import io.github.fherbreteau.matrix.model.events.EventRegistry;
 import io.github.fherbreteau.matrix.model.events.MessageEventContent;
 import io.github.fherbreteau.matrix.retry.RetryPolicy;
 import io.github.fherbreteau.matrix.transport.HttpTransport;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -91,6 +94,71 @@ class MockHomeserverConformanceTest {
                         .get("org.example.ext")
                         .asBoolean())
                 .isTrue();
+          });
+    }
+  }
+
+  @Test
+  void reservesUploadsPreviewsAndDownloadsMediaOverRealHttp() {
+    try (var server = new MockMatrixHomeserver()) {
+      server.enqueue(200, LOGIN_RESPONSE);
+      server.enqueue(
+          200,
+          "{\"content_uri\":\"mxc://example.org/reserved-1\","
+              + "\"unused_expires_at\":1893456000000}");
+      server.enqueue(200, "{}");
+      server.enqueue(
+          200,
+          "{\"og:title\":\"Integration preview\","
+              + "\"og:image\":\"mxc://example.org/preview-1\","
+              + "\"matrix:image:size\":12}");
+      server.enqueue(200, "{\"content_uri\":\"mxc://example.org/media-1\"}");
+      server.enqueue(200, "ordinary upload");
+      MatrixClient client =
+          MatrixClient.builder(server.baseUrl()).retryPolicy(RetryPolicy.disabled()).build();
+      client.login(new PasswordCredentials("@alice:example.org", "unused"));
+      byte[] reservedPayload = "reserved upload".getBytes(StandardCharsets.UTF_8);
+      byte[] regularPayload = "ordinary upload".getBytes(StandardCharsets.UTF_8);
+
+      MediaUploadReservation reservation = client.createMediaUpload();
+      MxcUri reservedUri =
+          client.uploadReservedMedia(reservation, reservedPayload, "text/plain", "reserved.txt");
+      var preview = client.getUrlPreview("https://example.org/article");
+      MxcUri regularUri = client.uploadMedia(regularPayload, "text/plain", "ordinary.txt");
+      byte[] downloaded;
+      try (var download = client.downloadMedia(regularUri, 128)) {
+        downloaded = download.body().readAllBytes();
+      } catch (IOException exception) {
+        throw new UncheckedIOException(exception);
+      }
+
+      server.assertWithDiagnostics(
+          () -> {
+            assertThat(reservedUri).isEqualTo(reservation.contentUri());
+            assertThat(reservation.unusedExpiresAt()).isEqualTo(1893456000000L);
+            assertThat(preview.properties().get("og:title").asString())
+                .isEqualTo("Integration preview");
+            assertThat(preview.imageUri()).isEqualTo(MxcUri.of("example.org", "preview-1"));
+            assertThat(preview.imageSize()).isEqualTo(12L);
+            assertThat(regularUri).isEqualTo(MxcUri.of("example.org", "media-1"));
+            assertThat(downloaded).containsExactly(regularPayload);
+            assertThat(server.requests()).hasSize(6);
+            assertThat(server.requests().get(1).method()).isEqualTo("POST");
+            assertThat(server.requests().get(1).path()).isEqualTo("/_matrix/media/v1/create");
+            assertThat(server.requests().get(1).authorization()).isEqualTo("Bearer fixture-secret");
+            assertThat(server.requests().get(2).method()).isEqualTo("PUT");
+            assertThat(server.requests().get(2).path())
+                .isEqualTo("/_matrix/media/v3/upload/example.org/reserved-1");
+            assertThat(server.requests().get(2).query()).isEqualTo("filename=reserved.txt");
+            assertThat(server.requests().get(2).body()).isEqualTo("reserved upload");
+            assertThat(server.requests().get(3).method()).isEqualTo("GET");
+            assertThat(server.requests().get(3).path())
+                .isEqualTo("/_matrix/client/v1/media/preview_url");
+            assertThat(server.requests().get(4).path()).isEqualTo("/_matrix/media/v3/upload");
+            assertThat(server.requests().get(4).query()).isEqualTo("filename=ordinary.txt");
+            assertThat(server.requests().get(4).body()).isEqualTo("ordinary upload");
+            assertThat(server.requests().get(5).path())
+                .isEqualTo("/_matrix/client/v1/media/download/example.org/media-1");
           });
     }
   }

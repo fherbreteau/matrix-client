@@ -2,10 +2,15 @@ package io.github.fherbreteau.matrix.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
+import io.github.fherbreteau.matrix.json.JsonNull;
+import io.github.fherbreteau.matrix.json.JsonNumber;
 import io.github.fherbreteau.matrix.json.JsonParser;
+import io.github.fherbreteau.matrix.json.JsonString;
+import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
@@ -14,6 +19,8 @@ import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventFilter;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
+import io.github.fherbreteau.matrix.model.MediaDownload;
+import io.github.fherbreteau.matrix.model.MediaUploadReservation;
 import io.github.fherbreteau.matrix.model.MessageBody;
 import io.github.fherbreteau.matrix.model.MxcUri;
 import io.github.fherbreteau.matrix.model.PasswordCredentials;
@@ -265,8 +272,78 @@ class SynapseContainerIT {
     assertThat(client.getMediaConfig()).isPresent();
     byte[] payload = "synapse integration media".getBytes(StandardCharsets.UTF_8);
     MxcUri uri = client.uploadMedia(payload, "text/plain", "integration.txt");
+    assertThat(downloadedBytes(uri)).containsExactly(payload);
+
+    MediaUploadReservation reservation = client.createMediaUpload();
+    byte[] reservedPayload = "synapse reserved media".getBytes(StandardCharsets.UTF_8);
+    MxcUri reservedUri =
+        client.uploadReservedMedia(reservation, reservedPayload, "text/plain", "reserved.txt");
+    assertThat(reservedUri).isEqualTo(reservation.contentUri());
+    assertThat(downloadedBytes(reservedUri)).containsExactly(reservedPayload);
+  }
+
+  private byte[] downloadedBytes(MxcUri uri) throws IOException {
     try (var download = client.downloadMedia(uri, 1_024)) {
-      assertThat(download.body().readAllBytes()).containsExactly(payload);
+      return download.body().readAllBytes();
+    }
+  }
+
+  @Test
+  void exercisesMediaUploadAndThumbnailDownload() throws IOException {
+    try (var stream = getClass().getResourceAsStream("/sample.png")) {
+      MxcUri uri = client.uploadMedia(stream, 21_485, "image/png", "sample.png");
+
+      try (MediaDownload thumbnail = client.getThumbnail(uri, 200, 150, null, false, 15_000)) {
+        assertThat(thumbnail.contentType()).isEqualTo("image/png");
+        assertThat(thumbnail.contentDisposition()).isEqualTo("inline");
+        byte[] content = thumbnail.body().readAllBytes();
+        assertThat(content).hasSizeLessThan(15_000);
+      }
+    }
+  }
+
+  @Test
+  void previewsAndDownloadsImageFromExternalUrl() throws IOException {
+    var preview = client.getUrlPreview("https://dummyfiles.dev/image/800x600");
+
+    assertThat(preview.imageUri()).isNotNull();
+    assertThat(preview.imageSize()).isBetween(21000L, 22000L);
+    assertThat(preview.properties())
+        .extractingByKey("og:description", type(JsonValue.class))
+        .isEqualTo(JsonNull.INSTANCE);
+    assertThat(preview.properties())
+        .extractingByKey("og:image", type(JsonValue.class))
+        .isInstanceOf(JsonString.class)
+        .asInstanceOf(type(JsonString.class))
+        .extracting(JsonString::asString)
+        .isEqualTo(preview.imageUri().toString());
+    assertThat(preview.properties())
+        .extractingByKey("og:image:type", type(JsonValue.class))
+        .isInstanceOf(JsonString.class)
+        .asInstanceOf(type(JsonString.class))
+        .extracting(JsonString::asString)
+        .isEqualTo("image/png");
+    assertThat(preview.properties())
+        .extractingByKey("matrix:image:size", type(JsonValue.class))
+        .isInstanceOf(JsonNumber.class)
+        .asInstanceOf(type(JsonNumber.class))
+        .extracting(JsonNumber::asLong)
+        .isEqualTo(preview.imageSize());
+    assertThat(preview.properties())
+        .extractingByKey("og:image:width", type(JsonValue.class))
+        .isInstanceOf(JsonNumber.class)
+        .asInstanceOf(type(JsonNumber.class))
+        .extracting(JsonNumber::asLong)
+        .isEqualTo(800L);
+    assertThat(preview.properties())
+        .extractingByKey("og:image:height", type(JsonValue.class))
+        .isInstanceOf(JsonNumber.class)
+        .asInstanceOf(type(JsonNumber.class))
+        .extracting(JsonNumber::asLong)
+        .isEqualTo(600L);
+    try (MediaDownload image = client.downloadMedia(preview.imageUri(), 1_000_000)) {
+      assertThat(image.contentType()).startsWith("image/");
+      assertThat(image.body().readAllBytes()).isNotEmpty();
     }
   }
 
@@ -383,6 +460,27 @@ class SynapseContainerIT {
         registration_shared_secret: "%s"
         public_baseurl: "http://localhost:8008/"
         default_room_version: "10"
+        url_preview_enabled: true
+        url_preview_ip_range_blacklist:
+        - 127.0.0.0/8
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 100.64.0.0/10
+        - 192.0.0.0/24
+        - 169.254.0.0/16
+        - 192.88.99.0/24
+        - 198.18.0.0/15
+        - 192.0.2.0/24
+        - 198.51.100.0/24
+        - 203.0.113.0/24
+        - 224.0.0.0/4
+        - ::1/128
+        - fe80::/10
+        - fc00::/7
+        - 2001:db8::/32
+        - ff00::/8
+        - fec0::/10
         allow_public_rooms_without_auth: true
         presence:
           enabled: true

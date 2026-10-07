@@ -139,6 +139,12 @@ class EncryptionKeysModelsTest {
     assertThat(new KeysClaimResponse.PlainKey("key"))
         .extracting(KeysClaimResponse.PlainKey::key)
         .isEqualTo("key");
+    assertThatThrownBy(() -> new KeysClaimResponse.PlainKey(null))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new KeysClaimResponse.SignedKey("key", null))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(new KeysClaimResponse.Failure("M_TIMEOUT", "timeout").errcode())
+        .isEqualTo("M_TIMEOUT");
     assertThat(signatureResponse.failures().get(user).get("ed25519:D").errcode())
         .isEqualTo("M_INVALID_PARAM");
   }

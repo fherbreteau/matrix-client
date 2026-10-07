@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🚀 Features
 
 - **Mutual rooms endpoint**: Add paginated mutual-room queries with typed room IDs and preserved response metadata (#58).
-- **E2EE key-management APIs**: Add v1.19 device/cross-signing key and room-key backup endpoints, preserving cryptographic JSON payloads and supporting UI-auth challenges (#59).
+- **E2EE key-management APIs**: Add typed v1.19 device/cross-signing key and room-key backup models with strict required-field and nested-value parsing, endpoint coverage, and UI-auth support (#59, #77).
 
 - **Project Bootstrap**: Created the initial Maven project structure for a lightweight Matrix client with no runtime third-party dependencies — Java 25 (latest LTS) with Java Platform Module System (`io.github.fherbreteau.matrix`), HTTP transport built on `java.net.http.HttpClient`, a minimal JSON parser/serializer, Matrix models, endpoints, error types, unit tests, and CI (#1, #16)
 

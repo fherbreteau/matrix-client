@@ -1,33 +1,75 @@
 package io.github.fherbreteau.matrix.model;
 
+import static io.github.fherbreteau.matrix.model.ImmutableUtils.immutableMap;
+
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.Map;
 
 /**
- * Uploads master, self-signing, and user-signing keys, with optional UI-auth response data.
+ * Request body for uploading cross-signing keys and optional UI-auth data.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysdevice_signingupload">Matrix
  *     specification</a>
  */
-public record DeviceSigningUploadRequest(JsonObject payload) {
+public record DeviceSigningUploadRequest(
+    CrossSigningKey masterKey,
+    CrossSigningKey selfSigningKey,
+    CrossSigningKey userSigningKey,
+    UiAuth auth)
+    implements Serializable {
 
   /**
-   * Wraps a cross-signing request body.
+   * Create a request for uploading cross-signing keys without UI-auth data.
    *
-   * @param value raw request JSON
-   * @return cross-signing upload wrapper
-   * @throws IllegalArgumentException if value is not an object
+   * @param masterKey the master signing key
+   * @param selfSigningKey the self-signing key
+   * @param userSigningKey the user-signing key
    */
-  public static DeviceSigningUploadRequest of(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      throw new IllegalArgumentException("device-signing request must be a JSON object");
-    }
-    return new DeviceSigningUploadRequest(value.asObject());
+  public DeviceSigningUploadRequest(
+      CrossSigningKey masterKey, CrossSigningKey selfSigningKey, CrossSigningKey userSigningKey) {
+    this(masterKey, selfSigningKey, userSigningKey, null);
   }
 
-  /** Returns raw key and UI-auth data. */
-  public JsonObject toJson() {
-    return payload;
+  @Override
+  public JsonValue toJson() {
+    JsonObject request = new JsonObject();
+    if (auth != null) {
+      request.put("auth", auth.toJson());
+    }
+    if (masterKey != null) {
+      request.put("master_key", masterKey.toJson());
+    }
+    if (selfSigningKey != null) {
+      request.put("self_signing_key", selfSigningKey.toJson());
+    }
+    if (userSigningKey != null) {
+      request.put("user_signing_key", userSigningKey.toJson());
+    }
+    return request;
+  }
+
+  /** UI-auth response with typed credentials. */
+  public record UiAuth(String type, String session, Map<String, String> others) {
+
+    /**
+     * Creates a UI-auth request.
+     *
+     * @param type The authentication type that the client is attempting to complete.
+     * @param session The value of the session key given by the homeserver.
+     * @param others Keys dependent on the login type
+     */
+    public UiAuth {
+      others = immutableMap(others);
+    }
+
+    JsonValue toJson() {
+      JsonObject request = new JsonObject();
+      request.put("session", session);
+      request.put("type", type);
+      others.forEach(request::put);
+      return request;
+    }
   }
 }

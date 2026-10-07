@@ -1,27 +1,28 @@
 package io.github.fherbreteau.matrix.model;
 
-import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
 
 /**
- * Identifies the newly created room-key backup version.
+ * Newly created room-key backup version identifier.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3room_keysversion">Matrix
  *     specification</a>
  */
-public record RoomKeyBackupVersion(String version, JsonObject raw) {
+public record RoomKeyBackupVersion(String version) {
 
   /**
-   * Parses a backup-version creation response.
+   * Parse a newly created backup version response.
    *
-   * @param value response JSON
-   * @return opaque version and full response
-   * @throws IllegalArgumentException if the version is missing
+   * @param response the parsed response body
+   * @return the validated backup version
+   * @throws IllegalArgumentException if the response is malformed
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3room_keysversion">Matrix
+   *     specification</a>
    */
-  public static RoomKeyBackupVersion from(JsonValue value) {
-    JsonObject object = ModelJson.object(value, "room-key backup version response");
-    return new RoomKeyBackupVersion(
-        ModelJson.requiredString(object, "version", "room-key backup version response"), object);
+  public static RoomKeyBackupVersion from(JsonValue response) {
+    var body = ModelJson.object(response, "response");
+    return new RoomKeyBackupVersion(ModelJson.requiredString(body, "version", "response"));
   }
 }

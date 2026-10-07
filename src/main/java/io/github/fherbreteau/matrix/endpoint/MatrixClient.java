@@ -17,11 +17,11 @@ import io.github.fherbreteau.matrix.model.DeleteDevicesRequest;
 import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
 import io.github.fherbreteau.matrix.model.DeviceSigningUploadRequest;
-import io.github.fherbreteau.matrix.model.DeviceSigningUploadResult;
 import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
 import io.github.fherbreteau.matrix.model.DevicesResponse;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EncryptionRequest;
+import io.github.fherbreteau.matrix.model.EncryptionRequest.RoomKeyBackup;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
 import io.github.fherbreteau.matrix.model.KeyChangesResponse;
@@ -781,7 +781,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public KeysUploadResponse uploadKeys(KeysUploadRequest request) {
-    return KeysUploadResponse.from(authenticated("POST", KEYS_PATH + "upload", request.toJson()));
+    JsonValue response = authenticated("POST", KEYS_PATH + "upload", request.toJson());
+    return KeysUploadResponse.from(response);
   }
 
   /**
@@ -796,7 +797,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public KeysQueryResponse queryKeys(KeysQueryRequest request) {
-    return KeysQueryResponse.from(authenticated("POST", KEYS_PATH + "query", request.toJson()));
+    JsonValue body = authenticated("POST", KEYS_PATH + "query", request.toJson());
+    return KeysQueryResponse.from(body);
   }
 
   /**
@@ -811,7 +813,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public KeysClaimResponse claimKeys(KeysClaimRequest request) {
-    return KeysClaimResponse.from(authenticated("POST", KEYS_PATH + "claim", request.toJson()));
+    JsonValue body = authenticated("POST", KEYS_PATH + "claim", request.toJson());
+    return KeysClaimResponse.from(body);
   }
 
   /**
@@ -828,41 +831,36 @@ public final class MatrixClient {
    */
   public KeyChangesResponse getKeyChanges(String from, String to) {
     JsonObject query = new JsonObject().put("from", from).put("to", to);
-    return KeyChangesResponse.from(
-        authenticated("GET", appendQuery(KEYS_PATH + "changes", query), null));
+    JsonValue body = authenticated("GET", appendQuery(KEYS_PATH + "changes", query), null);
+    return KeyChangesResponse.from(body);
   }
 
   /**
    * Uploads cross-signing keys. UIA challenges are surfaced through thrown Matrix server errors.
    *
    * @param request raw cross-signing keys and optional UIA response
-   * @return successful upload response
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     its token is invalid
    * @see <a
    *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysdevice_signingupload">Matrix
    *     specification</a>
    */
-  public DeviceSigningUploadResult uploadDeviceSigningKeys(DeviceSigningUploadRequest request) {
-    return DeviceSigningUploadResult.from(
-        authenticated("POST", KEYS_PATH + "device_signing/upload", request.toJson()));
+  public void uploadDeviceSigningKeys(DeviceSigningUploadRequest request) {
+    authenticated("POST", KEYS_PATH + "device_signing/upload", request.toJson());
   }
 
   /**
    * Retries cross-signing key upload with explicit UIA fields.
    *
    * @param request raw cross-signing keys and UIA response
-   * @return successful upload response
    * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
    *     its token is invalid
    * @see <a
    *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysdevice_signingupload">Matrix
    *     specification</a>
    */
-  public DeviceSigningUploadResult uploadDeviceSigningKeysWithAuth(
-      DeviceSigningUploadRequest request) {
-    return DeviceSigningUploadResult.from(
-        authenticatedUiAuth("POST", KEYS_PATH + "device_signing/upload", request.toJson()));
+  public void uploadDeviceSigningKeysWithAuth(DeviceSigningUploadRequest request) {
+    authenticatedUiAuth("POST", KEYS_PATH + "device_signing/upload", request.toJson());
   }
 
   /**
@@ -877,8 +875,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public KeySignaturesUploadResponse uploadKeySignatures(KeySignaturesUploadRequest request) {
-    return KeySignaturesUploadResponse.from(
-        authenticated("POST", KEYS_PATH + "signatures/upload", request.toJson()));
+    JsonValue body = authenticated("POST", KEYS_PATH + "signatures/upload", request.toJson());
+    return KeySignaturesUploadResponse.from(body);
   }
 
   /**
@@ -892,8 +890,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupInfo getRoomKeyBackupVersion() {
-    String path = ROOM_KEY_VERSION_PATH;
-    return RoomKeyBackupInfo.from(authenticated("GET", path, null));
+    JsonValue body = authenticated("GET", ROOM_KEY_VERSION_PATH, null);
+    return RoomKeyBackupInfo.from(body);
   }
 
   /**
@@ -908,8 +906,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupVersion createRoomKeyBackupVersion(RoomKeyBackupVersionRequest request) {
-    return RoomKeyBackupVersion.from(
-        authenticated("POST", ROOM_KEY_VERSION_PATH, request.toJson()));
+    JsonValue response = authenticated("POST", ROOM_KEY_VERSION_PATH, request.toJson(false));
+    return RoomKeyBackupVersion.from(response);
   }
 
   /**
@@ -924,8 +922,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupInfo getRoomKeyBackupVersionById(String versionId) {
-    return RoomKeyBackupInfo.from(
-        authenticated("GET", ROOM_KEY_VERSION_ID_PATH + encode(versionId), null));
+    JsonValue body = authenticated("GET", ROOM_KEY_VERSION_ID_PATH + encode(versionId), null);
+    return RoomKeyBackupInfo.from(body);
   }
 
   /**
@@ -943,9 +941,8 @@ public final class MatrixClient {
     if (request.version() != null && !request.version().equals(versionId)) {
       throw new IllegalArgumentException("backup body version must match path version");
     }
-    JsonObject body = request.toJson();
-    body.put("version", versionId);
-    authenticated("PUT", ROOM_KEY_VERSION_ID_PATH + encode(versionId), body);
+    authenticated(
+        "PUT", ROOM_KEY_VERSION_ID_PATH + encode(versionId), request.toJson(true, versionId));
   }
 
   /**
@@ -974,8 +971,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupKeysResponse getRoomKeyBackup(String versionId) {
-    return RoomKeyBackupKeysResponse.from(
-        authenticated("GET", roomKeysPath(versionId, null, null), null));
+    JsonValue body = authenticated("GET", roomKeysPath(versionId, null, null), null);
+    return RoomKeyBackupKeysResponse.from(body);
   }
 
   /**
@@ -992,8 +989,8 @@ public final class MatrixClient {
    */
   public RoomKeyBackupWriteResponse uploadRoomKeyBackup(
       String versionId, EncryptionRequest request) {
-    return RoomKeyBackupWriteResponse.from(
-        authenticated("PUT", roomKeysPath(versionId, null, null), request.toJson()));
+    JsonValue body = authenticated("PUT", roomKeysPath(versionId, null, null), request.toJson());
+    return RoomKeyBackupWriteResponse.from(body);
   }
 
   /**
@@ -1008,8 +1005,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupWriteResponse deleteRoomKeyBackup(String versionId) {
-    return RoomKeyBackupWriteResponse.from(
-        authenticated(HTTP_DELETE, roomKeysPath(versionId, null, null), null));
+    JsonValue body = authenticated(HTTP_DELETE, roomKeysPath(versionId, null, null), null);
+    return RoomKeyBackupWriteResponse.from(body);
   }
 
   /**
@@ -1024,9 +1021,10 @@ public final class MatrixClient {
    *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keyskeysroomid">Matrix
    *     specification</a>
    */
-  public RoomKeyBackupKeysResponse getRoomKeyBackupForRoom(String versionId, RoomId roomId) {
-    return RoomKeyBackupKeysResponse.from(
-        authenticated("GET", roomKeysPath(versionId, roomId, null), null));
+  public RoomKeyBackupKeysResponse.RoomSessions getRoomKeyBackupForRoom(
+      String versionId, RoomId roomId) {
+    JsonValue body = authenticated("GET", roomKeysPath(versionId, roomId, null), null);
+    return RoomKeyBackupKeysResponse.RoomSessions.from(body);
   }
 
   /**
@@ -1043,9 +1041,9 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupWriteResponse uploadRoomKeyBackupForRoom(
-      String versionId, RoomId roomId, EncryptionRequest request) {
-    return RoomKeyBackupWriteResponse.from(
-        authenticated("PUT", roomKeysPath(versionId, roomId, null), request.toJson()));
+      String versionId, RoomId roomId, RoomKeyBackup request) {
+    JsonValue body = authenticated("PUT", roomKeysPath(versionId, roomId, null), request.toJson());
+    return RoomKeyBackupWriteResponse.from(body);
   }
 
   /**
@@ -1061,8 +1059,8 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupWriteResponse deleteRoomKeyBackupForRoom(String versionId, RoomId roomId) {
-    return RoomKeyBackupWriteResponse.from(
-        authenticated(HTTP_DELETE, roomKeysPath(versionId, roomId, null), null));
+    JsonValue body = authenticated(HTTP_DELETE, roomKeysPath(versionId, roomId, null), null);
+    return RoomKeyBackupWriteResponse.from(body);
   }
 
   /**
@@ -1078,10 +1076,10 @@ public final class MatrixClient {
    *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keyskeysroomidsessionid">Matrix
    *     specification</a>
    */
-  public RoomKeyBackupKeysResponse getRoomKeyBackupSession(
+  public EncryptionRequest.KeyBackupData getRoomKeyBackupSession(
       String versionId, RoomId roomId, String sessionId) {
-    return RoomKeyBackupKeysResponse.from(
-        authenticated("GET", roomKeysPath(versionId, roomId, sessionId), null));
+    JsonValue body = authenticated("GET", roomKeysPath(versionId, roomId, sessionId), null);
+    return EncryptionRequest.KeyBackupData.from(body);
   }
 
   /**
@@ -1099,9 +1097,10 @@ public final class MatrixClient {
    *     specification</a>
    */
   public RoomKeyBackupWriteResponse uploadRoomKeyBackupSession(
-      String versionId, RoomId roomId, String sessionId, EncryptionRequest request) {
-    return RoomKeyBackupWriteResponse.from(
-        authenticated("PUT", roomKeysPath(versionId, roomId, sessionId), request.toJson()));
+      String versionId, RoomId roomId, String sessionId, EncryptionRequest.KeyBackupData request) {
+    JsonValue body =
+        authenticated("PUT", roomKeysPath(versionId, roomId, sessionId), request.toJson());
+    return RoomKeyBackupWriteResponse.from(body);
   }
 
   /**
@@ -1119,8 +1118,8 @@ public final class MatrixClient {
    */
   public RoomKeyBackupWriteResponse deleteRoomKeyBackupSession(
       String versionId, RoomId roomId, String sessionId) {
-    return RoomKeyBackupWriteResponse.from(
-        authenticated(HTTP_DELETE, roomKeysPath(versionId, roomId, sessionId), null));
+    JsonValue body = authenticated(HTTP_DELETE, roomKeysPath(versionId, roomId, sessionId), null);
+    return RoomKeyBackupWriteResponse.from(body);
   }
 
   private static String roomKeysPath(String version, RoomId roomId, String sessionId) {

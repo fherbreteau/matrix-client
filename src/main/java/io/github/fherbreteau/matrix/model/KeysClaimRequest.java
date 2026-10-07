@@ -1,33 +1,39 @@
 package io.github.fherbreteau.matrix.model;
 
+import static io.github.fherbreteau.matrix.model.ImmutableUtils.immutableMap;
+
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * Raw nested request body for claiming one-time or fallback keys.
+ * Request body for claiming one-time or fallback keys.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysclaim">Matrix
  *     specification</a>
  */
-public record KeysClaimRequest(JsonObject payload) {
-
+public record KeysClaimRequest(Map<UserId, Map<String, String>> oneTimeKeys, Long timeout)
+    implements Serializable {
   /**
-   * Wraps a key-claim JSON object.
+   * Creates a claim request with a defensive copy of its target map.
    *
-   * @param value the raw request body
-   * @return the request wrapper
-   * @throws IllegalArgumentException if value is not an object
+   * @param oneTimeKeys user/device IDs mapped to requested algorithms
+   * @param timeout optional remote claim timeout in milliseconds
    */
-  public static KeysClaimRequest of(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      throw new IllegalArgumentException("keys claim request must be a JSON object");
-    }
-    return new KeysClaimRequest(value.asObject());
+  public KeysClaimRequest {
+    Objects.requireNonNull(oneTimeKeys, "oneTimeKeys");
+    oneTimeKeys = immutableMap(oneTimeKeys);
   }
 
-  /** Returns the unmodified claim body. */
-  public JsonObject toJson() {
-    return payload;
+  @Override
+  public JsonValue toJson() {
+    JsonObject request = new JsonObject();
+    request.put("one_time_keys", ModelJson.toObject(oneTimeKeys));
+    if (timeout != null) {
+      request.put("timeout", timeout);
+    }
+    return request;
   }
 }

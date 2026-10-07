@@ -1,31 +1,31 @@
 package io.github.fherbreteau.matrix.model;
 
-import io.github.fherbreteau.matrix.json.JsonObject;
+import io.github.fherbreteau.matrix.error.DiscoveryException;
 import io.github.fherbreteau.matrix.json.JsonValue;
 
 /**
- * Acknowledgement containing the stored key count and backup etag.
+ * Backup write count and etag.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3room_keyskeys">Matrix
  *     specification</a>
  */
-public record RoomKeyBackupWriteResponse(long count, String etag, JsonObject raw) {
+public record RoomKeyBackupWriteResponse(long count, String etag) {
+
+  private static final String RESPONSE_LABEL = "response";
 
   /**
-   * Parses a backup write response.
+   * Validate and parse a (/key/changes) response body.
    *
-   * @param value response JSON
-   * @return count, etag, and complete response
-   * @throws IllegalArgumentException if required fields are absent or malformed
+   * @param body the parsed response body
+   * @return the validated key changes response
+   * @throws DiscoveryException if the body is not a JSON object or does not contain a {@code
+   *     versions} array of strings
    */
-  public static RoomKeyBackupWriteResponse from(JsonValue value) {
-    JsonObject object = ModelJson.object(value, "room-key backup write response");
-    Long count = ModelJson.number(object, "count");
-    if (count == null || count < 0) {
-      throw new IllegalArgumentException("room-key backup write response must contain a count");
-    }
+  public static RoomKeyBackupWriteResponse from(JsonValue body) {
+    var response = ModelJson.object(body, RESPONSE_LABEL);
     return new RoomKeyBackupWriteResponse(
-        count, ModelJson.requiredString(object, "etag", "room-key backup write response"), object);
+        ModelJson.requiredNumber(response, "count", RESPONSE_LABEL),
+        ModelJson.requiredString(response, "etag", RESPONSE_LABEL));
   }
 }

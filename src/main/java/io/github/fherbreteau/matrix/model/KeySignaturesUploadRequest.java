@@ -1,33 +1,30 @@
 package io.github.fherbreteau.matrix.model;
 
-import io.github.fherbreteau.matrix.json.JsonObject;
+import static io.github.fherbreteau.matrix.model.ImmutableUtils.immutableMap;
+
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.Map;
 
 /**
- * Request nested user/key/signature mappings for signature upload.
+ * Request body for uploading key signatures.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keyssignaturesupload">Matrix
  *     specification</a>
  */
-public record KeySignaturesUploadRequest(JsonObject payload) {
-
+public record KeySignaturesUploadRequest(Map<UserId, Map<String, SignedObject>> signatures)
+    implements Serializable {
   /**
-   * Wraps the signature upload body.
+   * Creates a signature upload request.
    *
-   * @param value raw nested signature JSON
-   * @return signature upload wrapper
-   * @throws IllegalArgumentException if the value is not an object
+   * @param signatures mappings from users to signed key objects
    */
-  public static KeySignaturesUploadRequest of(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      throw new IllegalArgumentException("key signatures request must be a JSON object");
-    }
-    return new KeySignaturesUploadRequest(value.asObject());
+  public KeySignaturesUploadRequest {
+    signatures = immutableMap(signatures);
   }
 
-  /** Returns the original signature map. */
-  public JsonObject toJson() {
-    return payload;
+  @Override
+  public JsonValue toJson() {
+    return ModelJson.toObject(signatures);
   }
 }

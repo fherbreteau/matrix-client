@@ -1,72 +1,91 @@
 package io.github.fherbreteau.matrix.model;
 
+import static io.github.fherbreteau.matrix.model.ImmutableUtils.immutableMap;
+
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * Request body for creating or updating a room-key backup version.
+ * Request to create or update a room-key backup version.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3room_keysversion">Matrix
  *     specification</a>
  */
-public record RoomKeyBackupVersionRequest(JsonObject payload) {
-
-  private static final String AUTH_DATA_FIELD = "auth_data";
-
+public record RoomKeyBackupVersionRequest(
+    String algorithm, BackupAuthData authData, String version) {
   /**
-   * Wraps a version request object while retaining its algorithm-specific fields.
-   *
-   * @param value raw request JSON
-   * @return typed wrapper
-   * @throws IllegalArgumentException if required fields are missing or malformed
-   */
-  public static RoomKeyBackupVersionRequest of(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      throw new IllegalArgumentException("room-key backup version request must be an object");
-    }
-    JsonObject object = value.asObject();
-    if (ModelJson.string(object, "algorithm") == null
-        || object.get(AUTH_DATA_FIELD) == null
-        || !object.get(AUTH_DATA_FIELD).isObject()) {
-      throw new IllegalArgumentException(
-          "room-key backup version request is missing required fields");
-    }
-    JsonValue version = object.get("version");
-    if (version != null && !version.isString()) {
-      throw new IllegalArgumentException("room-key backup version must be a string");
-    }
-    return new RoomKeyBackupVersionRequest(object);
-  }
-
-  /**
-   * Creates a backup-version creation request.
+   * Creates a backup-version request.
    *
    * @param algorithm backup algorithm
-   * @param authData raw algorithm-specific authentication data
-   * @return request body
+   * @param authData algorithm-specific authentication data
+   * @param version optional version for updates
    */
-  public static RoomKeyBackupVersionRequest create(String algorithm, JsonValue authData) {
-    if (algorithm == null || algorithm.isBlank() || authData == null || !authData.isObject()) {
-      throw new IllegalArgumentException("backup algorithm and auth data are required");
+  public RoomKeyBackupVersionRequest {
+    Objects.requireNonNull(algorithm, "algorithm");
+    Objects.requireNonNull(authData, "authData");
+  }
+
+  /** Authentication data for the Matrix room-key backup algorithm. */
+  public record BackupAuthData(
+      String publicKey,
+      Map<UserId, Map<String, String>> signatures,
+      Map<String, Object> extraFields) {
+    private static final String SIGNATURES_KEY = "signatures";
+    private static final String PUBLIC_KEY = "public_key";
+
+    /**
+     * Creates backup authentication data.
+     *
+     * @param publicKey backup public key
+     * @param signatures optional signatures over the backup key
+     * @param extraFields additional typed auth-data extension fields
+     */
+    public BackupAuthData {
+      Objects.requireNonNull(publicKey, "publicKey");
+      signatures = immutableMap(signatures);
+      extraFields = immutableMap(extraFields);
     }
-    return new RoomKeyBackupVersionRequest(
-        new JsonObject().put("algorithm", algorithm).put(AUTH_DATA_FIELD, authData));
+
+    /** Creates the standard authentication data without extensions. */
+    public BackupAuthData(String publicKey, Map<UserId, Map<String, String>> signatures) {
+      this(publicKey, signatures, null);
+    }
+
+    JsonValue toJson() {
+      JsonObject body = new JsonObject().put(PUBLIC_KEY, publicKey);
+      if (signatures != null) {
+        body.put(SIGNATURES_KEY, ModelJson.toJsonValue(signatures));
+      }
+      if (extraFields != null) {
+        extraFields.forEach((key, extra) -> body.put(key, ModelJson.toJsonValue(extra)));
+      }
+      return body;
+    }
+
+    static BackupAuthData from(JsonObject authData) {
+      var publicKey = ModelJson.requiredString(authData, PUBLIC_KEY, "authData");
+      var signatures = ModelJson.stringSignatures(authData.get(SIGNATURES_KEY));
+      var extraFields = ModelJson.optionalTypedMapExcept(authData, PUBLIC_KEY, SIGNATURES_KEY);
+      return new BackupAuthData(publicKey, signatures, extraFields);
+    }
   }
 
-  /** Returns the raw request body. */
-  public JsonObject toJson() {
-    return payload;
-  }
-
-  /** Returns algorithm-specific authentication data. */
-  public JsonObject authData() {
-    return payload.get(AUTH_DATA_FIELD).asObject();
-  }
-
-  /** Returns an optional body version. */
-  public String version() {
-    JsonValue value = payload.get("version");
-    return value == null ? null : value.asString();
+  /**
+   * Serialize the request.
+   *
+   * @param includeVersion flag indicating if the version should be included
+   * @param version the new version to use
+   * @return the JsonValue
+   */
+  public JsonValue toJson(boolean includeVersion, String... version) {
+    JsonObject body =
+        new JsonObject().put("algorithm", algorithm).put("auth_data", authData.toJson());
+    if (includeVersion) {
+      body.put("version", version.length == 0 ? this.version : version[0]);
+    }
+    return body;
   }
 }

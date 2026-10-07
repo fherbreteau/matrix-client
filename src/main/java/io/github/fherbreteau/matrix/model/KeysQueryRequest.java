@@ -1,33 +1,40 @@
 package io.github.fherbreteau.matrix.model;
 
+import static io.github.fherbreteau.matrix.model.ImmutableUtils.immutableMap;
+
 import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonValue;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * Raw nested request body for a device-key query.
+ * Request body for querying device keys.
  *
  * @see <a
  *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysquery">Matrix
  *     specification</a>
  */
-public record KeysQueryRequest(JsonObject payload) {
-
+public record KeysQueryRequest(Map<UserId, List<String>> deviceKeys, Long timeout)
+    implements Serializable {
   /**
-   * Wraps a device-key query JSON object.
+   * Creates a query request with copied user and device lists.
    *
-   * @param value the raw request body
-   * @return the request wrapper
-   * @throws IllegalArgumentException if value is not an object
+   * @param deviceKeys user IDs mapped to requested device IDs; an empty list means all devices
+   * @param timeout optional remote query timeout in milliseconds
    */
-  public static KeysQueryRequest of(JsonValue value) {
-    if (value == null || !value.isObject()) {
-      throw new IllegalArgumentException("keys query request must be a JSON object");
-    }
-    return new KeysQueryRequest(value.asObject());
+  public KeysQueryRequest {
+    Objects.requireNonNull(deviceKeys, "deviceKeys");
+    deviceKeys = immutableMap(deviceKeys);
   }
 
-  /** Returns the unmodified query body. */
-  public JsonObject toJson() {
-    return payload;
+  @Override
+  public JsonValue toJson() {
+    JsonObject request = new JsonObject();
+    request.put("device_keys", ModelJson.toObject(deviceKeys));
+    if (timeout != null) {
+      request.put("timeout", timeout);
+    }
+    return request;
   }
 }

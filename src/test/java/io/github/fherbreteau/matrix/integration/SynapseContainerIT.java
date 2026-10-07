@@ -2,23 +2,36 @@ package io.github.fherbreteau.matrix.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.map;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 
 import io.github.fherbreteau.matrix.endpoint.MatrixClient;
 import io.github.fherbreteau.matrix.error.AuthenticationException;
 import io.github.fherbreteau.matrix.json.JsonNull;
 import io.github.fherbreteau.matrix.json.JsonNumber;
+import io.github.fherbreteau.matrix.json.JsonObject;
 import io.github.fherbreteau.matrix.json.JsonParser;
 import io.github.fherbreteau.matrix.json.JsonString;
 import io.github.fherbreteau.matrix.json.JsonValue;
 import io.github.fherbreteau.matrix.model.AccountRequest;
 import io.github.fherbreteau.matrix.model.ContentReport;
+import io.github.fherbreteau.matrix.model.CrossSigningKey;
 import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
+import io.github.fherbreteau.matrix.model.DeviceInformation;
+import io.github.fherbreteau.matrix.model.DeviceSigningUploadRequest;
 import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
 import io.github.fherbreteau.matrix.model.Direction;
 import io.github.fherbreteau.matrix.model.EventFilter;
 import io.github.fherbreteau.matrix.model.EventId;
+import io.github.fherbreteau.matrix.model.KeySignaturesUploadRequest;
+import io.github.fherbreteau.matrix.model.KeysClaimRequest;
+import io.github.fherbreteau.matrix.model.KeysClaimResponse;
+import io.github.fherbreteau.matrix.model.KeysQueryRequest;
+import io.github.fherbreteau.matrix.model.KeysQueryResponse;
+import io.github.fherbreteau.matrix.model.KeysUploadRequest;
+import io.github.fherbreteau.matrix.model.KeysUploadRequest.KeyValue;
+import io.github.fherbreteau.matrix.model.KeysUploadResponse;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.MediaDownload;
 import io.github.fherbreteau.matrix.model.MediaUploadReservation;
@@ -38,6 +51,7 @@ import io.github.fherbreteau.matrix.model.RoomId;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.RoomTag;
 import io.github.fherbreteau.matrix.model.RoomTags;
+import io.github.fherbreteau.matrix.model.SignedObject;
 import io.github.fherbreteau.matrix.model.SyncOptions;
 import io.github.fherbreteau.matrix.model.ThirdPartyLocations;
 import io.github.fherbreteau.matrix.model.ThirdPartyProtocols;
@@ -45,6 +59,13 @@ import io.github.fherbreteau.matrix.model.ThirdPartyUsers;
 import io.github.fherbreteau.matrix.model.ThreadsResponse;
 import io.github.fherbreteau.matrix.model.UserId;
 import io.github.fherbreteau.matrix.retry.RetryPolicy;
+import io.github.fherbreteau.vodozemac.account.Account;
+import io.github.fherbreteau.vodozemac.olm.InboundCreationResult;
+import io.github.fherbreteau.vodozemac.olm.OlmSession;
+import io.github.fherbreteau.vodozemac.types.Curve25519PublicKey;
+import io.github.fherbreteau.vodozemac.types.Ed25519KeyPair;
+import io.github.fherbreteau.vodozemac.types.Ed25519PublicKey;
+import io.github.fherbreteau.vodozemac.types.Ed25519Signature;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -53,8 +74,10 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -75,6 +98,9 @@ class SynapseContainerIT {
   private static final String MEMBER_PASSWORD = UUID.randomUUID().toString();
   private static final String SHARED_SECRET = UUID.randomUUID().toString();
   private static final String IMAGE = "matrixdotorg/synapse:v1.162.0";
+  private static final String ED25519_KEYID = "ed25519:%s";
+  private static final String CURVE25519_KEYID = "curve25519:%s";
+  private static final String SIGNED_CURVE25519_KEYID = "signed_curve25519:%s";
   private static Path dataDirectory;
   private static GenericContainer<?> synapse;
   private static MatrixClient client;
@@ -346,6 +372,25 @@ class SynapseContainerIT {
     assertThat(downloadedBytes(reservedUri)).containsExactly(reservedPayload);
   }
 
+  private static String canonicalJson(JsonValue value) {
+    if (value.isArray()) {
+      var elements = new ArrayList<String>();
+      for (int index = 0; index < value.asArray().size(); index++) {
+        elements.add(canonicalJson(value.asArray().get(index)));
+      }
+      return "[" + String.join(",", elements) + "]";
+    }
+    if (value.isObject()) {
+      var entries = new TreeMap<String, JsonValue>();
+      value.asObject().entrySet().forEach(entry -> entries.put(entry.getKey(), entry.getValue()));
+      var members = new ArrayList<String>();
+      entries.forEach(
+          (key, member) -> members.add(JsonString.of(key).toJson() + ":" + canonicalJson(member)));
+      return "{" + String.join(",", members) + "}";
+    }
+    return value.toJson();
+  }
+
   private byte[] downloadedBytes(MxcUri uri) throws IOException {
     try (var download = client.downloadMedia(uri, 1_024)) {
       return download.body().readAllBytes();
@@ -363,6 +408,381 @@ class SynapseContainerIT {
         byte[] content = thumbnail.body().readAllBytes();
         assertThat(content).hasSizeLessThan(15_000);
       }
+    }
+  }
+
+  @Test
+  void claimsVerifiesAndUsesAnUploadedOneTimeKeyAndFallbackKey() {
+    MatrixClient memberClient = loginAsOtherUser();
+    UserId member = UserId.of(memberClient.getSession().orElseThrow().userId());
+    DeviceId deviceId = DeviceId.of(memberClient.getSession().orElseThrow().deviceId());
+    Map<String, String> pickleData = new LinkedHashMap<>();
+    try {
+      client.queryKeys(new KeysQueryRequest(Map.of(member, List.of()), null));
+      DeviceInformation deviceKeys = buildDeviceKey(deviceId, pickleData, member);
+      Map<String, KeyValue> oneTimeKeys = buildOneTimeKeys(deviceId, pickleData, member, 1);
+      Map<String, KeyValue> fallbackKeys = buildFallbackKey(deviceId, pickleData, member);
+      KeysUploadResponse upload =
+          memberClient.uploadKeys(new KeysUploadRequest(deviceKeys, oneTimeKeys, fallbackKeys));
+      assertThat(upload.oneTimeKeyCounts()).containsKey("signed_curve25519");
+      markKeysAsPublished(deviceId, pickleData);
+
+      KeysQueryResponse query =
+          client.queryKeys(new KeysQueryRequest(Map.of(member, List.of(deviceId.value())), null));
+      DeviceInformation queriedDevice = query.deviceKeys().get(member).get(deviceId.value());
+      String deviceSignatureKeyId = deviceKeys.signatures().get(member).keySet().iterator().next();
+      String uploadedEd25519Key =
+          queriedDevice.keys().entrySet().stream()
+              .filter(entry -> entry.getKey().startsWith("ed25519:"))
+              .map(Map.Entry::getValue)
+              .findFirst()
+              .orElseThrow();
+      Ed25519PublicKey deviceSigningKey = Ed25519PublicKey.fromBase64(uploadedEd25519Key);
+      Ed25519Signature deviceSignature =
+          Ed25519Signature.fromBase64(
+              deviceKeys.signatures().get(member).get(deviceSignatureKeyId));
+      assertThat(
+              deviceSigningKey.verify(canonicalJson(deviceKeys.toUnsignedJson()), deviceSignature))
+          .isTrue();
+
+      var claimed =
+          client.claimKeys(
+              new KeysClaimRequest(
+                  Map.of(member, Map.of(deviceId.value(), "signed_curve25519")), null));
+      var claimedDeviceKeys = claimed.oneTimeKeys().get(member).get(deviceId.value());
+      var claimedEntry = claimedDeviceKeys.entrySet().iterator().next();
+      var claimedKey =
+          switch (claimedEntry.getValue()) {
+            case KeysClaimResponse.SignedKey key -> key;
+            case KeysClaimResponse.PlainKey ignored -> throw new AssertionError();
+          };
+      assertThat(claimedEntry.getKey()).startsWith("signed_curve25519:");
+      assertThat(claimedKey.key()).isNotBlank();
+      JsonObject claimedKeyUnsigned = new JsonObject().put("key", claimedKey.key());
+      Ed25519Signature claimedKeySignature =
+          Ed25519Signature.fromBase64(
+              claimedKey.signatures().get(member).get(deviceSignatureKeyId));
+      assertThat(deviceSigningKey.verify(canonicalJson(claimedKeyUnsigned), claimedKeySignature))
+          .isTrue();
+
+      String identityKeyId =
+          queriedDevice.keys().keySet().stream()
+              .filter(keyId -> keyId.startsWith("curve25519:"))
+              .findFirst()
+              .orElseThrow();
+      try (Account recipient = Account.unpickle(pickleData.get(deviceId.value()));
+          Account sender = new Account()) {
+        var outbound =
+            sender.createOutboundSession(
+                Curve25519PublicKey.fromBase64(queriedDevice.keys().get(identityKeyId)),
+                Curve25519PublicKey.fromBase64(claimedKey.key()));
+        try (OlmSession outboundSession = outbound) {
+          var preKeyMessage =
+              outboundSession.encrypt("e2ee end-to-end payload".getBytes(StandardCharsets.UTF_8));
+          try (InboundCreationResult inboundResult =
+                  recipient.createInboundSession(sender.curve25519Key(), preKeyMessage);
+              OlmSession inboundSession = inboundResult.session()) {
+            assertThat(new String(inboundResult.plaintext(), StandardCharsets.UTF_8))
+                .isEqualTo("e2ee end-to-end payload");
+            assertThat(
+                    new String(
+                        inboundSession.decrypt(
+                            outboundSession.encrypt(
+                                "second encrypted payload".getBytes(StandardCharsets.UTF_8))),
+                        StandardCharsets.UTF_8))
+                .isEqualTo("second encrypted payload");
+          }
+        }
+      }
+
+      try (Account fallbackRecipient = Account.unpickle(pickleData.get(deviceId.value()))) {
+        fallbackRecipient.forgetFallbackKey();
+        fallbackRecipient.generateFallbackKey();
+        pickleData.put(deviceId.value(), fallbackRecipient.pickle());
+      }
+      memberClient.uploadKeys(
+          new KeysUploadRequest(null, Map.of(), buildFallbackKey(deviceId, pickleData, member)));
+      markKeysAsPublished(deviceId, pickleData);
+      var fallbackClaim =
+          client.claimKeys(
+              new KeysClaimRequest(
+                  Map.of(member, Map.of(deviceId.value(), "signed_curve25519")), null));
+      var fallbackDeviceKeys = fallbackClaim.oneTimeKeys().get(member).get(deviceId.value());
+      assertThat(fallbackDeviceKeys).isNotEmpty();
+      assertThat(fallbackDeviceKeys.values())
+          .allSatisfy(
+              value ->
+                  assertThat(value)
+                      .isInstanceOf(KeysClaimResponse.SignedKey.class)
+                      .extracting("key")
+                      .asString()
+                      .isNotBlank());
+
+      String from = client.sync(SyncOptions.defaults()).nextBatch();
+      Map<String, KeyValue> replacementKeys = buildOneTimeKeys(deviceId, pickleData, member, 1);
+      memberClient.uploadKeys(new KeysUploadRequest(null, replacementKeys, null));
+      markKeysAsPublished(deviceId, pickleData);
+      var sync = client.sync(SyncOptions.incremental(from, 0, null));
+      assertThat(sync.nextBatch()).isNotBlank();
+      assertThat(client.getKeyChanges(from, sync.nextBatch()).changed()).isNotNull();
+
+      var afterUpload = client.sync(SyncOptions.incremental(sync.nextBatch(), 0, null));
+      assertThat(afterUpload.nextBatch()).isNotBlank();
+      assertThat(client.getKeyChanges(sync.nextBatch(), afterUpload.nextBatch()).changed())
+          .isNotNull();
+    } finally {
+      memberClient.logout();
+    }
+  }
+
+  @Test
+  void exercicesCrossSigningAndSigningUploadAndQuery() throws IOException {
+    UserId currentUser = UserId.of(client.getSession().get().userId());
+    DeviceId deviceId = DeviceId.of(client.getSession().get().deviceId());
+    var pickleData = new LinkedHashMap<String, String>();
+
+    // User Cross-Signing Keys
+
+    var masterKey = buildCrossSigningKey("master", pickleData, currentUser);
+    var selfSigningKey = buildCrossSigningKey("self_signing", pickleData, currentUser);
+    var userSigningKey = buildCrossSigningKey("user_signing", pickleData, currentUser);
+
+    var signedSelfSigningKey =
+        signWithCrossSigningKey(selfSigningKey, "master", pickleData, currentUser);
+    var signedUserSigningKey =
+        signWithCrossSigningKey(userSigningKey, "master", pickleData, currentUser);
+    var masterKeyId = masterKey.keys().keySet().iterator().next();
+    var masterSignatureKeyId =
+        signedSelfSigningKey.signatures().get(currentUser).keySet().iterator().next();
+    var masterSignature =
+        Ed25519Signature.fromBase64(
+            signedSelfSigningKey.signatures().get(currentUser).get(masterSignatureKeyId));
+    assertThat(
+            Ed25519PublicKey.fromBase64(masterKey.keys().get(masterKeyId))
+                .verify(canonicalJson(signedSelfSigningKey.toUnsignedJson()), masterSignature))
+        .isTrue();
+    // Upload the users cross-signing keys;
+    client.uploadDeviceSigningKeys(
+        new DeviceSigningUploadRequest(masterKey, signedSelfSigningKey, signedUserSigningKey));
+
+    // Device keys
+    var deviceKeys = buildDeviceKey(deviceId, pickleData, currentUser);
+    var oneTimeKeys = buildOneTimeKeys(deviceId, pickleData, currentUser);
+    var fallbackKeys = buildFallbackKey(deviceId, pickleData, currentUser);
+
+    // Upload user device keys and one-time keys and a fallback key
+    client.uploadKeys(new KeysUploadRequest(deviceKeys, oneTimeKeys, fallbackKeys));
+
+    markKeysAsPublished(deviceId, pickleData);
+
+    var signedMasterKey = signWithAccount(masterKey, deviceId, pickleData, currentUser);
+    var signedMasterSignatureKeyId =
+        signedMasterKey.signatures().get(currentUser).keySet().iterator().next();
+    var signedMasterSignature =
+        Ed25519Signature.fromBase64(
+            signedMasterKey.signatures().get(currentUser).get(signedMasterSignatureKeyId));
+
+    Map<UserId, Map<String, SignedObject>> signatures = new LinkedHashMap<>();
+    signatures
+        .computeIfAbsent(currentUser, u -> new LinkedHashMap<>())
+        .put(masterKeyId, signedMasterKey);
+    var result = client.uploadKeySignatures(new KeySignaturesUploadRequest(signatures));
+    assertThat(result.failures()).containsKey(currentUser);
+    assertThat(result.failures().get(currentUser).get(masterKeyId).errcode())
+        .isEqualTo("M_INVALID_SIGNATURE");
+
+    var signedDeviceKeys =
+        signWithCrossSigningKey(deviceKeys, "self_signing", pickleData, currentUser);
+    var deviceKeyId = deviceId.value();
+    signatures = new LinkedHashMap<>();
+    signatures
+        .computeIfAbsent(currentUser, u -> new LinkedHashMap<>())
+        .put(deviceKeyId, signedDeviceKeys);
+    var result2 = client.uploadKeySignatures(new KeySignaturesUploadRequest(signatures));
+    assertThat(result2).isNotNull();
+
+    KeysQueryResponse response =
+        client.queryKeys(
+            new KeysQueryRequest(Map.of(currentUser, List.of(deviceId.value())), 10_000L));
+    assertThat(response.deviceKeys())
+        .extractingByKey(currentUser, map(String.class, DeviceInformation.class))
+        .extractingByKey(deviceId.value(), type(DeviceInformation.class))
+        .extracting(DeviceInformation::deviceId, DeviceInformation::userId)
+        .containsExactly(deviceId, currentUser);
+    assertThat(response.deviceKeys())
+        .extractingByKey(currentUser, map(String.class, DeviceInformation.class))
+        .extractingByKey(deviceId.value(), type(DeviceInformation.class))
+        .extracting(DeviceInformation::signatures, map(UserId.class, Map.class))
+        .extractingByKey(currentUser, map(String.class, String.class))
+        .hasSizeGreaterThanOrEqualTo(1);
+    assertThat(response.masterKeys())
+        .extractingByKey(currentUser, type(CrossSigningKey.class))
+        .extracting(CrossSigningKey::signatures, map(UserId.class, Map.class))
+        .isNotNull();
+    assertThat(response.selfSigningKeys())
+        .extractingByKey(currentUser, type(CrossSigningKey.class))
+        .extracting(CrossSigningKey::signatures, map(UserId.class, Map.class))
+        .extractingByKey(currentUser, map(String.class, String.class))
+        .hasSize(1);
+    assertThat(response.userSigningKeys())
+        .extractingByKey(currentUser, type(CrossSigningKey.class))
+        .extracting(CrossSigningKey::signatures, map(UserId.class, Map.class))
+        .extractingByKey(currentUser, map(String.class, String.class))
+        .hasSize(1);
+  }
+
+  private CrossSigningKey buildCrossSigningKey(
+      String type, Map<String, String> pickleData, UserId user) {
+    try (Ed25519KeyPair keyPair = new Ed25519KeyPair()) {
+      String publicKey = keyPair.publicKey().toBase64();
+      String keyId = buildFingerprintKeyId(publicKey);
+      pickleData.put(type, keyPair.pickle());
+      pickleData.put(type + "_public", publicKey);
+      return new CrossSigningKey(List.of(type), user, Map.of(keyId, publicKey), null);
+    }
+  }
+
+  private String buildIdentityKeyId(String key) {
+    return String.format(CURVE25519_KEYID, key);
+  }
+
+  private String buildFingerprintKeyId(String key) {
+    return String.format(ED25519_KEYID, key);
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T extends SignedObject> T signWithCrossSigningKey(
+      T source, String keyType, Map<String, String> pickleData, UserId user) {
+    String keyData = pickleData.get(keyType);
+    if (keyData == null) {
+      throw new IllegalStateException(keyType + " is missing in pickle datas");
+    }
+    try (Ed25519KeyPair keyPair = Ed25519KeyPair.unpickle(keyData)) {
+      String json = canonicalJson(source.toUnsignedJson());
+      Ed25519Signature signature = keyPair.sign(json);
+      Map<UserId, Map<String, String>> signatures = new LinkedHashMap<>();
+      source.signatures().forEach((u, values) -> signatures.put(u, new LinkedHashMap<>(values)));
+
+      String keyId = buildFingerprintKeyId(pickleData.get(keyType + "_public"));
+      signatures
+          .computeIfAbsent(user, u -> new LinkedHashMap<String, String>())
+          .put(keyId, signature.toBase64());
+
+      return (T) source.withSignatures(signatures);
+    }
+  }
+
+  private <T extends SignedObject> T signWithAccount(
+      T source, DeviceId device, Map<String, String> pickleData, UserId user) {
+    String accountData = pickleData.get(device.value());
+    if (accountData == null) {
+      throw new IllegalStateException(device + " is missing in pickle datas");
+    }
+    try (Account account = Account.unpickle(accountData)) {
+      return signWithAccount(source, device, account, user);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T extends SignedObject> T signWithAccount(
+      T source, DeviceId device, Account account, UserId user) {
+    String json = canonicalJson(source.toUnsignedJson());
+    Ed25519Signature signature = account.sign(json);
+
+    Map<UserId, Map<String, String>> signatures = new LinkedHashMap<>();
+    source.signatures().forEach((u, values) -> signatures.put(u, new LinkedHashMap<>(values)));
+
+    String keyId = buildFingerprintKeyId(device.value());
+    signatures
+        .computeIfAbsent(user, u -> new LinkedHashMap<String, String>())
+        .put(keyId, signature.toBase64());
+    return (T) source.withSignatures(signatures);
+  }
+
+  private DeviceInformation buildDeviceKey(
+      DeviceId device, Map<String, String> pickleData, UserId user) {
+    try (Account account = new Account()) {
+      String identityKey = account.curve25519Key().toBase64();
+      String fingerprintKey = account.ed25519Key().toBase64();
+      var identityKeyId = buildIdentityKeyId(identityKey);
+      var fingerprintKeyId = buildFingerprintKeyId(fingerprintKey);
+
+      var keys = Map.of(identityKeyId, identityKey, fingerprintKeyId, fingerprintKey);
+      pickleData.put(identityKeyId, identityKey);
+      pickleData.put(fingerprintKeyId, fingerprintKey);
+      pickleData.put(device.value(), account.pickle());
+      var deviceInfo =
+          new DeviceInformation(
+              List.of("m.olm.v1.curve25519-aes-sha2", "m.megolm.v1.aes-sha2"),
+              device,
+              keys,
+              Map.of(),
+              null,
+              user);
+
+      return signWithAccount(deviceInfo, device, account, user);
+    }
+  }
+
+  private Map<String, KeyValue> buildOneTimeKeys(
+      DeviceId device, Map<String, String> pickleData, UserId user) {
+    return buildOneTimeKeys(device, pickleData, user, 25);
+  }
+
+  private Map<String, KeyValue> buildOneTimeKeys(
+      DeviceId device, Map<String, String> pickleData, UserId user, long count) {
+    String accountData = pickleData.get(device.value());
+    if (accountData == null) {
+      throw new IllegalStateException(device + " is missing in pickle datas");
+    }
+    try (Account account = Account.unpickle(accountData)) {
+      account.generateOneTimeKeys(count);
+      Map<String, Curve25519PublicKey> oneTimeKeys = account.unpublishedOneTimeKeys();
+
+      Map<String, KeyValue> result = new LinkedHashMap<>();
+      oneTimeKeys.forEach(
+          (index, oneTime) -> {
+            var keyId = String.format(SIGNED_CURVE25519_KEYID, index);
+            var unsigned = new KeysUploadRequest.SignedKey(oneTime.toBase64(), null, null);
+            var signed = signWithAccount(unsigned, device, account, user);
+            result.put(keyId, signed);
+          });
+      pickleData.put(device.value(), account.pickle());
+      return result;
+    }
+  }
+
+  private Map<String, KeyValue> buildFallbackKey(
+      DeviceId device, Map<String, String> pickleData, UserId user) {
+    String accountData = pickleData.get(device.value());
+    if (accountData == null) {
+      throw new IllegalStateException(device + " is missing in pickle datas");
+    }
+    try (Account account = Account.unpickle(accountData)) {
+      account.generateFallbackKey();
+      Map<String, Curve25519PublicKey> fallbackKeys = account.unpublishedFallbackKey();
+
+      Map<String, KeyValue> result = new LinkedHashMap<>();
+      fallbackKeys.forEach(
+          (index, fallback) -> {
+            var keyId = String.format(SIGNED_CURVE25519_KEYID, index);
+            var unsigned = new KeysUploadRequest.SignedKey(fallback.toBase64(), null, true);
+            var signed = signWithAccount(unsigned, device, account, user);
+            result.put(keyId, signed);
+          });
+      pickleData.put(device.value(), account.pickle());
+      return result;
+    }
+  }
+
+  private void markKeysAsPublished(DeviceId device, Map<String, String> pickleData) {
+    String accountData = pickleData.get(device.value());
+    if (accountData == null) {
+      throw new IllegalStateException(device + " is missing in pickle datas");
+    }
+    try (Account account = Account.unpickle(accountData)) {
+      account.markKeysAsPublished();
+      pickleData.put(device.value(), account.pickle());
     }
   }
 

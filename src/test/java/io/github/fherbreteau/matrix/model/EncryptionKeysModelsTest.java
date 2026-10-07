@@ -283,8 +283,10 @@ class EncryptionKeysModelsTest {
     assertThat(ModelJson.number(count, "count")).isEqualTo(3L);
     assertThat(ModelJson.number(count, "missing")).isNull();
     assertThat(ModelJson.string(count, "missing")).isNull();
-    assertThat(ModelJson.bool(JsonParser.parse("{\"enabled\":true}").asObject(), "enabled"))
-        .isTrue();
+    var values = JsonParser.parse("{\"enabled\":true}").asObject();
+    assertThat(ModelJson.bool(values, "enabled")).isTrue();
+    assertThat(ModelJson.optionalBoolean(values, "enabled")).isTrue();
+    assertThat(ModelJson.optionalNumber(count, "count")).isEqualTo(3L);
   }
 
   @Test

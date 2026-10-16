@@ -16,11 +16,23 @@ import io.github.fherbreteau.matrix.model.Credentials;
 import io.github.fherbreteau.matrix.model.DeleteDevicesRequest;
 import io.github.fherbreteau.matrix.model.Device;
 import io.github.fherbreteau.matrix.model.DeviceId;
+import io.github.fherbreteau.matrix.model.DeviceSigningUploadRequest;
 import io.github.fherbreteau.matrix.model.DeviceUpdateRequest;
 import io.github.fherbreteau.matrix.model.DevicesResponse;
 import io.github.fherbreteau.matrix.model.Direction;
+import io.github.fherbreteau.matrix.model.EncryptionRequest;
+import io.github.fherbreteau.matrix.model.EncryptionRequest.RoomKeyBackup;
 import io.github.fherbreteau.matrix.model.EventId;
 import io.github.fherbreteau.matrix.model.JoinedMembers;
+import io.github.fherbreteau.matrix.model.KeyChangesResponse;
+import io.github.fherbreteau.matrix.model.KeySignaturesUploadRequest;
+import io.github.fherbreteau.matrix.model.KeySignaturesUploadResponse;
+import io.github.fherbreteau.matrix.model.KeysClaimRequest;
+import io.github.fherbreteau.matrix.model.KeysClaimResponse;
+import io.github.fherbreteau.matrix.model.KeysQueryRequest;
+import io.github.fherbreteau.matrix.model.KeysQueryResponse;
+import io.github.fherbreteau.matrix.model.KeysUploadRequest;
+import io.github.fherbreteau.matrix.model.KeysUploadResponse;
 import io.github.fherbreteau.matrix.model.MatrixFilter;
 import io.github.fherbreteau.matrix.model.MatrixVersions;
 import io.github.fherbreteau.matrix.model.MediaDownload;
@@ -44,6 +56,11 @@ import io.github.fherbreteau.matrix.model.RoomAliasResolution;
 import io.github.fherbreteau.matrix.model.RoomCreation;
 import io.github.fherbreteau.matrix.model.RoomEvent;
 import io.github.fherbreteau.matrix.model.RoomId;
+import io.github.fherbreteau.matrix.model.RoomKeyBackupInfo;
+import io.github.fherbreteau.matrix.model.RoomKeyBackupKeysResponse;
+import io.github.fherbreteau.matrix.model.RoomKeyBackupVersion;
+import io.github.fherbreteau.matrix.model.RoomKeyBackupVersionRequest;
+import io.github.fherbreteau.matrix.model.RoomKeyBackupWriteResponse;
 import io.github.fherbreteau.matrix.model.RoomMessagesPage;
 import io.github.fherbreteau.matrix.model.RoomSummary;
 import io.github.fherbreteau.matrix.model.RoomTag;
@@ -150,6 +167,12 @@ public final class MatrixClient {
   private static final String USERS_PATH = "_matrix/client/v3/users/";
   private static final String USER_ROOMS_SEGMENT = "/rooms/";
   private static final String THIRD_PARTY_PATH = "_matrix/client/v3/thirdparty/";
+  private static final String KEYS_PATH = "_matrix/client/v3/keys/";
+  private static final String ROOM_KEYS_PATH = "_matrix/client/v3/room_keys/";
+  private static final String ROOM_KEY_VERSION_PATH = ROOM_KEYS_PATH + "version";
+  private static final char URL_PATH_SEPARATOR = '/';
+  private static final String ROOM_KEY_VERSION_ID_PATH = ROOM_KEY_VERSION_PATH + URL_PATH_SEPARATOR;
+  private static final String MUTUAL_ROOMS_PATH = "_matrix/client/v1/mutual_rooms";
   private static final String ROOM_ID_FIELD = "room_id";
   private static final String FILE_TYPE = "application/octet-stream";
 
@@ -744,6 +767,371 @@ public final class MatrixClient {
   public void deleteDevices(DeleteDevicesRequest request) {
     ensureDeviceDeletionSupportedBySession();
     authenticatedUiAuth("POST", "_matrix/client/v3/delete_devices", request.toJson());
+  }
+
+  /**
+   * Publishes device identity, one-time, and fallback keys.
+   *
+   * @param request raw upload payload
+   * @return counts of unclaimed one-time keys by algorithm
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysupload">Matrix
+   *     specification</a>
+   */
+  public KeysUploadResponse uploadKeys(KeysUploadRequest request) {
+    JsonValue response = authenticated("POST", KEYS_PATH + "upload", request.toJson());
+    return KeysUploadResponse.from(response);
+  }
+
+  /**
+   * Queries device and cross-signing keys for users and devices.
+   *
+   * @param request user-to-device query and optional remote timeout
+   * @return raw key maps, failures, and extension fields
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysquery">Matrix
+   *     specification</a>
+   */
+  public KeysQueryResponse queryKeys(KeysQueryRequest request) {
+    JsonValue body = authenticated("POST", KEYS_PATH + "query", request.toJson());
+    return KeysQueryResponse.from(body);
+  }
+
+  /**
+   * Claims one-time or fallback keys for devices.
+   *
+   * @param request user/device/algorithm claims and optional remote timeout
+   * @return claimed keys and remote failures without transforming key material
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysclaim">Matrix
+   *     specification</a>
+   */
+  public KeysClaimResponse claimKeys(KeysClaimRequest request) {
+    JsonValue body = authenticated("POST", KEYS_PATH + "claim", request.toJson());
+    return KeysClaimResponse.from(body);
+  }
+
+  /**
+   * Gets users whose device identity keys changed between two sync tokens.
+   *
+   * @param from earlier sync token
+   * @param to later sync token
+   * @return users whose keys changed or who left
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3keyschanges">Matrix
+   *     specification</a>
+   */
+  public KeyChangesResponse getKeyChanges(String from, String to) {
+    JsonObject query = new JsonObject().put("from", from).put("to", to);
+    JsonValue body = authenticated("GET", appendQuery(KEYS_PATH + "changes", query), null);
+    return KeyChangesResponse.from(body);
+  }
+
+  /**
+   * Uploads cross-signing keys. UIA challenges are surfaced through thrown Matrix server errors.
+   *
+   * @param request raw cross-signing keys and optional UIA response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysdevice_signingupload">Matrix
+   *     specification</a>
+   */
+  public void uploadDeviceSigningKeys(DeviceSigningUploadRequest request) {
+    authenticated("POST", KEYS_PATH + "device_signing/upload", request.toJson());
+  }
+
+  /**
+   * Retries cross-signing key upload with explicit UIA fields.
+   *
+   * @param request raw cross-signing keys and UIA response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keysdevice_signingupload">Matrix
+   *     specification</a>
+   */
+  public void uploadDeviceSigningKeysWithAuth(DeviceSigningUploadRequest request) {
+    authenticatedUiAuth("POST", KEYS_PATH + "device_signing/upload", request.toJson());
+  }
+
+  /**
+   * Uploads signatures for devices and cross-signing keys.
+   *
+   * @param request nested user/key/signature JSON map
+   * @return per-key failures and the raw response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3keyssignaturesupload">Matrix
+   *     specification</a>
+   */
+  public KeySignaturesUploadResponse uploadKeySignatures(KeySignaturesUploadRequest request) {
+    JsonValue body = authenticated("POST", KEYS_PATH + "signatures/upload", request.toJson());
+    return KeySignaturesUploadResponse.from(body);
+  }
+
+  /**
+   * Creates a backup-version operation.
+   *
+   * @return current backup version metadata
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keysversion">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupInfo getRoomKeyBackupVersion() {
+    JsonValue body = authenticated("GET", ROOM_KEY_VERSION_PATH, null);
+    return RoomKeyBackupInfo.from(body);
+  }
+
+  /**
+   * Creates a room-key backup version.
+   *
+   * @param request algorithm and algorithm-specific authentication data
+   * @return opaque backup version identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3room_keysversion">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupVersion createRoomKeyBackupVersion(RoomKeyBackupVersionRequest request) {
+    JsonValue response = authenticated("POST", ROOM_KEY_VERSION_PATH, request.toJson(false));
+    return RoomKeyBackupVersion.from(response);
+  }
+
+  /**
+   * Retrieves one specific room-key backup version.
+   *
+   * @param versionId opaque backup version identifier
+   * @return backup metadata
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keysversionversion">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupInfo getRoomKeyBackupVersionById(String versionId) {
+    JsonValue body = authenticated("GET", ROOM_KEY_VERSION_ID_PATH + encode(versionId), null);
+    return RoomKeyBackupInfo.from(body);
+  }
+
+  /**
+   * Updates authentication data of a specific backup version.
+   *
+   * @param versionId opaque backup version identifier
+   * @param request backup algorithm and authentication data, optionally including matching version
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3room_keysversionversion">Matrix
+   *     specification</a>
+   */
+  public void updateRoomKeyBackupVersion(String versionId, RoomKeyBackupVersionRequest request) {
+    if (request.version() != null && !request.version().equals(versionId)) {
+      throw new IllegalArgumentException("backup body version must match path version");
+    }
+    authenticated(
+        "PUT", ROOM_KEY_VERSION_ID_PATH + encode(versionId), request.toJson(true, versionId));
+  }
+
+  /**
+   * Deletes a specific room-key backup version.
+   *
+   * @param versionId opaque backup version identifier
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3room_keysversionversion">Matrix
+   *     specification</a>
+   */
+  public void deleteRoomKeyBackupVersion(String versionId) {
+    authenticated(HTTP_DELETE, ROOM_KEY_VERSION_ID_PATH + encode(versionId), null);
+  }
+
+  /**
+   * Retrieves all backed-up room sessions for a version.
+   *
+   * @param versionId opaque backup version identifier
+   * @return raw rooms map and complete response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keyskeys">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupKeysResponse getRoomKeyBackup(String versionId) {
+    JsonValue body = authenticated("GET", roomKeysPath(versionId, null, null), null);
+    return RoomKeyBackupKeysResponse.from(body);
+  }
+
+  /**
+   * Uploads room-key sessions for all rooms into a backup version.
+   *
+   * @param versionId opaque backup version identifier
+   * @param request raw room/session key JSON
+   * @return current key count and etag
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3room_keyskeys">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupWriteResponse uploadRoomKeyBackup(
+      String versionId, EncryptionRequest request) {
+    JsonValue body = authenticated("PUT", roomKeysPath(versionId, null, null), request.toJson());
+    return RoomKeyBackupWriteResponse.from(body);
+  }
+
+  /**
+   * Deletes all backed-up keys in a version.
+   *
+   * @param versionId opaque backup version identifier
+   * @return current key count and etag
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3room_keyskeys">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupWriteResponse deleteRoomKeyBackup(String versionId) {
+    JsonValue body = authenticated(HTTP_DELETE, roomKeysPath(versionId, null, null), null);
+    return RoomKeyBackupWriteResponse.from(body);
+  }
+
+  /**
+   * Retrieves backed-up sessions for a single room.
+   *
+   * @param versionId opaque backup version identifier
+   * @param roomId room identifier
+   * @return raw sessions map and complete response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keyskeysroomid">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupKeysResponse.RoomSessions getRoomKeyBackupForRoom(
+      String versionId, RoomId roomId) {
+    JsonValue body = authenticated("GET", roomKeysPath(versionId, roomId, null), null);
+    return RoomKeyBackupKeysResponse.RoomSessions.from(body);
+  }
+
+  /**
+   * Uploads backed-up sessions for a single room.
+   *
+   * @param versionId opaque backup version identifier
+   * @param roomId room identifier
+   * @param request raw session-map JSON
+   * @return current key count and etag
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3room_keyskeysroomid">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupWriteResponse uploadRoomKeyBackupForRoom(
+      String versionId, RoomId roomId, RoomKeyBackup request) {
+    JsonValue body = authenticated("PUT", roomKeysPath(versionId, roomId, null), request.toJson());
+    return RoomKeyBackupWriteResponse.from(body);
+  }
+
+  /**
+   * Deletes backed-up sessions for one room.
+   *
+   * @param versionId opaque backup version identifier
+   * @param roomId room identifier
+   * @return current key count and etag
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3room_keyskeysroomid">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupWriteResponse deleteRoomKeyBackupForRoom(String versionId, RoomId roomId) {
+    JsonValue body = authenticated(HTTP_DELETE, roomKeysPath(versionId, roomId, null), null);
+    return RoomKeyBackupWriteResponse.from(body);
+  }
+
+  /**
+   * Retrieves one backed-up Megolm session.
+   *
+   * @param versionId opaque backup version identifier
+   * @param roomId room identifier
+   * @param sessionId opaque session identifier
+   * @return validated session key data and complete response
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3room_keyskeysroomidsessionid">Matrix
+   *     specification</a>
+   */
+  public EncryptionRequest.KeyBackupData getRoomKeyBackupSession(
+      String versionId, RoomId roomId, String sessionId) {
+    JsonValue body = authenticated("GET", roomKeysPath(versionId, roomId, sessionId), null);
+    return EncryptionRequest.KeyBackupData.from(body);
+  }
+
+  /**
+   * Uploads one backed-up Megolm session.
+   *
+   * @param versionId opaque backup version identifier
+   * @param roomId room identifier
+   * @param sessionId opaque session identifier
+   * @param request raw session key JSON object
+   * @return current key count and etag
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3room_keyskeysroomidsessionid">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupWriteResponse uploadRoomKeyBackupSession(
+      String versionId, RoomId roomId, String sessionId, EncryptionRequest.KeyBackupData request) {
+    JsonValue body =
+        authenticated("PUT", roomKeysPath(versionId, roomId, sessionId), request.toJson());
+    return RoomKeyBackupWriteResponse.from(body);
+  }
+
+  /**
+   * Deletes one backed-up Megolm session.
+   *
+   * @param versionId opaque backup version identifier
+   * @param roomId room identifier
+   * @param sessionId opaque session identifier
+   * @return current key count and etag
+   * @throws io.github.fherbreteau.matrix.error.AuthenticationException if there is no session or
+   *     its token is invalid
+   * @see <a
+   *     href="https://spec.matrix.org/latest/client-server-api/#delete_matrixclientv3room_keyskeysroomidsessionid">Matrix
+   *     specification</a>
+   */
+  public RoomKeyBackupWriteResponse deleteRoomKeyBackupSession(
+      String versionId, RoomId roomId, String sessionId) {
+    JsonValue body = authenticated(HTTP_DELETE, roomKeysPath(versionId, roomId, sessionId), null);
+    return RoomKeyBackupWriteResponse.from(body);
+  }
+
+  private static String roomKeysPath(String version, RoomId roomId, String sessionId) {
+    StringBuilder path = new StringBuilder(ROOM_KEYS_PATH).append("keys");
+    if (roomId != null) {
+      path.append('/').append(encode(roomId.value()));
+      if (sessionId != null) {
+        path.append('/').append(encode(sessionId));
+      }
+    }
+    path.append("?version=").append(encode(version));
+    return path.toString();
   }
 
   /**
@@ -2069,7 +2457,7 @@ public final class MatrixClient {
       query.put("from", from);
     }
     return MutualRoomsResponse.from(
-        authenticated("GET", appendQuery("_matrix/client/v1/mutual_rooms", query), null));
+        authenticated("GET", appendQuery(MUTUAL_ROOMS_PATH, query), null));
   }
 
   /**

@@ -40,7 +40,7 @@ class EncryptionKeysModelsTest {
     assertThatThrownBy(() -> new DeviceInformation(null, deviceId, Map.of(), Map.of(), user))
         .isInstanceOf(IllegalArgumentException.class);
     var oneTimeKeys = request.oneTimeKeys();
-    assertThat(oneTimeKeys.get("signed_curve25519:k")).isEqualTo(signed);
+    assertThat(oneTimeKeys).containsEntry("signed_curve25519:k", signed);
     var plainKey = new KeysUploadRequest.PlainKey("k");
     assertThatThrownBy(() -> oneTimeKeys.put("other", plainKey))
         .isInstanceOf(UnsupportedOperationException.class);
@@ -119,8 +119,8 @@ class EncryptionKeysModelsTest {
         new KeysClaimResponse(
             Map.of(user, Map.of("D", Map.of("signed_curve25519:k", oneTimeKey))),
             Map.of("remote", new KeysClaimResponse.Failure("M_TIMEOUT", "timeout")));
-    assertThat(claim.oneTimeKeys().get(user).get("D").get("signed_curve25519:k"))
-        .isEqualTo(oneTimeKey);
+    assertThat(claim.oneTimeKeys().get(user).get("D"))
+        .containsEntry("signed_curve25519:k", oneTimeKey);
     var upload = new KeysUploadResponse(Map.of("signed_curve25519", 7L));
     assertThat(upload.oneTimeKeyCounts()).containsEntry("signed_curve25519", 7L);
     var changes = new KeyChangesResponse(List.of(user), List.of());

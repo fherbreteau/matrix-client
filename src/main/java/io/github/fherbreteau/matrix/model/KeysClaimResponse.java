@@ -54,7 +54,7 @@ public record KeysClaimResponse(
      * @param signatures signatures by user and key ID
      */
     public SignedKey {
-      key = requireNonNull(key);
+      requireNonNull(key);
       signatures = ModelJson.requireNotEmpty(immutableMap(signatures));
     }
   }

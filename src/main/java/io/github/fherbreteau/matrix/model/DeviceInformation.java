@@ -25,6 +25,7 @@ public record DeviceInformation(
     UnsignedDeviceData unsigned,
     UserId userId)
     implements SignedObject {
+  private static final String DESCRIPTION = "device_keys";
   private static final String ALGORITHMS_KEY = "algorithms";
   private static final String DEVICE_ID_KEY = "device_id";
   private static final String KEYS_KEY = "keys";
@@ -44,10 +45,10 @@ public record DeviceInformation(
    */
   public DeviceInformation {
     algorithms = ModelJson.requireNotEmpty(immutableList(algorithms));
-    deviceId = requireNonNull(deviceId);
+    requireNonNull(deviceId);
     keys = ModelJson.requireNotEmpty(immutableMap(keys));
     signatures = immutableMap(signatures);
-    userId = requireNonNull(userId);
+    requireNonNull(userId);
   }
 
   /**
@@ -106,23 +107,23 @@ public record DeviceInformation(
    * @throws DiscoveryException if the body is not a JSON object or does not contain a device key
    */
   public static DeviceInformation from(JsonValue value) {
-    var json = ModelJson.object(value, "device_keys");
+    var json = ModelJson.object(value, DESCRIPTION);
     JsonValue algorithms = json.get(ALGORITHMS_KEY);
     if (algorithms == null || !algorithms.isArray()) {
-      throw new IllegalArgumentException("device_keys must contain algorithms");
+      throw new IllegalArgumentException(DESCRIPTION + " must contain algorithms");
     }
-    JsonObject keys = ModelJson.requiredObject(json, KEYS_KEY, "device_keys");
-    JsonObject signatures = ModelJson.requiredObject(json, SIGNATURES_KEY, "device_keys");
+    JsonObject keys = ModelJson.requiredObject(json, KEYS_KEY, DESCRIPTION);
+    JsonObject signatures = ModelJson.requiredObject(json, SIGNATURES_KEY, DESCRIPTION);
     JsonValue unsignedValue = json.get(UNSIGNED_KEY);
     JsonObject unsigned =
         unsignedValue == null ? null : ModelJson.object(unsignedValue, UNSIGNED_KEY);
     return new DeviceInformation(
         ModelJson.strings(algorithms, ALGORITHMS_KEY),
-        DeviceId.of(ModelJson.requiredString(json, DEVICE_ID_KEY, "device_keys")),
-        ModelJson.requiredStringMap(keys, "device_keys"),
+        DeviceId.of(ModelJson.requiredString(json, DEVICE_ID_KEY, DESCRIPTION)),
+        ModelJson.requiredStringMap(keys, DESCRIPTION),
         ModelJson.stringSignatures(signatures),
         UnsignedDeviceData.from(unsigned),
-        UserId.of(ModelJson.requiredString(json, USER_ID_KEY, "device_keys")));
+        UserId.of(ModelJson.requiredString(json, USER_ID_KEY, DESCRIPTION)));
   }
 
   /** Unsigned device metadata. */

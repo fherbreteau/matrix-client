@@ -19,6 +19,23 @@ public record KeysQueryResponse(
     Map<UserId, CrossSigningKey> masterKeys,
     Map<UserId, CrossSigningKey> selfSigningKeys,
     Map<UserId, CrossSigningKey> userSigningKeys) {
+  private static final String DEVICE_KEYS_KEY = "device_keys";
+  private static final String UNSIGNED_KEY = "unsigned";
+  private static final String API_RESPONSE_KEY = "response";
+  private static final String MASTER_KEYS_KEY = "master_keys";
+  private static final String SELF_SIGNING_KEYS_KEY = "self_signing_keys";
+  private static final String USER_SIGNING_KEYS_KEY = "user_signing_keys";
+  private static final String FAILURES_KEY = "failures";
+  private static final String ALGORITHMS_KEY = "algorithms";
+  private static final String KEYS_KEY = "keys";
+  private static final String SIGNATURES_KEY = "signatures";
+  private static final String DEVICE_ID_KEY = "device_id";
+  private static final String USER_ID_KEY = "user_id";
+  private static final String ERROR_CODE_KEY = "errcode";
+  private static final String ERROR_MESSAGE_KEY = "error";
+  private static final String FAILURE_DESCRIPTION = "failure";
+  private static final String MISSING_ALGORITHMS = "device_keys must contain algorithms";
+
   /**
    * Creates a parsed query response.
    *
@@ -48,26 +65,26 @@ public record KeysQueryResponse(
    *     versions} array of strings
    */
   public static KeysQueryResponse from(JsonValue body) {
-    var response = ModelJson.object(body, "response");
+    var response = ModelJson.object(body, API_RESPONSE_KEY);
     return new KeysQueryResponse(
-        queryDeviceKeys(response.get("device_keys")),
-        queryFailures(response.get("failures")),
-        crossSigningKeys(response.get("master_keys")),
-        crossSigningKeys(response.get("self_signing_keys")),
-        crossSigningKeys(response.get("user_signing_keys")));
+        queryDeviceKeys(response.get(DEVICE_KEYS_KEY)),
+        queryFailures(response.get(FAILURES_KEY)),
+        crossSigningKeys(response.get(MASTER_KEYS_KEY)),
+        crossSigningKeys(response.get(SELF_SIGNING_KEYS_KEY)),
+        crossSigningKeys(response.get(USER_SIGNING_KEYS_KEY)));
   }
 
   private static Map<UserId, Map<String, DeviceInformation>> queryDeviceKeys(JsonValue value) {
     if (value == null) {
       return Map.of();
     }
-    JsonObject users = ModelJson.object(value, "device_keys");
+    JsonObject users = ModelJson.object(value, DEVICE_KEYS_KEY);
     Map<UserId, Map<String, DeviceInformation>> result = new LinkedHashMap<>();
     users
         .entrySet()
         .forEach(
             userEntry -> {
-              JsonObject devices = userEntry.getValue().asObject();
+              JsonObject devices = ModelJson.object(userEntry.getValue(), DEVICE_KEYS_KEY);
               Map<String, DeviceInformation> parsedDevices = new LinkedHashMap<>();
               devices
                   .entrySet()
@@ -81,24 +98,24 @@ public record KeysQueryResponse(
   }
 
   private static DeviceInformation deviceInformation(JsonValue value) {
-    JsonObject device = ModelJson.object(value, "device_keys");
+    JsonObject device = ModelJson.object(value, DEVICE_KEYS_KEY);
     JsonObject unsigned =
-        device.get("unsigned") == null
+        device.get(UNSIGNED_KEY) == null
             ? null
-            : ModelJson.object(device.get("unsigned"), "unsigned");
-    JsonValue algorithms = device.get("algorithms");
+            : ModelJson.object(device.get(UNSIGNED_KEY), UNSIGNED_KEY);
+    JsonValue algorithms = device.get(ALGORITHMS_KEY);
     if (algorithms == null || !algorithms.isArray()) {
-      throw new IllegalArgumentException("device_keys must contain algorithms");
+      throw new IllegalArgumentException(MISSING_ALGORITHMS);
     }
-    JsonObject keys = ModelJson.requiredObject(device, "keys", "device_keys");
-    JsonObject signatures = ModelJson.requiredObject(device, "signatures", "device_keys");
+    JsonObject keys = ModelJson.requiredObject(device, KEYS_KEY, DEVICE_KEYS_KEY);
+    JsonObject signatures = ModelJson.requiredObject(device, SIGNATURES_KEY, DEVICE_KEYS_KEY);
     return new DeviceInformation(
-        ModelJson.strings(algorithms, "algorithms"),
-        DeviceId.of(ModelJson.requiredString(device, "device_id", "device_keys")),
+        ModelJson.strings(algorithms, ALGORITHMS_KEY),
+        DeviceId.of(ModelJson.requiredString(device, DEVICE_ID_KEY, DEVICE_KEYS_KEY)),
         ModelJson.optionalStringMap(keys),
         ModelJson.stringSignatures(signatures),
         DeviceInformation.UnsignedDeviceData.from(unsigned),
-        UserId.of(ModelJson.requiredString(device, "user_id", "device_keys")));
+        UserId.of(ModelJson.requiredString(device, USER_ID_KEY, DEVICE_KEYS_KEY)));
   }
 
   private static Map<String, KeysQueryResponse.Failure> queryFailures(JsonValue value) {
@@ -115,15 +132,15 @@ public record KeysQueryResponse(
               result.put(
                   entry.getKey(),
                   new KeysQueryResponse.Failure(
-                      ModelJson.requiredString(failure, "errcode", "failure"),
-                      ModelJson.requiredString(failure, "error", "failure")));
+                      ModelJson.requiredString(failure, ERROR_CODE_KEY, FAILURE_DESCRIPTION),
+                      ModelJson.requiredString(failure, ERROR_MESSAGE_KEY, FAILURE_DESCRIPTION)));
             });
     return result;
   }
 
   private static Map<UserId, CrossSigningKey> crossSigningKeys(JsonValue value) {
     if (value == null) {
-      return null;
+      return Map.of();
     }
     JsonObject users = value.asObject();
     Map<UserId, CrossSigningKey> result = new LinkedHashMap<>();

@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 final class ModelJson {
   private ModelJson() {}
@@ -38,24 +40,17 @@ final class ModelJson {
   }
 
   static JsonObject requiredObject(JsonObject object, String key, String description) {
-    JsonValue value = object.get(key);
-    if (value == null || !value.isObject()) {
-      throw new IllegalArgumentException(description + " must contain " + key);
-    }
-    return value.asObject();
+    return requiredValue(
+        object, key, JsonValue::isObject, JsonValue::asObject, description, "a JSON object");
   }
 
   static String requiredString(JsonObject object, String key, String description) {
-    JsonValue value = object.get(key);
-    if (value == null || !value.isString()) {
-      throw new IllegalArgumentException(description + " must contain " + key);
-    }
-    return value.asString();
+    return requiredValue(
+        object, key, JsonValue::isString, JsonValue::asString, description, "a string");
   }
 
   static String optionalString(JsonObject object, String key) {
-    JsonValue value = object.get(key);
-    return value != null && value.isString() ? value.asString() : null;
+    return optionalValue(object, key, JsonValue::isString, JsonValue::asString);
   }
 
   static String string(JsonObject object, String key) {
@@ -63,8 +58,7 @@ final class ModelJson {
   }
 
   static Long number(JsonObject object, String key) {
-    JsonValue value = object.get(key);
-    return value == null ? null : number(value, key);
+    return optionalNumber(object, key);
   }
 
   static Long number(JsonValue value, String description) {
@@ -86,37 +80,53 @@ final class ModelJson {
   }
 
   static Long requiredNumber(JsonObject object, String key, String description) {
-    JsonValue value = object.get(key);
-    if (value == null) {
-      throw new IllegalArgumentException(description + " must contain " + key);
-    }
-    return number(value, key);
+    return requiredValue(
+        object,
+        key,
+        v -> v.isNumber() && v.asBigDecimal().stripTrailingZeros().scale() == 0,
+        v -> (Long) v.asBigDecimal().longValueExact(),
+        description,
+        "a number");
   }
 
   static Long optionalNumber(JsonObject object, String key) {
-    JsonValue value = object.get(key);
-    if (value == null) {
-      return null;
-    }
-    return number(value, key);
+    return optionalValue(object, key, JsonValue::isNumber, value -> number(value, key));
   }
 
   static Boolean bool(JsonObject object, String key) {
-    JsonValue value = object.get(key);
-    return value != null && value.isBoolean() ? value.asBoolean() : null;
+    return optionalValue(object, key, JsonValue::isBoolean, JsonValue::asBoolean);
   }
 
-  static Boolean requiredBoolean(JsonObject object, String key) {
-    JsonValue value = object.get(key);
-    if (value == null || !value.isBoolean()) {
-      throw new IllegalArgumentException(key + " must be a boolean");
-    }
-    return value.asBoolean();
+  static Boolean requiredBoolean(JsonObject object, String key, String description) {
+    return requiredValue(
+        object, key, JsonValue::isBoolean, JsonValue::asBoolean, description, "a boolean");
   }
 
   static Boolean optionalBoolean(JsonObject object, String key) {
+    return optionalValue(object, key, JsonValue::isBoolean, JsonValue::asBoolean);
+  }
+
+  private static <T> T optionalValue(
+      JsonObject object,
+      String key,
+      Predicate<JsonValue> predicate,
+      Function<JsonValue, T> mapper) {
     JsonValue value = object.get(key);
-    return value != null && value.isBoolean() ? value.asBoolean() : null;
+    return value != null && predicate.test(value) ? mapper.apply(value) : null;
+  }
+
+  private static <T> T requiredValue(
+      JsonObject object,
+      String key,
+      Predicate<JsonValue> predicate,
+      Function<JsonValue, T> mapper,
+      String description,
+      String type) {
+    JsonValue value = object.get(key);
+    if (value == null || !predicate.test(value)) {
+      throw new IllegalArgumentException(description + " must be " + type);
+    }
+    return mapper.apply(value);
   }
 
   static List<String> strings(JsonValue value, String description) {
@@ -140,7 +150,7 @@ final class ModelJson {
 
   static Map<UserId, Map<String, String>> stringSignatures(JsonValue value) {
     if (value == null) {
-      return null;
+      return Map.of();
     }
     JsonObject users = object(value, "signatures");
     Map<UserId, Map<String, String>> result = new LinkedHashMap<>();
@@ -198,7 +208,7 @@ final class ModelJson {
       }
       result.put(entry.getKey(), fromJsonValue(entry.getValue()));
     }
-    return result.isEmpty() ? null : result;
+    return result;
   }
 
   private static boolean isExcluded(String key, String[] excluded) {
@@ -291,14 +301,14 @@ final class ModelJson {
   private static String serializeKey(Object object) {
     if (object instanceof String string) {
       return string;
-    } else if (object instanceof RoomId roomId) {
-      return roomId.value();
-    } else if (object instanceof UserId userId) {
-      return userId.value();
-    } else if (object instanceof DeviceId deviceId) {
-      return deviceId.value();
-    } else if (object instanceof EventId eventId) {
-      return eventId.value();
+    } else if (object instanceof RoomId(var value)) {
+      return value;
+    } else if (object instanceof UserId(var value)) {
+      return value;
+    } else if (object instanceof DeviceId(var value)) {
+      return value;
+    } else if (object instanceof EventId(var value)) {
+      return value;
     } else {
       throw new IllegalArgumentException(object.getClass() + " is not a valid key");
     }

@@ -120,7 +120,7 @@ public record EncryptionRequest(Map<RoomId, RoomKeyBackup> rooms) implements Ser
       return new KeyBackupData(
           ModelJson.requiredNumber(request, FIRST_MESSAGE_INDEX, SESSION_DATA),
           ModelJson.requiredNumber(request, FORWARDED_COUNT, SESSION_DATA),
-          ModelJson.requiredBoolean(request, IS_VERIFIED),
+          ModelJson.requiredBoolean(request, IS_VERIFIED, SESSION_DATA),
           encrypted);
     }
   }

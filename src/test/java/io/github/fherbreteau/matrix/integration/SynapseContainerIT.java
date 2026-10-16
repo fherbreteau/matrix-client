@@ -454,7 +454,7 @@ class SynapseContainerIT {
       var claimedKey =
           switch (claimedEntry.getValue()) {
             case KeysClaimResponse.SignedKey key -> key;
-            case KeysClaimResponse.PlainKey ignored -> throw new AssertionError();
+            case KeysClaimResponse.PlainKey _ -> throw new AssertionError();
           };
       assertThat(claimedEntry.getKey()).startsWith("signed_curve25519:");
       assertThat(claimedKey.key()).isNotBlank();
@@ -536,7 +536,7 @@ class SynapseContainerIT {
   }
 
   @Test
-  void exercicesCrossSigningAndSigningUploadAndQuery() throws IOException {
+  void exercisesCrossSigningAndSigningUploadAndQuery() {
     UserId currentUser = UserId.of(client.getSession().get().userId());
     DeviceId deviceId = DeviceId.of(client.getSession().get().deviceId());
     var pickleData = new LinkedHashMap<String, String>();
@@ -576,11 +576,19 @@ class SynapseContainerIT {
     markKeysAsPublished(deviceId, pickleData);
 
     var signedMasterKey = signWithAccount(masterKey, deviceId, pickleData, currentUser);
-    var signedMasterSignatureKeyId =
-        signedMasterKey.signatures().get(currentUser).keySet().iterator().next();
-    var signedMasterSignature =
+    Ed25519Signature signedMasterSignature =
         Ed25519Signature.fromBase64(
-            signedMasterKey.signatures().get(currentUser).get(signedMasterSignatureKeyId));
+            signedMasterKey.signatures().get(currentUser).values().iterator().next());
+    String deviceSigningPublicKey =
+        deviceKeys.keys().entrySet().stream()
+            .filter(entry -> entry.getKey().startsWith("ed25519:"))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .orElseThrow();
+    assertThat(
+            Ed25519PublicKey.fromBase64(deviceSigningPublicKey)
+                .verify(canonicalJson(signedMasterKey.toUnsignedJson()), signedMasterSignature))
+        .isTrue();
 
     Map<UserId, Map<String, SignedObject>> signatures = new LinkedHashMap<>();
     signatures

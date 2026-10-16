@@ -41,7 +41,7 @@ public record CrossSigningKey(
     usage = ModelJson.requireNotEmpty(immutableList(usage));
     keys = ModelJson.requireNotEmpty(immutableMap(keys));
     signatures = immutableMap(signatures);
-    userId = requireNonNull(userId);
+    requireNonNull(userId);
   }
 
   @Override

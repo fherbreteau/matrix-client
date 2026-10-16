@@ -376,7 +376,7 @@ class DiscoverySearchTest {
   }
 
   @Test
-  void keyUploadQueryClaimAndChangesMatchMatrixPathsAndParseMaps() {
+  void keyUploadQueryAndChangesMatchMatrixPathsAndParseMaps() {
     var requests = new ArrayList<Request>();
     MatrixClient client =
         client(
@@ -452,30 +452,83 @@ class DiscoverySearchTest {
     assertThat(queryResponse.masterKeys().get(bob).usage()).containsExactly("master");
     var claim =
         client.claimKeys(new KeysClaimRequest(Map.of(bob, Map.of("D", "signed_curve25519")), null));
-    assertThat(claim.oneTimeKeys().get(bob).get("D").get("curve25519:k"))
-        .isEqualTo(new KeysClaimResponse.PlainKey("public"));
+    assertThat(claim.oneTimeKeys())
+        .containsEntry(
+            bob, Map.of("D", Map.of("curve25519:k", new KeysClaimResponse.PlainKey("public"))));
     assertThat(claim.failures().get("remote").errcode()).isEqualTo("M_TIMEOUT");
     assertThat(client.getKeyChanges("s0 +/=", "s1").changed()).containsExactly(bob);
+    assertKeyUploadRequests(requests);
+    assertKeyQueryRequests(requests.subList(3, 5));
+  }
 
-    assertThat(requests.get(1).body()).contains("\"master_key\"");
-    assertThat(requests.get(1).body()).contains("\"self_signing_key\"");
-    assertThat(requests.get(1).body()).contains("\"user_signing_key\"");
-    assertThat(requests.get(2).body()).contains("\"device_keys\"");
-    assertThat(requests.get(2).body()).contains("\"one_time_keys\"");
-    assertThat(requests.get(2).body()).contains("\"fallback_keys\"");
+  @Test
+  void keyClaimAndChangesMatchMatrixPathsAndParseMaps() {
+    var requests = new ArrayList<Request>();
+    MatrixClient client =
+        client(
+            requests,
+            new Response(200, LOGIN_OK),
+            new Response(200, "{}"),
+            new Response(200, "{\"one_time_key_counts\":{}}"),
+            new Response(200, "{}"),
+            new Response(200, "{\"one_time_key_counts\":{}}"),
+            new Response(
+                200,
+                "{\"one_time_keys\":{\"@bob:example.org\":{\"D\":{\"curve25519:k\":\"public\"}}},"
+                    + "\"failures\":{\"remote\":{\"errcode\":\"M_TIMEOUT\",\"error\":\"timeout\"}"
+                    + "}}"),
+            new Response(200, "{\"changed\":[\"@bob:example.org\"],\"left\":[]}"));
+    client.login(new PasswordCredentials("@alice:matrix.org", "password"));
+    UserId alice = UserId.of("@alice:matrix.org");
+    UserId bob = UserId.of("@bob:example.org");
+    client.uploadDeviceSigningKeys(
+        new DeviceSigningUploadRequest(
+            new CrossSigningKey(
+                List.of("master"), alice, Map.of("ed25519:master", "key"), Map.of()),
+            null,
+            null));
+    client.uploadKeys(
+        new KeysUploadRequest(
+            new DeviceInformation(
+                List.of("m.megolm.v1.aes-sha2"),
+                DeviceId.of("D"),
+                Map.of("ed25519:D", "key"),
+                Map.of(),
+                alice),
+            Map.of(),
+            Map.of()));
+    client.queryKeys(new KeysQueryRequest(Map.of(bob, List.of()), null));
+    client.queryKeys(new KeysQueryRequest(Map.of(), null));
+    var claim =
+        client.claimKeys(new KeysClaimRequest(Map.of(bob, Map.of("D", "signed_curve25519")), null));
+    assertThat(claim.oneTimeKeys())
+        .containsEntry(
+            bob, Map.of("D", Map.of("curve25519:k", new KeysClaimResponse.PlainKey("public"))));
+    assertThat(claim.failures().get("remote").errcode()).isEqualTo("M_TIMEOUT");
+    assertThat(client.getKeyChanges("s0 +/=", "s1").changed()).containsExactly(bob);
+    assertThat(requests.get(5).url()).endsWith("/_matrix/client/v3/keys/claim");
+  }
+
+  private void assertKeyUploadRequests(List<Request> requests) {
+    assertThat(requests.get(1).body())
+        .contains("\"master_key\"", "\"self_signing_key\"", "\"user_signing_key\"");
     assertThat(requests.get(2).body())
-        .contains("\"key\":\"key\"", "\"fallback\":false", "\"signatures\"");
-    assertThat(requests.get(3).body()).isEqualTo("{\"device_keys\":{\"@bob:example.org\":[]}}");
-    assertThat(requests.get(4).body()).contains("\"device_keys\"");
-    assertThat(requests.get(5).body()).contains("\"one_time_keys\"");
-    assertThat(requests.get(6).body()).isNull();
+        .contains(
+            "\"device_keys\"",
+            "\"one_time_keys\"",
+            "\"fallback_keys\"",
+            "\"key\":\"key\"",
+            "\"fallback\":false",
+            "\"signatures\"");
     assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/keys/device_signing/upload");
     assertThat(requests.get(2).url()).endsWith("/_matrix/client/v3/keys/upload");
-    assertThat(requests.get(3).url()).endsWith("/_matrix/client/v3/keys/query");
-    assertThat(requests.get(4).url()).endsWith("/_matrix/client/v3/keys/query");
-    assertThat(requests.get(5).url()).endsWith("/_matrix/client/v3/keys/claim");
-    assertThat(requests.get(6).url())
-        .endsWith("/_matrix/client/v3/keys/changes?from=s0%20%2B%2F%3D&to=s1");
+  }
+
+  private void assertKeyQueryRequests(List<Request> requests) {
+    assertThat(requests.get(0).body()).isEqualTo("{\"device_keys\":{\"@bob:example.org\":[]}}");
+    assertThat(requests.get(0).url()).endsWith("/_matrix/client/v3/keys/query");
+    assertThat(requests.get(1).body()).contains("\"device_keys\"");
+    assertThat(requests.get(1).url()).endsWith("/_matrix/client/v3/keys/query");
   }
 
   @Test

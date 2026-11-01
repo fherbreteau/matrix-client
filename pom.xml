@@ -24,7 +24,7 @@
 
         <!-- Tools dependencies versions -->
         <compiler-plugin.version>3.16.0</compiler-plugin.version>
-        <surefire-plugin.version>3.6.0</surefire-plugin.version>
+        <surefire-plugin.version>3.6.1</surefire-plugin.version>
         <failsafe-plugin.version>3.6.0</failsafe-plugin.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <checkstyle-maven.version>3.6.0</checkstyle-maven.version>
